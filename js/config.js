@@ -573,7 +573,16 @@ export const CAMERA = {
    * punteada se proyecte hacia adelante y se lea completa desde atrás. Si la
    * cámara quedara a la altura del avión, la trayectoria se vería de canto.
    */
-  LAUNCH_POS: { x: -12.5, y: 6.6, z: 0 },
+  /*
+   * ── Cámara de apuntado ──
+   *
+   * Subió de y=6.6 a y=11.5 y se alejó.
+   *
+   * Con la altura vieja el horizonte quedaba alto y los obstáculos se recortaban
+   * contra el cielo: oscuros sobre oscuro, invisibles. Desde arriba el corredor
+   * entra en cuadro contra el pasto y se puede planear la salida.
+   */
+  LAUNCH_POS: { x: -20, y: 11.5, z: 0 },
   /*
    * El objetivo de la vista de apuntado mira un poco MÁS ABAJO y más lejos.
    *

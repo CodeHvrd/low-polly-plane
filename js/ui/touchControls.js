@@ -56,7 +56,13 @@ const RADIO = 56;
  * 0.08 alcanza para apoyar el pulgar sin desviar el avión y devuelve casi todo el
  * recorrido al control.
  */
-const ZONA_MUERTA = 0.08;
+/*
+ * La zona muerta subió de 0.08 a 0.14.
+ *
+ * En una rueda de 128 px, 0.08 son 4 px: el temblor natural del pulgar ya movía
+ * el avión. Con 0.14 (~8 px) apoyar el dedo deja de torcer el rumbo.
+ */
+const ZONA_MUERTA = 0.14;
 
 /**
  * Curva de respuesta del mando.
@@ -72,7 +78,13 @@ const ZONA_MUERTA = 0.08;
  * dando el máximo. El exponente < 1 es lo que da la sensación de respuesta
  * inmediata sin perder el rango fino.
  */
-const CURVA = 0.72;
+/*
+ * La curva subió de 0.72 a 0.88.
+ *
+ * Con 0.72 los movimientos chicos se amplificaban demasiado y el mando se sentía
+ * nervioso y "entrecortado". 0.88 conserva algo de respuesta viva sin exagerar.
+ */
+const CURVA = 0.88;
 
 /**
  * @typedef {Object} Stick
