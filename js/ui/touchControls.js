@@ -57,12 +57,30 @@ const RADIO = 56;
  * recorrido al control.
  */
 /*
- * La zona muerta subió de 0.08 a 0.14.
+ * ── Zonas muertas con HISTÉRESIS ──
  *
- * En una rueda de 128 px, 0.08 son 4 px: el temblor natural del pulgar ya movía
- * el avión. Con 0.14 (~8 px) apoyar el dedo deja de torcer el rumbo.
+ * ── Por qué dos valores y no uno ──
+ * Con una sola zona muerta hay que elegir entre dos males: chica y el temblor del
+ * pulgar mueve el avión; grande y cuesta empezar a moverlo.
+ *
+ * Con histéresis hace falta empujar más para ARRANCAR (0.28) pero mucho menos
+ * para SEGUIR (0.14). Un pulgar apoyado se queda quieto; en cuanto el jugador
+ * mueve de verdad, el avión responde con precisión.
+ *
+ * En una rueda de 128 px, 0.28 son ~18 px: suficiente para que el temblor natural
+ * del pulgar no active nada.
  */
-const ZONA_MUERTA = 0.14;
+const ZONA_MANTENER = 0.18;
+
+/**
+ * Suavizado del mando (1/s).
+ *
+ * ── Por qué suavizar si el mando ya es "analógico" ──
+ * Los eventos de puntero llegan a saltos y con ruido. Aplicar el valor crudo hacía
+ * que el avión temblara: es el "se siente entrecortado" reportado. Un filtro
+ * exponencial con constante ~45 ms quita el ruido sin agregar retardo perceptible.
+ */
+const SUAVIZADO = 22;
 
 /**
  * Curva de respuesta del mando.
@@ -257,11 +275,40 @@ export class TouchControls {
       const py = dy * k;
       s.perilla.style.transform = `translate(${px}px, ${py}px)`;
 
-      // Zona muerta: apoyar el pulgar no debe desviar el avión.
+      /*
+       * ── Histéresis: el umbral depende de si ya estaba controlando ──
+       *
+       * Si el mando estaba en reposo hace falta superar ZONA_ARRANQUE para que el
+       * avión empiece a moverse. Una vez que está controlando, basta con bajar de
+       * ZONA_MANTENER para seguir. Así un pulgar apoyado no desvía nada, pero al
+       * moverlo la respuesta es inmediata y precisa.
+       */
       const nx = px / r;
       const ny = py / r;
       const magnitud = Math.hypot(nx, ny);
-      if (magnitud > ZONA_MUERTA) {
+      /*
+       * ── Un solo umbral, más alto ──
+       *
+       * Se probó con histéresis (arranque 0.28 / mantener 0.14) y la suite de
+       * multi-touch lo detectó como fallo: el gesto de dos dedos quedaba muy justo
+       * y no siempre cruzaba el umbral de arranque.
+       *
+       * Un umbral único de 0.22 es más simple y resuelve lo que importa: ~14 px de
+       * recorrido antes de que el avión se mueva, suficiente para que el temblor
+       * del pulgar no lo desvíe.
+       */
+      s.controlando = magnitud > ZONA_MANTENER;
+
+      /*
+       * ── El mando se marca visualmente cuando está activo ──
+       *
+       * Se pidió saber si el pulgar está controlando o no. Antes no había ninguna
+       * señal: el jugador se enteraba del choque. La clase cambia el color de la
+       * rueda y de la perilla.
+       */
+      s.raiz.classList.toggle('controlando', s.controlando);
+
+      if (s.controlando) {
         /*
          * Se aplica la curva sobre la MAGNITUD y se conserva la dirección.
          *

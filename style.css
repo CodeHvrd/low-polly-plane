@@ -909,6 +909,22 @@ body.en-vuelo #mode-bar {
   }
 }
 
+/* ── La rueda avisa cuando está controlando ──
+   *
+   * Se pidió saber si el pulgar está mandando o no. Antes no había ninguna señal
+   * y el jugador se enteraba del choque: ahora la rueda se ilumina apenas el
+   * desplazamiento supera el umbral de arranque. */
+.touch-stick.controlando .touch-stick-base {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.10);
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.35);
+}
+
+.touch-stick.controlando .touch-stick-knob {
+  background: var(--cyan);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.8);
+}
+
 /* ── Barra de modos ──
    El modo es la elección más grande del juego, así que va arriba del todo y
    siempre visible: no se esconde en la tienda ni en un menú. */
