@@ -110,8 +110,41 @@
 
     <header id="idle-title-block">
       <h1 id="game-title">PAPER<span>CRASH</span></h1>
-      <p id="game-subtitle">Low Poly · Física Real · Esquivá Obstáculos</p>
     </header>
+
+    <!--
+      ── Menú principal ──
+      Cuatro opciones, de arriba a abajo en orden de uso. "Premios" y "Opciones"
+      abren paneles en lugar de navegar: es una sola página, así que cambiar de
+      capa sin recargar es más rápido y no pierde el estado del juego.
+    -->
+    <nav id="main-menu" data-ui-interactive>
+      <button type="button" id="btn-new-game" class="menu-btn primary">NUEVA PARTIDA</button>
+      <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
+      <button type="button" id="btn-options" class="menu-btn">OPCIONES</button>
+      <button type="button" id="btn-exit" class="menu-btn">EXIT</button>
+    </nav>
+
+    <!-- Panel de premios: se llena en el paso 3. -->
+    <section id="awards-panel" class="menu-panel hidden" data-ui-interactive>
+      <h2>PREMIOS</h2>
+      <p id="awards-empty" class="menu-panel-hint">Próximamente: trofeos por aros y boosters.</p>
+      <button type="button" id="btn-awards-back" class="menu-back">← VOLVER</button>
+    </section>
+
+    <!-- Panel de opciones: sonido, borrar progreso y volver. -->
+    <section id="options-panel" class="menu-panel hidden" data-ui-interactive>
+      <h2>OPCIONES</h2>
+      <div class="options-row">
+        <span>Sonido</span>
+        <button type="button" id="btn-options-mute" class="menu-toggle">ON</button>
+      </div>
+      <div class="options-row">
+        <span>Borrar progreso</span>
+        <button type="button" id="btn-options-reset" class="menu-toggle danger">BORRAR</button>
+      </div>
+      <button type="button" id="btn-options-back" class="menu-back">← VOLVER</button>
+    </section>
 
   <div id="idle-hint-block" class="hidden" data-required data-ui-interactive role="button" tabindex="0">
     <div id="idle-hint-icon" aria-hidden="true">🎯</div>
@@ -231,9 +264,29 @@
         <strong id="total-coins-val" data-required>0</strong>
       </div>
 
-      <h2 id="result-title" data-required>ATERRIZAJE</h2>
+      <h2 id="result-title" data-required>YOU CRASH!</h2>
 
-      <div id="result-stats">
+      <!--
+        ── Puntaje y monedas, nada más ──
+        Se sacaron los números técnicos de la vista: el juego apunta a chicos y al
+        perder lo que importa es el puntaje y lo que juntaste.
+      -->
+      <div id="result-score">
+        <div class="score-cell">
+          <span class="score-label">SCORE</span>
+          <strong id="res-score" data-required>0</strong>
+        </div>
+        <div class="score-cell">
+          <span class="score-label">COINS</span>
+          <strong id="res-coins" data-required>0</strong>
+        </div>
+      </div>
+
+      <!--
+        Los contadores técnicos siguen en el DOM pero OCULTOS: el código que los
+        actualiza no cambia, así no se rompe nada al sacarlos de la vista.
+      -->
+      <div id="result-stats" class="oculto-tecnico">
         <div class="result-stat"><span>📏 Distancia</span><strong id="res-distance" data-required>—</strong></div>
         <div class="result-stat"><span>📈 Alt. máx.</span><strong id="res-altitude" data-required>—</strong></div>
         <div class="result-stat"><span>⚡ Vel. máx.</span><strong id="res-speed" data-required>—</strong></div>
@@ -249,16 +302,19 @@
 
       <div id="res-record" data-required></div>
 
-      <!-- Las mejoras se compran en la tienda (arriba a la derecha), que ya
-           está abierta mostrando cuánto ganaste. Acá solo se resume. -->
-      <button type="button" id="btn-open-shop" data-ui-interactive>
-        🛒 COMPRAR MEJORAS
-      </button>
-
-      <button type="button" id="btn-again" data-required data-ui-interactive>
-        🔄 VOLAR DE NUEVO
-        <span id="btn-again-hint">Enter / Espacio</span>
-      </button>
+      <!--
+        ── Tres íconos en vez de botones de texto ──
+        Reintentar (↻), salir al menú (⌂) y opciones (⚙). Es lo que se pidió: un
+        cierre de pantalla que un chico entiende sin leer.
+      -->
+      <div id="result-actions">
+        <button type="button" id="btn-again" data-required data-ui-interactive
+          class="round-btn primary" aria-label="Retry" title="Retry">↻</button>
+        <button type="button" id="btn-result-menu" data-ui-interactive
+          class="round-btn" aria-label="Exit to menu" title="Exit to menu">⌂</button>
+        <button type="button" id="btn-result-options" data-ui-interactive
+          class="round-btn" aria-label="Options" title="Options">⚙</button>
+      </div>
     </div>
   </div>
 

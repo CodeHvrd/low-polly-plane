@@ -830,6 +830,120 @@ export class Game {
       this.shop.sync();
     });
 
+    /*
+     * ══════════════════════════════════════════════════════════
+     * MENÚ PRINCIPAL
+     * ══════════════════════════════════════════════════════════
+     *
+     * "Premios" y "Opciones" no navegan: muestran un panel encima del menú. Es una
+     * sola página, así que cambiar de capa sin recargar conserva el estado y es
+     * instantáneo.
+     */
+    const menu = document.getElementById('main-menu');
+    const awardsPanel = document.getElementById('awards-panel');
+    const optionsPanel = document.getElementById('options-panel');
+
+    const mostrarPanel = (panel) => {
+      menu?.classList.toggle('hidden', Boolean(panel));
+      awardsPanel?.classList.toggle('hidden', panel !== awardsPanel);
+      optionsPanel?.classList.toggle('hidden', panel !== optionsPanel);
+      if (!panel) HUD.invalidate();
+    };
+
+    document.getElementById('btn-new-game')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      // "Nueva partida" lleva al lanzador: la misma transición que ya existía.
+      this.switchScreen?.(1);
+      this.overlays.set(Screen.AIM);
+      this.syncAimCallout();
+      this.aiming.refresh();
+    });
+
+    document.getElementById('btn-awards')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      mostrarPanel(awardsPanel);
+    });
+
+    document.getElementById('btn-options')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      const btn = document.getElementById('btn-options-mute');
+      if (btn) btn.textContent = isMuted() ? 'OFF' : 'ON';
+      mostrarPanel(optionsPanel);
+    });
+
+    document.getElementById('btn-awards-back')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      mostrarPanel(null);
+    });
+
+    document.getElementById('btn-options-back')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      mostrarPanel(null);
+    });
+
+    document.getElementById('btn-options-mute')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleMute();
+      e.currentTarget.textContent = isMuted() ? 'OFF' : 'ON';
+    });
+
+    document.getElementById('btn-options-reset')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      // Sin confirmación nativa: un `confirm()` bloquea el bucle de juego.
+      if (this._confirmReset) {
+        this._confirmReset();
+        e.currentTarget.textContent = 'BORRADO';
+      } else {
+        this.resetProgress?.();
+        e.currentTarget.textContent = 'BORRADO';
+      }
+    });
+
+    /*
+     * "Exit": una página web no se puede cerrar sola.
+     *
+     * En el APK el botón Atrás de Android hace `moveTaskToBack`, pero desde la web
+     * `window.close()` sólo funciona si la pestaña la abrió un script. Se intenta
+     * igual y, si no se cierra, se avisa en vez de dejar al jugador sin respuesta.
+     */
+    document.getElementById('btn-exit')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      window.close();
+      setTimeout(() => {
+        if (!window.closed) {
+          const btn = e.currentTarget;
+          btn.textContent = 'CERRÁ LA PESTAÑA';
+          setTimeout(() => { btn.textContent = 'EXIT'; }, 2200);
+        }
+      }, 250);
+    });
+
+    /* Botones de la pantalla de derrota. */
+    document.getElementById('btn-result-menu')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      this.controller.forceIdle();
+      this.overlays.set(Screen.STANDBY);
+    });
+
+    document.getElementById('btn-result-options')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      hide(UI.resultScreen);
+      this.controller.forceIdle();
+      this.overlays.set(Screen.STANDBY);
+      const btn = document.getElementById('btn-options-mute');
+      if (btn) btn.textContent = isMuted() ? 'OFF' : 'ON';
+      mostrarPanel(optionsPanel);
+    });
+
     UI.btnMute?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleMute();

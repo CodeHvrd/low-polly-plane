@@ -17,6 +17,16 @@
 export const el = (id) => document.getElementById(id);
 
 /** @param {string} id @returns {HTMLElement} */
+/**
+ * Igual que `must` pero devuelve null en vez de tirar.
+ *
+ * Se usa para elementos que la UI puede no tener según la versión o la pantalla.
+ * Un `must` de más rompe el arranque entero por un botón que quizá ni se usa.
+ */
+function optional(id) {
+  return document.getElementById(id);
+}
+
 function must(id) {
   const node = document.getElementById(id);
   if (!node) throw new Error(`[ui] falta el elemento #${id} en index.html`);
@@ -102,10 +112,11 @@ function resolve() {
     resRings: must('res-rings'),
     resBoosters: must('res-boosters'),
     resCoinCount: must('res-coin-count'),
-    resCoins: must('res-coins'),
+    resScore: optional('res-score'),
+  resCoins: must('res-coins'),
     resRecord: must('res-record'),
     shopGrid: must('shop-grid'),
-    btnOpenShop: must('btn-open-shop'),
+    btnOpenShop: optional('btn-open-shop'),
     btnAgain: must('btn-again'),
 
     // Varios

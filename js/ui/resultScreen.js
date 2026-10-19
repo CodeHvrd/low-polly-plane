@@ -51,6 +51,13 @@ export const ResultScreen = {
     setText(UI.resRings, `${result.rings}`);
     setText(UI.resBoosters, `${result.boosters ?? 0}`);
     setText(UI.resCoinCount, `${result.coinsCollected ?? 0}`);
+    /*
+     * El PUNTAJE es la distancia recorrida.
+     *
+     * Es la medida natural de una buena partida en este juego: no hay combos ni
+     * enemigos derrotados, así que lo que hay que superar es el propio récord.
+     */
+    setText(UI.resScore, formatNumber(Math.round(result.distance)));
     setText(UI.resCoins, `+${formatNumber(result.coins)}`);
 
     // Aviso de récord / récord actual.
