@@ -223,7 +223,14 @@ function placeRoute(list, route, segStart, segEnd, rng, obstacles, nextId) {
       const z = route.lane + (tier.arc === 'zig' ? Math.sin(i * 1.1) * coinCfg.ZIG_AMPLITUDE * zigDir : 0);
       // Las de 50 vuelan más arriba dentro del mismo camino: son el premio por
       // seguirlo bien.
-      const lift = route.lift + (tier.arc === 'high' ? tier.rise + i * coinCfg.HIGH_RISE : tier.rise);
+          /*
+     * ── El camino sigue el CIRCUITO del tramo ──
+     *
+     * 'alto' sube las monedas ~5 m sobre la línea nominal y 'rasante' las baja ~2 m.
+     * Sin esto las monedas quedarían fuera del carril por el que pasan los aros.
+     */
+    const circ = PICKUPS.CIRCUITOS[nivelDeCircuito(Math.floor(cx / STAGES.SEGMENT_LENGTH))] ?? PICKUPS.CIRCUITOS.alto;
+    const lift = route.lift + circ.liftBase + (tier.arc === 'high' ? tier.rise + i * coinCfg.HIGH_RISE : tier.rise);
 
       list.push({
         kind: 'coin',

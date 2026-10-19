@@ -17,7 +17,8 @@
  * Módulo puro (sin Three.js): se puede testear en Node.
  * ============================================================
  */
-import { OBSTACLES, WORLD, STAGES, AIM } from '../config.js';
+import { OBSTACLES, WORLD, STAGES, AIM, PICKUPS } from '../config.js';
+import { nivelDeCircuito } from '../game/flightProfile.js';
 import { createRng, clamp } from '../core/math.js';
 import { terrainHeightAt } from './terrainField.js';
 
@@ -281,7 +282,10 @@ export function generateCourse(rango = {}) {
       // Tipo según avance. Los aros aparecen recién en el segundo tramo.
       let type = 'spire';
       if (progress > 0.06 && rngTramo.chance(0.32)) type = 'mesa';
-      if (progress > 0.18 && rngTramo.chance(0.20)) type = 'ring';
+      {
+      const circ = PICKUPS.CIRCUITOS[nivelDeCircuito(tramoIdx)] ?? PICKUPS.CIRCUITOS.alto;
+      if (progress > 0.18 && rngTramo.chance(circ.ringChance)) type = 'ring';
+    }
 
       // Posición lateral: se evita el centro exacto del carril sólo en los
       // aros, para que haya que elegir una línea de vuelo.
@@ -677,7 +681,15 @@ function buildObstacle(type, id, x, z, progress, rng) {
     const tube = rng.range(0.55, 0.9);
     // El aro se centra a una altura que el jugador puede alcanzar y varía
     // lo suficiente para obligarlo a elegir el pitch correcto.
-    const centerY = groundY + rng.range(9, 20);
+      /*
+       * ── Altura del aro según el CIRCUITO del tramo ──
+       *
+       * 'alto' pone los aros a 15-30 m del suelo y 'rasante' a 5-12 m. Se acota
+       * contra el techo porque en los biomas avanzados el suelo ya está a ~14 m:
+       * sin el tope un aro "alto" caería por encima del techo y sería inalcanzable.
+       */
+      const circAro = PICKUPS.CIRCUITOS[nivelDeCircuito(Math.floor(x / STAGES.SEGMENT_LENGTH))] ?? PICKUPS.CIRCUITOS.alto;
+      const centerY = Math.min(groundY + rng.range(circAro.ringMin, circAro.ringMax), AIM.CEILING - 4);
     const halfDepth = tube;
 
     return {

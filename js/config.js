@@ -829,6 +829,39 @@ export const PICKUPS = {
     ZIG_AMPLITUDE: 3,
   },
 
+  /**
+   * ══════════════════════════════════════════════════════════
+   * DOS CIRCUITOS POR TRAMO
+   * ══════════════════════════════════════════════════════════
+   *
+   * ── La idea ──
+   * Cada tramo elige UNO de dos perfiles de vuelo, y los aros, las monedas y los
+   * boosters se alinean a esa elección. Sin esta alineación, un aro puede quedar
+   * a una altura a la que el jugador no llega desde su línea de vuelo.
+   *
+   *   'alto'    → aros a 15-30 m del suelo, espaciados, pocos boosters.
+   *               Se juega planeando: elegir el momento de picar y remontar.
+   *   'rasante' → aros a 5-12 m, en seguidilla, muchas monedas en fila.
+   *               Se juega con velocidad y reflejos, cerca del piso.
+   */
+  CIRCUITOS: {
+    alto: {
+      ringMin: 15, ringMax: 30,
+      /** Probabilidad de que un obstáculo del tramo sea un aro. */
+      ringChance: 0.16,
+      /** Corrimiento de los caminos de monedas respecto de la línea nominal. */
+      liftBase: 5,
+      /** Separa los boosters: en el circuito alto se cuentan. */
+      boostSpacing: 110,
+    },
+    rasante: {
+      ringMin: 5, ringMax: 12,
+      ringChance: 0.32,
+      liftBase: -2,
+      boostSpacing: 70,
+    },
+  },
+
   BOOSTERS: {
     /**
      * Cada cuántos metros aparece uno. La regularidad es a propósito: el jugador

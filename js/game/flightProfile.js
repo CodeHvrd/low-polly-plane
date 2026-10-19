@@ -77,6 +77,21 @@ function smoothstep01(t) {
  * @param {{segmentLength:number, heightGrowth?:number, groundAmplitude?:number}} profile
  * @returns {Array<{index:number, from:number, to:number, amplitude:number, cruise:number, label:string}>}
  */
+/**
+ * Circuito de un tramo.
+ *
+ * ── Por qué es función del ÍNDICE ──
+ * Determinista: el mismo tramo da siempre el mismo circuito, así que el mundo
+ * sigue siendo reproducible (necesario para el ranking y para el futuro online).
+ * Alterna para que el vuelo cambie de ritmo: uno de planeo, uno rasante.
+ *
+ * @param {number} segmento
+ * @returns {'alto'|'rasante'}
+ */
+export function nivelDeCircuito(segmento) {
+  return segmento % 2 === 0 ? 'alto' : 'rasante';
+}
+
 export function buildProfile(profile) {
   const seg = profile.segmentLength;
   const growth = profile.heightGrowth ?? 0.75;
