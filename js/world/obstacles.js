@@ -316,6 +316,40 @@ export function generateCourse(rango = {}) {
   // El corredor tiene que quedar ordenado por x: varias partes del código
   // (colisiones, recolectables, HUD) lo asumen.
   list.sort((a, b) => a.x - b.x);
+  /*
+   * ── Aros: se despeja su interior ──
+   *
+   * ── El bug que esto arregla ──
+   * Los aros no colisionan (ver `findCollision`), pero NADA impedía que un árbol
+   * o una roca apareciera DENTRO del agujero. El jugador apuntaba al aro, cruzaba
+   * limpio y chocaba contra lo que había adentro: se reportó a los 5000 m.
+   *
+   * Se recorre al final y se descartan los sólidos que se solapen con el volumen
+   * de un aro. Es un post-proceso para no depender del orden de generación.
+   */
+  {
+    const aros = list.filter((o) => o.type === 'ring');
+    if (aros.length) {
+      const MARGEN = 3;
+      for (let k = list.length - 1; k >= 0; k--) {
+        const o = list[k];
+        if (o.type === 'ring') continue;
+        const choca = aros.some((a) => {
+          const ra = a.params?.radius ?? 6;
+          const ac = a.params?.centerY ?? a.aabb.minY;
+          /*
+           * Distancia al CENTRO del aro en 3D, con el radio del aro más un margen.
+           * Se usa el centro y no la AABB porque el aro es un anillo: su caja es
+           * un cuadrado que no representa el agujero.
+           */
+          const d = Math.hypot(o.x - a.x, (o.aabb.minY + o.aabb.maxY) / 2 - ac, o.z - a.z);
+          return d < ra + MARGEN;
+        });
+        if (choca) list.splice(k, 1);
+      }
+    }
+  }
+
   return list;
 }
 

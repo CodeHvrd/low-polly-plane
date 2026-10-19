@@ -1483,12 +1483,16 @@ body.en-vuelo #mode-bar {
 
 #result-inner {
   text-align: center;
-  padding: 32px 34px;
+  padding: 26px 28px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   backdrop-filter: blur(20px);
-  max-width: 580px;
+  /*
+   * Se acotó de 580 a 340 px para que el bloque quede compacto: con la pantalla
+   * ya limpia (score, monedas y tres botones) un panel ancho dejaba todo flotando.
+   */
+  max-width: 340px;
   width: 100%;
   margin: auto;
 }
@@ -2229,16 +2233,31 @@ body.en-vuelo #mode-bar {
   color: var(--orange);
 }
 
+/*
+ * ── Tres botones SIMÉTRICOS ──
+ *
+ * El de reintentar era más grande (66 px) que los otros dos (58 px) y la fila
+ * quedaba desalineada respecto del panel. Ahora los tres miden lo mismo y la fila
+ * ocupa el ancho del panel, así el bloque se lee como una unidad.
+ *
+ * La jerarquía se mantiene por COLOR (el primario va en cian), no por tamaño: es
+ * más limpio y no rompe la simetría.
+ */
 #result-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: center;
-  margin-top: 8px;
+  align-items: center;
+  margin-top: 10px;
+  width: 100%;
 }
 
 .round-btn {
-  width: 58px;
-  height: 58px;
+  flex: 1 1 0;
+  max-width: 72px;
+  aspect-ratio: 1;
+  width: auto;
+  height: auto;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: rgba(10, 14, 26, 0.7);
@@ -2255,7 +2274,5 @@ body.en-vuelo #mode-bar {
   background: var(--cyan);
   border-color: var(--cyan);
   color: #04121a;
-  width: 66px;
-  height: 66px;
-  font-size: 1.8rem;
+  /* Mismo tamaño que los otros: la jerarquía la da el color, no el tamaño. */
 }
