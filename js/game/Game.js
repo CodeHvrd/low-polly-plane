@@ -46,8 +46,10 @@ import {
   purchaseUpgrade,
   toSaveObject,
   statsVacios,
+  nivelesDe,
 } from './state.js';
 import { todosLosLogros } from './achievements.js';
+import { crearRegistro, guardarEnRanking, leerRanking } from './ranking.js';
 import { AircraftView } from './AircraftView.js';
 import { AimingSystem } from './aiming.js';
 import { SlingshotBand } from './slingshotBand.js';
@@ -309,6 +311,21 @@ export class Game {
     st.coinsCollected += result.coinsCollected ?? 0;
     st.playMs += Math.round((result.time ?? 0) * 1000);
     if (result.distance > st.bestDistance) st.bestDistance = result.distance;
+    /*
+     * ── Ranking local ──
+     *
+     * Se guarda el registro COMPLETO (semilla, nave, mejoras, resultado), no sólo
+     * el puntaje: es el mismo formato que después va a validar el servidor para el
+     * ranking global. Ver game/ranking.js.
+     */
+    const registro = crearRegistro({
+      seed: this.pickupSeed ?? 0,
+      ship: STATE.aircraft,
+      upgrades: { ...nivelesDe() },
+      result,
+    });
+    this.rankingPos = guardarEnRanking(registro);
+
     if (result.cause === 'obstacle') st.crashes += 1;
     else if (result.cause === 'ground') st.landings += 1;
     else if (result.cause === 'corridor') st.corridorExits += 1;
@@ -964,6 +981,40 @@ export class Game {
       }
     };
 
+    /*
+     * Ranking local: los mejores vuelos guardados.
+     *
+     * Se muestra la distancia y la nave, que es lo que hace comparable una marca
+     * con otra. El registro completo (semilla, mejoras) ya está guardado: cuando
+     * haya ranking online es lo que se envía al servidor.
+     */
+    const renderRanking = () => {
+      const cont = document.getElementById('ranking-list');
+      if (!cont) return;
+      const lista = leerRanking().slice(0, 5);
+      if (!lista.length) {
+        const vacio = document.createElement('p');
+        vacio.className = 'ach-desc';
+        vacio.textContent = 'Todavía no hay vuelos guardados.';
+        cont.replaceChildren(vacio);
+        return;
+      }
+      cont.replaceChildren(...lista.map((r, i) => {
+        const row = document.createElement('div');
+        row.className = 'profile-row ranking-row';
+        const puesto = document.createElement('span');
+        puesto.className = 'rank-pos';
+        puesto.textContent = `${i + 1}.`;
+        const nave = document.createElement('span');
+        nave.className = 'rank-ship';
+        nave.textContent = r.ship ?? '—';
+        const dist = document.createElement('strong');
+        dist.textContent = `${r.distance} m`;
+        row.append(puesto, nave, dist);
+        return row;
+      }));
+    };
+
     const renderPerfil = () => {
       const cont = document.getElementById('profile-list');
       if (!cont) return;
@@ -996,6 +1047,7 @@ export class Game {
       e.stopPropagation();
       sfx.click();
       renderLogros();
+      renderRanking();
       renderPerfil();
       mostrarPanel(awardsPanel);
     });

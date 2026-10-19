@@ -2341,3 +2341,8 @@ body.en-vuelo #mode-bar {
   color: var(--muted);
   letter-spacing: 0.06em;
 }
+
+/* Ranking local: puesto, nave y distancia en una fila compacta. */
+.ranking-row { align-items: center; }
+.rank-pos { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 18px; }
+.rank-ship { flex: 1; text-transform: capitalize; }

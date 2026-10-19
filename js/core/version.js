@@ -1,14 +1,15 @@
-﻿/**
- * PAPERCRASH â€” versiÃ³n visible del build.
+/**
+ * PAPERCRASH — versión visible del build.
  *
- * â”€â”€ Por quÃ© existe â”€â”€
- * El service worker cachea el juego para que funcione offline. Eso significa que
- * despuÃ©s de un deploy el telÃ©fono puede seguir mostrando la copia vieja, y no
- * habÃ­a forma de saberlo: se reportaban bugs que ya estaban corregidos.
+ * ── Por qué un CONTADOR y no el hash del commit ──
+ * Antes se mostraba el hash de git, pero como ese número va escrito DENTRO del
+ * archivo que se commitea, siempre mostraba el commit ANTERIOR: no puede
+ * referenciarse a sí mismo. Resultaba imposible saber si el teléfono corría la
+ * última versión, que es justo para lo que existe este indicador.
  *
- * Este nÃºmero se muestra abajo a la izquierda. Coincide con el hash del commit
- * del deploy, asÃ­ que si no cambia, no se recargÃ³.
+ * Un contador que se sube ANTES de commitear no tiene ese problema: el número que
+ * se ve en pantalla es el del build que lo contiene.
  *
- * Lo actualiza `tools/sync-sw.mjs --bump` al hacer cada deploy.
+ * Se incrementa con: node tools/sync-sw.mjs --bump
  */
-export const BUILD = '322e1fa';
+export const BUILD = 2;

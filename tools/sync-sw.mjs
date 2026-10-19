@@ -62,6 +62,24 @@ console.log(`  sw.js actualizado con ${modulos.length} módulos`);
  *   node tools/sync-sw.mjs --bump
  */
 if (process.argv.includes('--bump')) {
+  /*
+   * Sube también el CONTADOR de build.
+   *
+   * El contador es lo que muestra la esquina inferior izquierda del juego: es la
+   * única forma de saber si el teléfono está corriendo la última versión o una
+   * cacheada por el service worker.
+   */
+  {
+    const rutaV = join(dirname(fileURLToPath(import.meta.url)), '..', 'js', 'core', 'version.js');
+    let v = readFileSync(rutaV, 'utf8');
+    const mv = v.match(/export const BUILD = (\d+)/);
+    if (mv) {
+      const siguiente = Number(mv[1]) + 1;
+      v = v.replace(mv[0], `export const BUILD = ${siguiente}`);
+      writeFileSync(rutaV, v, 'utf8');
+      console.log(`  build: ${siguiente}`);
+    }
+  }
   const ruta = join(dirname(fileURLToPath(import.meta.url)), '..', 'sw.js');
   let sw = readFileSync(ruta, 'utf8');
   const m = sw.match(/const VERSION = '([^']+)'/);
