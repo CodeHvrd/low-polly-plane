@@ -1114,10 +1114,20 @@ export class Game {
        * jugador tiene que SENTIR que esta vez ganó algo de verdad.
        */
       case 'ringCombo':
-        sfx.ring();
-        sfx.booster();
-        this.effects.ringBurst(payload.x, payload.y, payload.z);
+        /*
+         * Sonido propio y golpe visual múltiple.
+         *
+         * Reusando ring() + booster() no se distinguía del aro suelto: los dos
+         * eventos suenan casi juntos y el oído no separa "pasé un aro" de
+         * "completé el combo". Ahora es un arpegio y una explosión de tres
+         * estallidos, que se lee como premio y no como paso.
+         */
+        sfx.combo();
+        for (let i = 0; i < 3; i++) {
+          this.effects.ringBurst(payload.x + i * 1.2, payload.y + i * 0.6, payload.z);
+        }
         this.effects.boosterBurst(payload.x, payload.y, payload.z);
+        HUD.flashCombo?.();
         break;
 
       case 'coin':

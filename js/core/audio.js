@@ -162,6 +162,23 @@ export const sfx = {
   },
 
   /** Booster recogido: barrido ascendente con cuerpo, se siente como un empuje. */
+  /*
+   * ── Combo de aros ──
+   *
+   * ── Por qué un sonido PROPIO y no reusar ring() + booster() ──
+   * Se probó reusando los dos y no alcanzaba: el oído no distingue "agarre un aro"
+   * de "complete el combo" porque los dos eventos suenan casi juntos. Un arpegio
+   * ascendente de tres notas es inconfundible: suena a premio, no a paso.
+   */
+  combo() {
+    // Do–Mi–Sol ascendente, brillante y corto.
+    tone({ freq: 523, dur: 0.09, type: 'triangle', gain: 0.22 });
+    tone({ freq: 659, dur: 0.09, type: 'triangle', gain: 0.22, delay: 0.07 });
+    tone({ freq: 784, dur: 0.22, type: 'triangle', gain: 0.26, delay: 0.14 });
+    // Chispa aguda encima, para que se lea como "logro".
+    tone({ freq: 1568, toFreq: 2093, dur: 0.18, type: 'sine', gain: 0.10, delay: 0.14 });
+  },
+
   booster() {
     tone({ freq: 220, toFreq: 880, dur: 0.30, type: 'sawtooth', gain: 0.16 });
     tone({ freq: 440, toFreq: 1760, dur: 0.26, type: 'sine', gain: 0.12, delay: 0.03 });
