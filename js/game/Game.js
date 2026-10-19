@@ -1020,7 +1020,13 @@ export class Game {
       STATE.bestDistance = 0;
       STATE.runs = 0;
       STATE.aircraft = 'paper';
-      for (const id of UPGRADE_IDS) STATE.upgrades[id] = 0;
+      /*
+       * Se vacían las mejoras de TODAS las naves, no sólo de la activa.
+       *
+       * Las mejoras son por nave: borrar el progreso tiene que dejar a la flota
+       * entera en cero, no sólo a la que está equipada.
+       */
+      STATE.upgrades = {};
       // Sin esto quedarían "compradas" las naves de un guardado anterior.
       STATE.aircraftOwned = [];
       initOwnedAircraft();

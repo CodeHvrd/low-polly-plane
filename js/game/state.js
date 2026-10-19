@@ -137,10 +137,53 @@ export const STATE = {
   muted: false,
 };
 
-/** Rellena `STATE.upgrades` con nivel 0 en todas las mejoras. */
-export function initUpgradeLevels() {
+/**
+ * ¿La forma guardada es la vieja (plana) o la nueva (por nave)?
+ *
+ * ── Por qué hay que migrar ──
+ * Hasta ahora las mejoras eran GLOBALES: `{ wings: 3, engine: 1 }`. Ahora son
+ * por nave: `{ paper: { wings: 3 }, jet: { wings: 1 } }`. Un guardado viejo tiene
+ * números en la raíz; uno nuevo tiene objetos.
+ *
+ * Lo comprobamos por la forma y no por un número de versión para no meter un
+ * campo extra que haya que recordar actualizar.
+ */
+function esFormatoViejo(upgrades) {
+  if (!upgrades) return false;
+  return UPGRADE_IDS.some((id) => typeof upgrades[id] === 'number');
+}
+
+/**
+ * Migra un guardado con mejoras GLOBALES al formato por nave.
+ *
+ * Las mejoras compradas se le asignan a la nave que el jugador tenía activa: es
+ * lo más justo, porque fue con esa con la que las compró.
+ */
+function migrarUpgrades(upgrades, naveActiva) {
+  if (!esFormatoViejo(upgrades)) return upgrades ?? {};
+  const porNave = {};
+  const nivel = {};
   for (const id of UPGRADE_IDS) {
-    if (typeof STATE.upgrades[id] !== 'number') STATE.upgrades[id] = 0;
+    if (typeof upgrades[id] === 'number') nivel[id] = upgrades[id];
+  }
+  porNave[naveActiva || 'paper'] = nivel;
+  return porNave;
+}
+
+/** Niveles de mejora de una nave concreta (nunca undefined). */
+export function nivelesDe(shipId = STATE.aircraft) {
+  if (!STATE.upgrades[shipId]) STATE.upgrades[shipId] = {};
+  return STATE.upgrades[shipId];
+}
+
+/** Rellena con nivel 0 las mejoras de cada nave que tenga datos. */
+export function initUpgradeLevels() {
+  for (const shipId of Object.keys(STATE.upgrades)) {
+    const niveles = STATE.upgrades[shipId];
+    if (!niveles || typeof niveles !== 'object') continue;
+    for (const id of UPGRADE_IDS) {
+      if (typeof niveles[id] !== 'number') niveles[id] = 0;
+    }
   }
 }
 
@@ -154,7 +197,12 @@ export function hydrate(save) {
   STATE.runs = save.runs;
   STATE.aircraft = save.aircraft;
   STATE.muted = save.muted;
-  STATE.upgrades = { ...save.upgrades };
+  /*
+   * Las mejoras guardadas pueden venir en el formato VIEJO (global) o en el nuevo
+   * (por nave). Se migran al cargar, asignando las compradas a la nave que el
+   * jugador tenía activa.
+   */
+  STATE.upgrades = migrarUpgrades(save.upgrades, save.aircraft);
   initUpgradeLevels();
   initOwnedAircraft();
 }
@@ -187,7 +235,8 @@ export function initOwnedAircraft() {
  * producen el mismo efecto físico: menos frenado. Mantenerlos separados
  * sugeriría una distinción que la simulación no hace.
  */
-export function getUpgradeMods() {
+export function getUpgradeMods(shipId = STATE.aircraft) {
+  const niveles = nivelesDe(shipId);
   const mods = {
     liftMult: 1,
     launchPowerMult: 1,
@@ -200,7 +249,7 @@ export function getUpgradeMods() {
   };
 
   for (const u of UPGRADES) {
-    const lvl = STATE.upgrades[u.id] || 0;
+    const lvl = niveles[u.id] || 0;
     if (lvl > 0) Object.assign(mods, u.effect(lvl));
   }
 
@@ -212,35 +261,47 @@ export function getUpgradeMods() {
 }
 
 /** Costo de la próxima compra. */
-export function upgradeCost(id) {
+export function upgradeCost(id, shipId = STATE.aircraft) {
   const u = UPGRADE_BY_ID.get(id);
   if (!u) return Infinity;
-  const lvl = STATE.upgrades[id] || 0;
+  const lvl = nivelesDe(shipId)[id] || 0;
   return Math.round(u.baseCost * u.costMult ** lvl);
 }
 
-export const isMaxed = (id) => (STATE.upgrades[id] || 0) >= (UPGRADE_BY_ID.get(id)?.maxLevel ?? 0);
+export const isMaxed = (id, shipId = STATE.aircraft) =>
+  (nivelesDe(shipId)[id] || 0) >= (UPGRADE_BY_ID.get(id)?.maxLevel ?? 0);
 export const canAfford = (id) => STATE.coins >= upgradeCost(id);
 
 /** ¿Se puede comprar? Devuelve el motivo si no. */
-export function canBuy(id) {
+export function canBuy(id, shipId = STATE.aircraft) {
   const u = UPGRADE_BY_ID.get(id);
   if (!u) return { ok: false, reason: 'unknown' };
-  if (isMaxed(id)) return { ok: false, reason: 'maxed' };
-  if (!canAfford(id)) return { ok: false, reason: 'coins' };
-  return { ok: true, cost: upgradeCost(id) };
+  if (isMaxed(id, shipId)) return { ok: false, reason: 'maxed' };
+  if (!canAfford(id, shipId)) return { ok: false, reason: 'coins' };
+  return { ok: true, cost: upgradeCost(id, shipId) };
 }
 
 /**
  * Ejecuta la compra. Devuelve el resultado para que la UI reaccione
  * (y para poder testear la economía sin DOM).
  */
-export function purchaseUpgrade(id) {
-  const check = canBuy(id);
+/**
+ * Compra un nivel de mejora para la NAVE ACTIVA.
+ *
+ * Las mejoras son por nave: comprar "Alas" con el avión de papel no mejora al
+ * jet. Cada nave se sube aparte, que es lo que hace que elegir nave sea una
+ * decisión de largo plazo y no un cambio cosmético.
+ *
+ * @param {string} id  id de la mejora
+ * @param {string} [shipId]  por defecto la nave equipada
+ */
+export function purchaseUpgrade(id, shipId = STATE.aircraft) {
+  const check = canBuy(id, shipId);
   if (!check.ok) return check;
   STATE.coins -= check.cost;
-  STATE.upgrades[id] = (STATE.upgrades[id] || 0) + 1;
-  return { ok: true, cost: check.cost, level: STATE.upgrades[id] };
+  const niveles = nivelesDe(shipId);
+  niveles[id] = (niveles[id] || 0) + 1;
+  return { ok: true, cost: check.cost, level: niveles[id] };
 }
 
 /** Selecciona aeronave validando el id. */

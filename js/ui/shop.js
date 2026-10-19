@@ -10,7 +10,7 @@
  * ============================================================
  */
 import { UI } from './dom.js';
-import { UPGRADES, STATE, upgradeCost, isMaxed } from '../game/state.js';
+import { UPGRADES, STATE, upgradeCost, isMaxed, nivelesDe } from '../game/state.js';
 import { formatNumber } from '../core/math.js';
 
 /**
@@ -132,7 +132,11 @@ export class Shop {
 
     for (const card of this.cards) {
       const { def } = card;
-      const lvl = STATE.upgrades[def.id] || 0;
+          /*
+     * Nivel de la NAVE ACTIVA, no global: las mejoras ahora son por nave.
+     * `nivelesDe()` devuelve el mapa de la nave que el jugador tiene equipada.
+     */
+    const lvl = nivelesDe()[def.id] || 0;
       const maxed = isMaxed(def.id);
       const cost = upgradeCost(def.id);
       const affordable = STATE.coins >= cost;
