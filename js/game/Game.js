@@ -45,7 +45,9 @@ import {
   getUpgradeMods,
   purchaseUpgrade,
   toSaveObject,
+  statsVacios,
 } from './state.js';
+import { todosLosLogros } from './achievements.js';
 import { AircraftView } from './AircraftView.js';
 import { AimingSystem } from './aiming.js';
 import { SlingshotBand } from './slingshotBand.js';
@@ -290,6 +292,26 @@ export class Game {
     STATE.coins += result.coins;
     if (result.distance > STATE.bestDistance) STATE.bestDistance = result.distance;
     STATE.runs++;
+
+    /*
+     * ── Estadísticas acumuladas ──
+     *
+     * Se suman acá y no en el controlador porque éste se reinicia en cada vuelo:
+     * el acumulador tiene que sobrevivir a la partida y guardarse.
+     *
+     * `bestDistance` se guarda también dentro de `stats` para que los logros lean
+     * de un solo lugar.
+     */
+    const st = STATE.stats;
+    st.runs += 1;
+    st.rings += result.rings ?? 0;
+    st.boosters += result.boosters ?? 0;
+    st.coinsCollected += result.coinsCollected ?? 0;
+    st.playMs += Math.round((result.time ?? 0) * 1000);
+    if (result.distance > st.bestDistance) st.bestDistance = result.distance;
+    if (result.cause === 'obstacle') st.crashes += 1;
+    else if (result.cause === 'ground') st.landings += 1;
+    else if (result.cause === 'corridor') st.corridorExits += 1;
 
     this.persist();
     this.syncCoins();
@@ -902,9 +924,79 @@ export class Game {
       this.enterLaunchMode();
     });
 
+    /*
+     * Se dibujan al abrir, no al construir: los totales cambian con cada vuelo y
+     * regenerar la lista en cada apertura es más simple que mantenerla sincronizada.
+     */
+    const renderLogros = () => {
+      const cont = document.getElementById('awards-list');
+      if (!cont) return;
+      const logros = todosLosLogros(STATE.stats);
+      cont.replaceChildren(...logros.map((a) => {
+        const card = document.createElement('div');
+        card.className = 'ach-card' + (a.unlocked ? ' unlocked' : '');
+        const icon = document.createElement('span');
+        icon.className = 'ach-icon';
+        icon.textContent = a.unlocked ? '🏆' : '🔒';
+        const body = document.createElement('div');
+        body.className = 'ach-body';
+        const name = document.createElement('strong');
+        name.textContent = a.name;
+        const desc = document.createElement('span');
+        desc.className = 'ach-desc';
+        desc.textContent = a.desc;
+        const prog = document.createElement('span');
+        prog.className = 'ach-progress';
+        prog.textContent = `${a.progress} / ${a.target}`;
+        const bar = document.createElement('div');
+        bar.className = 'ach-bar';
+        const fill = document.createElement('div');
+        fill.className = 'ach-fill';
+        fill.style.width = `${a.pct}%`;
+        bar.appendChild(fill);
+        body.append(name, desc, prog, bar);
+        card.append(icon, body);
+        return card;
+      }));
+      const cuenta = document.getElementById('awards-count');
+      if (cuenta) {
+        cuenta.textContent = `${logros.filter((a) => a.unlocked).length} / ${logros.length}`;
+      }
+    };
+
+    const renderPerfil = () => {
+      const cont = document.getElementById('profile-list');
+      if (!cont) return;
+      const s = STATE.stats;
+      const horas = (s.playMs / 3600000);
+      const filas = [
+        ['Vuelos totales', String(s.runs)],
+        ['Horas de vuelo', horas < 1 ? `${Math.round(s.playMs / 60000)} min` : `${horas.toFixed(1)} h`],
+        ['Mejor distancia', `${Math.round(s.bestDistance)} m`],
+        ['Aros cruzados', String(s.rings)],
+        ['Boosters juntados', String(s.boosters)],
+        ['Monedas juntadas', String(s.coinsCollected)],
+        ['Choques con obstáculo', String(s.crashes)],
+        ['Aterrizajes', String(s.landings)],
+        ['Salidas del corredor', String(s.corridorExits)],
+      ];
+      cont.replaceChildren(...filas.map(([k, v]) => {
+        const row = document.createElement('div');
+        row.className = 'profile-row';
+        const label = document.createElement('span');
+        label.textContent = k;
+        const val = document.createElement('strong');
+        val.textContent = v;
+        row.append(label, val);
+        return row;
+      }));
+    };
+
     document.getElementById('btn-awards')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      renderLogros();
+      renderPerfil();
       mostrarPanel(awardsPanel);
     });
 
@@ -1019,6 +1111,8 @@ export class Game {
       STATE.coins = 0;
       STATE.bestDistance = 0;
       STATE.runs = 0;
+      // Los totales acumulados también se reinician: si no, los logros quedarían.
+      STATE.stats = statsVacios();
       STATE.aircraft = 'paper';
       /*
        * Se vacían las mejoras de TODAS las naves, no sólo de la activa.

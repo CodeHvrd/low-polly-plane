@@ -2276,3 +2276,68 @@ body.en-vuelo #mode-bar {
   color: #04121a;
   /* Mismo tamaño que los otros: la jerarquía la da el color, no el tamaño. */
 }
+
+
+/* ── LOGROS Y PERFIL ──
+ * Los logros bloqueados van en GRIS con su progreso visible: se pidió poder ver
+ * lo que falta, no sólo lo conseguido. Es lo que engancha a seguir jugando. */
+#awards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ach-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  opacity: 0.55;
+  filter: grayscale(1);
+  text-align: left;
+}
+
+.ach-card.unlocked {
+  opacity: 1;
+  filter: none;
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.08);
+}
+
+.ach-icon { font-size: 1.1rem; }
+
+.ach-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.ach-body strong { font-family: var(--font-display); font-size: 0.76rem; letter-spacing: 0.04em; }
+.ach-desc { font-size: 0.64rem; color: var(--muted); }
+.ach-progress { font-size: 0.6rem; color: var(--cyan); font-variant-numeric: tabular-nums; }
+
+.ach-bar { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin-top: 2px; }
+.ach-fill { height: 100%; background: var(--cyan); border-radius: 2px; }
+
+.profile-title { margin-top: 12px; }
+
+#profile-list { display: flex; flex-direction: column; gap: 3px; }
+
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  padding: 3px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.profile-row strong { color: #fff; font-variant-numeric: tabular-nums; }
+
+#awards-count {
+  font-size: 0.62rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}

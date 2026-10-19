@@ -121,6 +121,14 @@ export const UPGRADE_IDS = UPGRADES.map((u) => u.id);
  * Estado global del juego. Se hidrata desde `core/storage.js` en el arranque.
  * @type {{coins:number, upgrades:Record<string,number>, aircraftOwned:string[], bestDistance:number, runs:number, aircraft:string, muted:boolean}}
  */
+/** Stats en cero, para el reset y para guardados que no tienen el campo. */
+export function statsVacios() {
+  return {
+    rings: 0, boosters: 0, runs: 0, crashes: 0, coinsCollected: 0,
+    bestDistance: 0, playMs: 0, landings: 0, corridorExits: 0,
+  };
+}
+
 export const STATE = {
   coins: 0,
   upgrades: {},
@@ -135,6 +143,16 @@ export const STATE = {
   runs: 0,
   aircraft: DEFAULT_AIRCRAFT,
   muted: false,
+
+  /*
+   * ── Estadísticas acumuladas de la vida del jugador ──
+   *
+   * Se guardan los TOTALES, no los logros conseguidos: el logro se calcula
+   * comparando contra su umbral (ver game/achievements.js). Así, agregar un logro
+   * nuevo no necesita migrar guardados — los jugadores viejos ya lo tienen si
+   * habían llegado al número.
+   */
+  stats: statsVacios(),
 };
 
 /**
@@ -202,6 +220,13 @@ export function hydrate(save) {
    * (por nave). Se migran al cargar, asignando las compradas a la nave que el
    * jugador tenía activa.
    */
+  /*
+   * Las estadísticas se FUSIONAN con las de fábrica.
+   *
+   * Un guardado viejo no tiene `stats`, y uno nuevo puede no tener un campo que se
+   * agregue después. Fusionar evita `undefined` en las sumas.
+   */
+  STATE.stats = { ...STATE.stats, ...(save.stats ?? {}) };
   STATE.upgrades = migrarUpgrades(save.upgrades, save.aircraft);
   initUpgradeLevels();
   initOwnedAircraft();
