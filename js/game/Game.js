@@ -1471,7 +1471,18 @@ export class Game {
         this.syncStage(payload.stage ?? 0, payload.state.x);
         break;
 
-      case 'ring':
+      /*
+       * ── Cargador de aros ──
+       *
+       * Se muestran tantos segmentos encendidos como aros lleve el combo actual.
+       * El total sale de la config, así que cambiarlo ahí ajusta también el HUD.
+       */
+      case 'ring': {
+        HUD.setRingCharge(payload.total ?? 0, PICKUPS.BOOSTERS.RING_COMBO.EVERY);
+        sfx.ring();
+        break;
+      }
+
         sfx.ring();
         break;
 

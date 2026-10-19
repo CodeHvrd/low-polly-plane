@@ -904,7 +904,7 @@ export const PICKUPS = {
      */
     RING_COMBO: {
       /** Cuántos aros hacen falta. */
-      EVERY: 5,
+      EVERY: 4,
       /** Empuje por combo, como fracción de la velocidad de lanzamiento. */
       SPEED_FRACTION: 0.65,
       /** Tope de velocidad después del combo (m/s). */

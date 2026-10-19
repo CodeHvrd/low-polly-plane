@@ -81,6 +81,24 @@ export const HUD = {
    * @param {number} max
    * @param {boolean} [justGained]
    */
+  /**
+   * Cargador de aros: enciende tantos segmentos como aros lleve el combo.
+   *
+   * @param {number} total   aros cruzados en el vuelo
+   * @param {number} cada    cuántos hacen falta para el combo
+   */
+  setRingCharge(total, cada) {
+    const cont = document.getElementById('ring-charge');
+    if (!cont) return;
+    cont.classList.remove('hidden');
+    const enCombo = total % cada;
+    const segs = cont.querySelectorAll('.ring-seg');
+    segs.forEach((s, i) => s.classList.toggle('on', i < enCombo));
+    const bolt = cont.querySelector('.ring-bolt');
+    // El rayo se enciende cuando el combo está completo y por gastarse.
+    bolt?.classList.toggle('ready', enCombo === 0 && total > 0);
+  },
+
   updateCharges(charges, max, justGained = false) {
     if (last.charges === charges && !justGained) return;
     last.charges = charges;

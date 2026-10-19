@@ -213,6 +213,17 @@
   <!-- ── HUD DE VUELO ── -->
   <!-- El HUD tampoco recibe gestos de juego: es información, no control. -->
   <div id="hud" class="hidden" data-required data-ui-interactive>
+    <!--
+      ── Cargador de aros ──
+      Cuatro segmentos y un rayo. Se apagan cuando el combo se gasta: es el aviso
+      de cuántos aros faltan para la propulsión, sin números que leer.
+    -->
+    <div id="ring-charge" class="hidden" data-required aria-hidden="true">
+      <span class="ring-seg"></span><span class="ring-seg"></span>
+      <span class="ring-seg"></span><span class="ring-seg"></span>
+      <span class="ring-bolt">⚡</span>
+    </div>
+
     <div id="hud-top">
       <div class="stat-box">
         <span class="stat-label">DISTANCIA</span>

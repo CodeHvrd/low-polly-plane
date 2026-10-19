@@ -461,7 +461,12 @@ function buildTree(id, x, z, progress, rng) {
   const halfX = rng.range(0.55, 0.95);
   const halfZ = halfX * rng.range(0.85, 1.15);
   // El 88% deja fuera la punta fina, que visualmente no es un obstáculo.
-  const solidTop = groundY + height * 0.88;
+  /*
+   * El 0.88 dejaba la caja por encima de donde la copa ya es fina. Con 0.78 se
+   * puede rozar la punta del pino sin morir, que es lo que permite pasar entre
+   * árboles volando bajo.
+   */
+  const solidTop = groundY + height * 0.78;
 
   return {
     id,
@@ -567,13 +572,18 @@ function addRocks(list, _rngIgnorado, nextId, desde, hasta) {
           z: oz,
           groundY: oy,
           passed: false,
+          /*
+           * Un dodecaedro de radio R sobresale ~0.79·R en cada eje horizontal y
+           * menos aún en altura. La caja usa 0.68 y 0.78: apenas por dentro de la
+           * silueta, para que rozar no mate pero tampoco se pueda atravesar.
+           */
           aabb: {
-            minX: ox - radio * 0.82,
-            maxX: ox + radio * 0.82,
+            minX: ox - radio * 0.68,
+            maxX: ox + radio * 0.68,
             minY: oy,
-            maxY: oy + alto * 0.88,
-            minZ: oz - radio * 0.82,
-            maxZ: oz + radio * 0.82,
+            maxY: oy + alto * 0.78,
+            minZ: oz - radio * 0.68,
+            maxZ: oz + radio * 0.68,
           },
           params: {
             radius: radio,
@@ -637,8 +647,8 @@ function addLogs(list, _rngIgnorado, nextId, desde, hasta) {
          * pasaría "a través" de la madera.
          */
         aabb: {
-          minX: x - radio * 1.15,
-          maxX: x + radio * 1.15,
+          minX: x - radio * 0.95,
+          maxX: x + radio * 0.95,
           minY: groundY,
           maxY: Math.max(alto, groundY + radio * 2),
           minZ: z - largo / 2,

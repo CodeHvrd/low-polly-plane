@@ -2081,6 +2081,54 @@ body.en-vuelo #mode-bar {
 #result-stats,
 #total-coins-banner,
 #res-record,
+/* ── Cargador de aros ──
+ * Arriba al centro. Segmentos negros (vacíos) que se colorean al pasar aros; el
+ * rayo se enciende cuando están los cuatro y se apaga al gastarse. */
+#ring-charge {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 12px;
+  background: rgba(8, 12, 22, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.ring-seg {
+  width: 22px;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+/* Cargado: color de los aros. */
+.ring-seg.on {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.75);
+}
+
+.ring-bolt {
+  font-size: 0.9rem;
+  opacity: 0.25;
+  filter: grayscale(1);
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.ring-bolt.ready {
+  opacity: 1;
+  filter: none;
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.9);
+}
+
 .oculto-tecnico {
   display: none !important;
 }
