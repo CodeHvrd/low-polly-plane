@@ -83,6 +83,23 @@ const ZONA_MANTENER = 0.18;
 const SUAVIZADO = 22;
 
 /**
+ * ── Desplazamiento "cómodo" del pulgar (fracción del radio) ──
+ *
+ * ── El problema que resuelve ──
+ * Un pulgar apoyado en la rueda se mueve con comodidad hasta ~60% del radio; más
+ * que eso obliga a estirar. Con el mando lineal, a 60% el avión recibía sólo 59%
+ * de autoridad, mientras que el TECLADO siempre da 100% (A/D son todo o nada).
+ *
+ * Ésa era la razón de fondo de "en la PC esquivo bien y en el celular no llego":
+ * el jugador de móvil manejaba con la mitad de autoridad sin saberlo.
+ *
+ * Ahora la autoridad llega al 100% a la posición cómoda, no al borde de la rueda.
+ * Empujar más allá no suma nada (es el tope), así que el rango útil es el que el
+ * pulgar alcanza sin esfuerzo.
+ */
+const PULGAR_COMODO = 0.62;
+
+/**
  * Curva de respuesta del mando.
  *
  * ── Por qué hace falta una curva ──
@@ -316,7 +333,20 @@ export class TouchControls {
          * dejaría de dar (0.7, 0.7). Normalizando por magnitud, la dirección se
          * respeta y sólo cambia cuánto manda.
          */
-        const ganancia = Math.pow(magnitud, CURVA) / magnitud;
+        /*
+         * Se reescala entre la zona muerta y la posición cómoda.
+         *
+         *   zona muerta  -> 0
+         *   cómoda (62%) -> 1 (autoridad plena, igual que el teclado)
+         *   más allá     -> 1 (tope)
+         *
+         * Es lineal en el recorrido y luego se le aplica la curva, así que sigue
+         * habiendo precisión fina cerca del centro sin perder el máximo.
+         */
+        const recorrido = (magnitud - ZONA_MANTENER) / (PULGAR_COMODO - ZONA_MANTENER);
+        const t01 = Math.max(0, Math.min(1, recorrido));
+        const autoridad = Math.pow(t01, CURVA);
+        const ganancia = autoridad / magnitud;
         s.x = nx * ganancia;
         s.y = ny * ganancia;
       } else {
