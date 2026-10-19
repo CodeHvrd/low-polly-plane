@@ -11,4 +11,4 @@
  *
  * Lo actualiza `tools/sync-sw.mjs --bump` al hacer cada deploy.
  */
-export const BUILD = 'bca731a';
+export const BUILD = '44a88b0';

@@ -782,14 +782,6 @@ export class Game {
     this.touch = new TouchControls();
     this.touch.build({
       onThrust: () => {
-        /*
-     * Se ignora el gesto que acaba de abrir la pantalla de apuntado.
-     *
-     * Sin esto, el pointerup del clic en el menú llega al canvas y dispara el
-     * lanzamiento antes de que la cámara termine de moverse.
-     */
-    if (performance.now() - (this._aimEnteredAt ?? -1e9) < 400) return;
-
     if (this.controller.phase !== PHASE.FLYING) return;
         this.controller.useThrust();
       },
@@ -881,7 +873,20 @@ export class Game {
       if (!panel) HUD.invalidate();
     };
 
-    document.getElementById('btn-new-game')?.addEventListener('click', (e) => {
+    const btnNew = document.getElementById('btn-new-game');
+    /*
+     * Se cortan TODOS los eventos de puntero del botón, no sólo el `click`.
+     *
+     * El clic genera pointerdown → pointerup → click. Sólo frenar el `click` deja
+     * pasar el pointerup al canvas, y el gestor de arrastre lo interpreta como
+     * "soltar para lanzar": el avión salía disparado a mitad de la transición de
+     * cámara, de costado.
+     */
+    for (const tipo of ['pointerdown', 'pointerup', 'pointermove']) {
+      btnNew?.addEventListener(tipo, (e) => e.stopPropagation());
+    }
+
+    btnNew?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
       /*
@@ -1104,18 +1109,6 @@ export class Game {
        * Un ARRASTRE real siempre lo resuelve el controlador, que además valida
        * la potencia mínima.
        */
-      /*
-       * ── Guardia del gesto que abrió la pantalla ──
-       *
-       * El pointerup del clic en "Nueva partida" también llega acá. Sin este
-       * corte, ese mismo clic soltaba y lanzaba el avión mientras la cámara
-       * todavía viajaba: el tiro salía de costado. Con teclado no pasaba porque
-       * Enter no genera eventos de puntero.
-       */
-      if (performance.now() - (this._aimEnteredAt ?? -1e9) < 400) {
-        this.controller.cancelAim();
-        return;
-      }
 
       const tapped = !this.controller.aimingWasDragged();
       if (tapped && this.gestureStage === Screen.AIM) {
