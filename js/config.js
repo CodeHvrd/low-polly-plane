@@ -47,8 +47,21 @@ export const SIM = {
    * si el jugador edita el guardado y deja los coeficientes fuera de rango.
    */
   MAX_SPEED: 400,
-  /** Tope de duración de un vuelo. */
-  MAX_FLIGHT_TIME: 90,
+  /**
+   * ── Tope de duración de un vuelo (s) ──
+   *
+   * ── El bug que esto arregla ──
+   * Valía 90 s y CORTABA EL VUELO EN EL AIRE. Con las mejoras al máximo el jugador
+   * supera esa marca con facilidad, así que el avión "explotaba" a media altura
+   * sin haber chocado con nada — y peor, se reportaba como `ground`, así que
+   * parecía un choque contra el suelo.
+   *
+   * Esto no es una regla de juego: es una red de seguridad para que un vuelo no
+   * quede colgado para siempre (por ejemplo, si algo lo dejara planeando sin
+   * descender). Con 600 s sigue cumpliendo esa función y ningún jugador real lo
+   * alcanza.
+   */
+  MAX_FLIGHT_TIME: 600,
 };
 
 /**

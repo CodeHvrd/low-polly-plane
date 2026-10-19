@@ -667,7 +667,16 @@ export class RunController {
 
       // Tope de duración: cierra el vuelo si algo lo dejara planeando.
       if (this.stats.time > SIM.MAX_FLIGHT_TIME) {
-        this.beginImpact('ground', s.y, null);
+        /*
+         * ── Motivo propio, no 'ground' ──
+         *
+         * Se reportaba como choque contra el suelo estando el avión a 28 m de
+         * altura: el jugador veía explotar el avión "contra algo invisible".
+         *
+         * Con un motivo propio el diagnóstico dice la verdad y, si vuelve a
+         * pasar, se sabe de inmediato que fue el límite de tiempo.
+         */
+        this.beginImpact('timeout', s.y, null);
         break;
       }
     }

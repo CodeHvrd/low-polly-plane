@@ -20,6 +20,14 @@ function classify(result) {
   if (result.cause === 'obstacle') {
     return { title: '💥 IMPACTO', cls: 'res-crash' };
   }
+  /*
+   * El límite de tiempo ya no se dispara en la práctica (600 s), pero si algún
+   * día pasa tiene que tener su propio cartel: reportarlo como aterrizaje o
+   * impacto confundiría al jugador.
+   */
+  if (result.cause === 'timeout') {
+    return { title: '⏱ TIEMPO AGOTADO', cls: 'res-out' };
+  }
   if (result.cause === 'corridor') {
     return { title: '🚫 FUERA DE RUTA', cls: 'res-out' };
   }
