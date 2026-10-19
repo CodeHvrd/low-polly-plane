@@ -22,7 +22,7 @@
  */
 
 /** Subir esto en cada despliegue que cambie archivos. */
-const VERSION = 'papercrash-alpha-1.1.19';
+const VERSION = 'papercrash-alpha-1.1.20';
 
 /** Archivos del juego. Si falta uno, la instalación falla entera. */
 const NUCLEO = [

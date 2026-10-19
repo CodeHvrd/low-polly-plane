@@ -24,6 +24,7 @@
  */
 import { PICKUPS, WORLD, STAGES } from '../config.js';
 import { createRng, clamp } from '../core/math.js';
+import { nivelDeCircuito } from '../game/flightProfile.js';
 import { terrainHeightAt } from './terrainField.js';
 
 /**
