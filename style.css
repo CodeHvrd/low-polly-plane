@@ -2346,3 +2346,47 @@ body.en-vuelo #mode-bar {
 .ranking-row { align-items: center; }
 .rank-pos { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 18px; }
 .rank-ship { flex: 1; text-transform: capitalize; }
+
+
+/* ══════════════════════════════════════════════════════════
+   MODO DIAGNÓSTICO (tecla O)
+   ══════════════════════════════════════════════════════════
+   Oculta TODA la interfaz para poder fotografiar la escena y ver contra qué se
+   chocó. Se usa `visibility: hidden` en vez de `display: none` para no alterar
+   el layout: si un elemento cambia de tamaño, la captura no sería fiel. */
+body.modo-diagnostico #hud,
+body.modo-diagnostico #result-screen,
+body.modo-diagnostico #idle-overlay,
+body.modo-diagnostico #aim-overlay,
+body.modo-diagnostico #sling-feedback,
+body.modo-diagnostico #shop-dock,
+body.modo-diagnostico #global-coins,
+body.modo-diagnostico #system-controls,
+body.modo-diagnostico #touch-controls,
+body.modo-diagnostico #wind-indicator,
+body.modo-diagnostico #build-version,
+body.modo-diagnostico #crash-flash {
+  visibility: hidden !important;
+}
+
+#diag-overlay {
+  display: none;
+  position: fixed;
+  left: 10px;
+  top: 10px;
+  z-index: 9999;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e5484d;
+  background: rgba(10, 12, 20, 0.92);
+  color: #ffb4b8;
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  white-space: pre;
+  pointer-events: none;
+}
+
+body.modo-diagnostico #diag-overlay {
+  display: block;
+}

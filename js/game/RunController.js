@@ -139,6 +139,7 @@ export class RunController {
 
     // Estado de la secuencia de impacto/aterrizaje.
     this.impact = null;
+    this.impactDebug = null;
     this.lastPos = { x: 0, y: LAUNCH_POS.y, z: 0 };
 
     // Viento (se sortea por vuelo).
@@ -807,7 +808,42 @@ export class RunController {
    * @param {number} groundY
    * @param {object|null} obstacle
    */
+  /**
+   * Diagnóstico del impacto, para el atajo de depuración (tecla O).
+   *
+   * ── Por qué hace falta ──
+   * Se reportaron choques contra "algo invisible" a partir de los 3000 m, pero
+   * una captura no alcanza: la pantalla de derrota tapa la escena y, aunque no la
+   * tapara, no se distingue contra qué se chocó.
+   *
+   * Guardar el tipo de obstáculo, su posición y la del avión convierte "chocué con
+   * algo" en un dato concreto que se puede reproducir.
+   *
+   * @param {string} cause @param {object|null} obstacle @param {object} pos
+   */
+  setImpactDebug(cause, obstacle, pos) {
+    this.impactDebug = {
+      cause,
+      type: obstacle?.type ?? null,
+      ox: obstacle ? +obstacle.x.toFixed(1) : null,
+      oy: obstacle?.aabb ? +((obstacle.aabb.minY + obstacle.aabb.maxY) / 2).toFixed(1) : null,
+      oz: obstacle ? +obstacle.z.toFixed(1) : null,
+      px: +pos.x.toFixed(1),
+      py: +pos.y.toFixed(1),
+      pz: +pos.z.toFixed(1),
+      topY: obstacle?.aabb ? +obstacle.aabb.maxY.toFixed(1) : null,
+    };
+  }
+
   beginImpact(cause, groundY, obstacle) {
+    /*
+     * Diagnóstico del impacto, siempre y sin depender de cada llamador.
+     *
+     * Se hace acá y no en cada sitio de llamada porque hay CUATRO motivos de
+     * impacto (suelo, obstáculo, corredor, tiempo) y olvidarse uno dejaba el
+     * diagnóstico vacío justo en el caso que se quería investigar.
+     */
+    this.setImpactDebug(cause, obstacle, this.flight);
     const s = this.flight;
     const speed = Math.hypot(s.vx, s.vy, s.vz);
     const vertical = Math.abs(s.vy);

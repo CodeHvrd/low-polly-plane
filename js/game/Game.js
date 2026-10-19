@@ -764,6 +764,31 @@ export class Game {
     setText(UI.aimPlaneTag, spec.tag);
   }
 
+  /**
+   * Cartel de diagnóstico: qué causó el último choque y dónde.
+   *
+   * Sólo se ve con la tecla O apretada (`body.modo-diagnostico`).
+   */
+  syncDiagnostico() {
+    let el = document.getElementById('diag-overlay');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'diag-overlay';
+      document.body.appendChild(el);
+    }
+    const d = this.controller.impactDebug;
+    if (!d) {
+      el.textContent = 'DIAGNÓSTICO · todavía no chocaste';
+      return;
+    }
+    el.textContent = [
+      `causa: ${d.cause}`,
+      `obstáculo: ${d.type ?? '—'}`,
+      d.oy !== null ? `obst. x${d.ox} y${d.oy} z${d.oz} · techo ${d.topY}` : '',
+      `avión  x${d.px} y${d.py} z${d.pz}`,
+    ].filter(Boolean).join('\n');
+  }
+
   toggleMute() {
     const muted = toggleMuted();
     STATE.muted = muted;
@@ -1308,6 +1333,24 @@ export class Game {
        * frame. Por eso se ignora el auto-repeat, que si no gastaría varias
        * unidades de golpe con una sola pulsación larga.
        */
+      /*
+       * ── Tecla O: modo diagnóstico ──
+       *
+       * Se reportaron choques contra "algo invisible" y una captura no alcanza: la
+       * pantalla de derrota tapa la escena y el jugador no llega a fotografiar
+       * contra qué chocó.
+       *
+       * O hace transparente TODA la interfaz y muestra en pantalla el motivo del
+       * choque y el tipo de obstáculo. Es lo que convierte "chocué con algo" en un
+       * dato reproducible.
+       */
+      if (e.code === 'KeyO') {
+        e.preventDefault();
+        document.body.classList.toggle('modo-diagnostico');
+        this.syncDiagnostico();
+        return;
+      }
+
       if (e.code === 'Space' && this.controller.phase === PHASE.FLYING) {
         e.preventDefault();
         if (!e.repeat) {
