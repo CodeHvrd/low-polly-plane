@@ -605,6 +605,21 @@ export class Game {
     if (!this.controller.canAimEditable) return false;
 
     /*
+     * ── Sello de tiempo para ignorar el gesto que abrió esta pantalla ──
+     *
+     * ── El bug que esto arregla ──
+     * Al pulsar "Nueva partida" con el mouse, el navegador manda pointerdown y
+     * pointerup sobre el botón, y ese pointerup también llega al canvas. El gestor
+     * de arrastre lo tomaba como "soltar para lanzar" y disparaba el avión EN
+     * PLENA transición de cámara: salía de costado.
+     *
+     * Con teclado no pasaba porque Enter no genera eventos de puntero.
+     *
+     * Los manejadores de puntero del canvas ignoran todo durante este margen.
+     */
+    this._aimEnteredAt = performance.now();
+
+    /*
      * Se recalcula el neutro del control de ángulo para el tramo en el que está
      * el avión. Sin esto, apuntar en el tramo 1 usaba el neutro del arranque
      * (38°) cuando la línea de ese tramo está a 15 m: el avión salía demasiado
@@ -731,7 +746,15 @@ export class Game {
       // Evitar que el clic se propague al gestor de arrastre.
       e.stopPropagation();
       sfx.click();
+      /*
+       * ── Reintentar lleva DIRECTO al lanzador ──
+       *
+       * Antes `startRun` dejaba la partida en la pantalla de espera, así que el
+       * jugador tenía que volver a pulsar para llegar a apuntar. Se pidió que el
+       * ↻ reinicie y deje el avión listo para lanzar.
+       */
       this.startRun({ fade: true });
+      this.enterLaunchMode();
     });
 
     // ── Tienda ──
@@ -759,7 +782,15 @@ export class Game {
     this.touch = new TouchControls();
     this.touch.build({
       onThrust: () => {
-        if (this.controller.phase !== PHASE.FLYING) return;
+        /*
+     * Se ignora el gesto que acaba de abrir la pantalla de apuntado.
+     *
+     * Sin esto, el pointerup del clic en el menú llega al canvas y dispara el
+     * lanzamiento antes de que la cámara termine de moverse.
+     */
+    if (performance.now() - (this._aimEnteredAt ?? -1e9) < 400) return;
+
+    if (this.controller.phase !== PHASE.FLYING) return;
         this.controller.useThrust();
       },
       onBack: () => {
@@ -1073,6 +1104,19 @@ export class Game {
        * Un ARRASTRE real siempre lo resuelve el controlador, que además valida
        * la potencia mínima.
        */
+      /*
+       * ── Guardia del gesto que abrió la pantalla ──
+       *
+       * El pointerup del clic en "Nueva partida" también llega acá. Sin este
+       * corte, ese mismo clic soltaba y lanzaba el avión mientras la cámara
+       * todavía viajaba: el tiro salía de costado. Con teclado no pasaba porque
+       * Enter no genera eventos de puntero.
+       */
+      if (performance.now() - (this._aimEnteredAt ?? -1e9) < 400) {
+        this.controller.cancelAim();
+        return;
+      }
+
       const tapped = !this.controller.aimingWasDragged();
       if (tapped && this.gestureStage === Screen.AIM) {
         this.controller.cancelAim();

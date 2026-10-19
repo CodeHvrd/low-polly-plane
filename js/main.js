@@ -22,6 +22,7 @@
  * ============================================================
  */
 import { Game, reportBootError } from './game/Game.js';
+import { BUILD } from './core/version.js';
 import { findMissingRequiredDom, showBootError } from './ui/dom.js';
 
 /** Espera a que el CDN de Three.js esté disponible (o falla con aviso). */
@@ -41,6 +42,15 @@ function waitForThree(timeoutMs = 8000) {
 }
 
 function boot() {
+  /*
+   * La versión del build, abajo a la izquierda.
+   *
+   * Sirve para confirmar que el teléfono corre la última versión y no una
+   * cacheada por el service worker: si el número no cambió, no se recargó.
+   */
+  const etiqueta = document.getElementById('build-version');
+  if (etiqueta) etiqueta.textContent = `v. ${BUILD}`;
+
   // 1) ¿Está el DOM que la UI necesita?
   const missing = findMissingRequiredDom();
   if (missing.length) {

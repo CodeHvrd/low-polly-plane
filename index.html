@@ -304,7 +304,7 @@
         </div>
       </div>
 
-      <div id="res-record" data-required></div>
+      <div id="res-record" data-required></div><!-- versión chica: ver CSS -->
 
       <!--
         ── Tres íconos en vez de botones de texto ──
@@ -321,6 +321,13 @@
       </div>
     </div>
   </div>
+
+  <!--
+    ── Build visible ──
+    Abajo a la izquierda y chiquito. Sirve para confirmar que el teléfono está
+    corriendo la última versión y no una cacheada por el service worker.
+  -->
+  <div id="build-version" aria-hidden="true">v. …</div>
 
   <!-- ── CAPAS EFÍMERAS ── -->
   <div id="crash-flash" data-required aria-hidden="true"></div>

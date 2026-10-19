@@ -22,7 +22,7 @@
  */
 
 /** Subir esto en cada despliegue que cambie archivos. */
-const VERSION = 'papercrash-alpha-1.1.8';
+const VERSION = 'papercrash-alpha-1.1.9';
 
 /** Archivos del juego. Si falta uno, la instalación falla entera. */
 const NUCLEO = [
@@ -57,6 +57,7 @@ const MODULOS = [
   './js/core/input.js',
   './js/core/math.js',
   './js/core/storage.js',
+  './js/core/version.js',
   './js/game/AircraftView.js',
   './js/game/Game.js',
   './js/game/RunController.js',
