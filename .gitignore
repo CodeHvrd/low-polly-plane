@@ -1,0 +1,17 @@
+# ── Lo que NO se sube al repo ──
+
+# Toolchain de Android (1.2 GB). Se regenera solo con generar-apk.cmd.
+.android-build/
+
+# Artefactos de compilación del APK.
+native/build/
+native/assets/
+
+# Dependencias y perfiles temporales.
+node_modules/
+*.log
+
+# Basura del sistema.
+Thumbs.db
+desktop.ini
+.DS_Store

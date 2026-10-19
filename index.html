@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PaperCrash — Low Poly Flight</title>
+  <meta name="description" content="Lanza un avión de papel con física real, esquivá obstáculos y mejorá tu flota en este juego incremental low poly." />
+  <meta name="theme-color" content="#0a0e1a" />
+
+  <!-- ── PWA: permite INSTALAR el juego en el teléfono ──
+       El manifest declara el nombre, los iconos y que arranque a pantalla
+       completa y en apaisado. Sin él, Android ofrece "agregar a inicio" como un
+       marcador común y no como una app. -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <!-- iOS no lee display_override: esto es lo que lo hace arrancar sin barra. -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PaperCrash" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!--
+    ── Fuentes LOCALES ──
+    Antes venían de fonts.googleapis.com. En el APK no hay red, así que el
+    navegador se quedaba esperando la hoja de estilos y el texto salía con la
+    fuente por defecto. Ahora los .woff2 están en ./fonts/.
+  -->
+  <link rel="stylesheet" href="fonts/fonts.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ══════════════════════════════════════════════════════════
+       El canvas es lo único que se ve siempre. Todo lo demás son capas
+       de UI que los módulos de js/ui/* muestran u ocultan de forma
+       centralizada (nunca dos módulos togglando el mismo nodo).
+       ══════════════════════════════════════════════════════════ -->
+  <canvas id="gameCanvas" data-required></canvas>
+
+  <!-- ── MONEDAS GLOBALES (siempre visibles) ── -->
+  <div id="global-coins-badge" data-ui-interactive>
+    <span class="coin-icon" aria-hidden="true">💰</span>
+    <span class="coin-label">MONEDAS</span>
+    <strong id="global-coins-val" data-required>0</strong>
+  </div>
+
+  <!-- ── TIENDA ───────────────────────────────────────────────
+       Vive debajo del contador de monedas. Desde acá se elige la
+       aeronave; las mejoras se siguen comprando desde la pantalla de
+       resultado, donde se ve cuánto se ganó en el vuelo. -->
+  <div id="shop-dock" data-ui-interactive>
+    <button type="button" id="btn-shop" data-required aria-expanded="false">
+      <span class="shop-btn-icon" aria-hidden="true">🛒</span>
+      <span class="shop-btn-text">
+        <strong>TIENDA</strong>
+        <em id="shop-current-plane" data-required>Papel</em>
+      </span>
+      <span class="shop-btn-arrow" aria-hidden="true">▾</span>
+    </button>
+
+    <div id="shop-panel" class="hidden" data-required>
+      <!-- Dos pestañas: las NAVES se compran y se eligen, las MEJORAS se
+           mejoran. Son cosas distintas y mezclarlas en una sola lista
+           obligaba a leer todo para encontrar lo que buscabas. -->
+      <div id="shop-tabs" role="tablist">
+        <button type="button" id="tab-ships" class="shop-tab active" role="tab"
+                aria-selected="true" aria-controls="shop-hangar" data-ui-interactive>
+          ✈ NAVES
+        </button>
+        <button type="button" id="tab-upgrades" class="shop-tab" role="tab"
+                aria-selected="false" aria-controls="shop-upgrades" data-ui-interactive>
+          ⚙️ MEJORAS
+        </button>
+      </div>
+
+      <section id="shop-hangar">
+        <p id="shop-hangar-hint">Elegí con qué volar. Cada nave tiene su propio alcance, estabilidad y manejo.</p>
+        <!-- Las tarjetas las genera ui/aircraftSelector.js desde las fichas
+             técnicas, para que no puedan desincronizarse. -->
+        <div id="aircraft-selector-cards" data-required data-ui-interactive></div>
+      </section>
+
+      <section id="shop-upgrades" class="hidden">
+        <p id="shop-upgrades-hint">Las mejoras valen para todas las naves: se compran con las monedas de cada vuelo.</p>
+        <div id="shop-grid" data-required data-ui-interactive></div>
+      </section>
+
+      <button type="button" id="btn-shop-close" data-ui-interactive>Cerrar</button>
+    </div>
+  </div>
+
+  <!-- ── CONTROLES DE SISTEMA ── -->
+  <div id="system-controls" data-ui-interactive>
+    <button type="button" id="btn-mute" class="icon-btn" aria-label="Silenciar">🔊</button>
+    <button type="button" id="btn-reset-save" class="icon-btn" aria-label="Borrar progreso" title="Borrar todo el progreso">🗑</button>
+  </div>
+
+  <!-- ── OVERLAY INICIAL ──────────────────────────────────────
+       Solo el título. La tienda (arriba a la derecha) es lo único con lo
+       que se interactúa acá. -->
+  <div id="idle-overlay">
+    <!-- ── MODOS DE JUEGO ──────────────────────────────────────
+         Va adentro del overlay inicial, ARRIBA del título: es lo primero que se
+         elige y así desaparece solo al empezar a jugar, sin lógica extra. El modo
+         es una capa de configuración: ver modes/index.js. -->
+    <div id="mode-bar" data-ui-interactive>
+      <span class="mode-bar-label">MODO</span>
+      <div id="mode-buttons"></div>
+    </div>
+
+    <header id="idle-title-block">
+      <h1 id="game-title">PAPER<span>CRASH</span></h1>
+      <p id="game-subtitle">Low Poly · Física Real · Esquivá Obstáculos</p>
+    </header>
+
+  <div id="idle-hint-block" class="hidden" data-required data-ui-interactive role="button" tabindex="0">
+    <div id="idle-hint-icon" aria-hidden="true">🎯</div>
+    <p id="idle-hint-text">Arrastrá hacia atrás para cargar</p>
+    <p id="idle-hint-controls">
+      <span>↔ izquierda/derecha <em>dirección</em></span>
+      <span>↕ arriba/abajo <em>altura de salida</em></span>
+    </p>
+    <p id="idle-hint-sub">soltá para lanzar · <kbd>Espacio</kbd> o clic acá para usar la puntería actual</p>
+  </div>
+  </div>
+
+  <!-- ── OVERLAY DE MODO LANZAMIENTO ─────────────────────────
+       Segunda etapa: la pantalla queda limpia (solo la nave activa) y la
+       cámara se pone detrás del lanzador para apuntar y lanzar. -->
+  <div id="aim-overlay" class="hidden" data-required>
+    <div id="aim-callout">
+      <span id="aim-plane-icon" data-required aria-hidden="true">✈</span>
+      <div>
+        <strong id="aim-plane-name" data-required>Papel</strong>
+        <em id="aim-plane-tag" data-required>Ágil & Clásico</em>
+      </div>
+    </div>
+    <button type="button" id="btn-back-standby" data-ui-interactive>
+      ← Volver <kbd>Esc</kbd>
+    </button>
+  </div>
+
+
+
+  <!-- ── FEEDBACK DE APUNTADO EN VIVO ── -->
+  <div id="sling-feedback" class="hidden" data-required>
+    <div class="fb-grid">
+      <div class="fb-cell">
+        <span class="fb-label">DIRECCIÓN</span>
+        <strong id="fb-azimuth" data-required>0°</strong>
+      </div>
+      <div class="fb-cell">
+        <span class="fb-label">ALTURA</span>
+        <strong id="fb-pitch" data-required>32°</strong>
+      </div>
+      <div class="fb-cell">
+        <span class="fb-label">POTENCIA</span>
+        <strong id="fb-power" data-required>0%</strong>
+        <div id="fb-bar-wrap"><div id="fb-bar" data-required></div></div>
+      </div>
+      <div class="fb-cell">
+        <span class="fb-label">ALCANCE PREVISTO</span>
+        <strong id="fb-reach" data-required>0 m</strong>
+      </div>
+      <div class="fb-cell">
+        <span class="fb-label">ÁPICE</span>
+        <strong id="fb-apex" data-required>0 m</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── HUD DE VUELO ── -->
+  <!-- El HUD tampoco recibe gestos de juego: es información, no control. -->
+  <div id="hud" class="hidden" data-required data-ui-interactive>
+    <div id="hud-top">
+      <div class="stat-box">
+        <span class="stat-label">DISTANCIA</span>
+        <span class="stat-value" id="val-distance" data-required>0 m</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">ALTITUD</span>
+        <span class="stat-value" id="val-altitude" data-required>0 m</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">VELOCIDAD</span>
+        <span class="stat-value" id="val-speed" data-required>0 m/s</span>
+      </div>
+    </div>
+
+    <div id="hud-coins">💰 <span id="val-coins" data-required>0</span></div>
+
+    <!-- Cargador de propulsión: cuántas unidades quedan y cómo se usan.
+         Es la información táctica del vuelo: el jugador decide CUÁNDO gastarlas. -->
+    <div id="thrust-badge" class="hidden">
+      <span class="thrust-icon" aria-hidden="true">⚡</span>
+      <span class="thrust-text">
+        <strong id="thrust-count" data-required>0</strong>
+        <em>PROPULSIÓN · <kbd>Espacio</kbd></em>
+      </span>
+    </div>
+
+    <!-- Tramo actual: el escenario y la dificultad cambian cada 500 m. -->
+    <div id="stage-badge" class="hidden">
+      <strong id="stage-name" data-required>VALLE BAJO</strong>
+      <span id="stage-progress" data-required>0 m</span>
+    </div>
+
+    <!-- Barra del presupuesto de planeo: cuánto queda antes de que el avión
+         empiece a caer. Es la señal para ir a buscar el próximo booster. -->
+    <div id="glide-gauge">
+      <span class="stat-label">PLANEO <strong id="glide-pct" data-required>100%</strong></span>
+      <div id="glide-bar"><div id="glide-fill" data-required></div></div>
+    </div>
+
+    <div id="wind-indicator">
+      <span class="stat-label">VIENTO LAT.</span>
+      <div id="wind-arrow" data-required aria-hidden="true">➤</div>
+      <span id="val-wind" data-required>0 m/s</span>
+    </div>
+  </div>
+
+  <!-- ── PANTALLA DE RESULTADO ── -->
+  <!-- `data-ui-interactive` hace que core/input.js descarte cualquier gesto
+       que empiece acá: es una capa de UI, nunca un gesto de juego. Sin esto,
+       un clic sobre la pantalla de resultado entraba al sistema de apuntado
+       (en el camino antiguo llegaba a relanzar el avión). -->
+  <div id="result-screen" class="hidden" data-required data-ui-interactive>
+    <div id="result-inner">
+      <div id="total-coins-banner">
+        <span>💰 MONEDAS TOTALES</span>
+        <strong id="total-coins-val" data-required>0</strong>
+      </div>
+
+      <h2 id="result-title" data-required>ATERRIZAJE</h2>
+
+      <div id="result-stats">
+        <div class="result-stat"><span>📏 Distancia</span><strong id="res-distance" data-required>—</strong></div>
+        <div class="result-stat"><span>📈 Alt. máx.</span><strong id="res-altitude" data-required>—</strong></div>
+        <div class="result-stat"><span>⚡ Vel. máx.</span><strong id="res-speed" data-required>—</strong></div>
+        <div class="result-stat"><span>⏱ Tiempo</span><strong id="res-time" data-required>—</strong></div>
+        <div class="result-stat"><span>🎯 Aros</span><strong id="res-rings" data-required>0</strong></div>
+        <div class="result-stat"><span>⚡ Boosters</span><strong id="res-boosters" data-required>0</strong></div>
+        <div class="result-stat"><span>🪙 Monedas</span><strong id="res-coin-count" data-required>0</strong></div>
+        <div class="result-stat coins-earned">
+          <span>💰 Ganaste</span>
+          <strong id="res-coins" data-required>—</strong>
+        </div>
+      </div>
+
+      <div id="res-record" data-required></div>
+
+      <!-- Las mejoras se compran en la tienda (arriba a la derecha), que ya
+           está abierta mostrando cuánto ganaste. Acá solo se resume. -->
+      <button type="button" id="btn-open-shop" data-ui-interactive>
+        🛒 COMPRAR MEJORAS
+      </button>
+
+      <button type="button" id="btn-again" data-required data-ui-interactive>
+        🔄 VOLAR DE NUEVO
+        <span id="btn-again-hint">Enter / Espacio</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── CAPAS EFÍMERAS ── -->
+  <div id="crash-flash" data-required aria-hidden="true"></div>
+  <div id="fader" data-required aria-hidden="true"></div>
+
+  <!-- ── CARTEL DE ERROR DE ARRANQUE ── -->
+  <div id="boot-error" class="hidden" role="alert">
+    <div class="boot-error-box">
+      <h2>⚠ No se pudo iniciar</h2>
+      <p id="boot-error-msg" data-required></p>
+      <p class="boot-error-hint">
+        Si abriste el archivo con doble clic (<code>file://</code>), los módulos
+        ES no cargan. Serví la carpeta por HTTP:
+        <code>npx serve .</code> o <code>python -m http.server</code>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Three.js desde CDN.
+       Es un script clásico a propósito: define el global `THREE` que los
+       módulos importan implícitamente. main.js espera a que exista antes
+       de arrancar el juego. -->
+  <!--
+    ── Three.js LOCAL ──
+    Antes se cargaba desde cdnjs.cloudflare.com. El APK no pide permiso de
+    INTERNET a propósito, así que sin red el script no llegaba, `THREE` quedaba
+    indefinido y el juego moría al arrancar: era la pantalla negra en Android.
+  -->
+  <script src="js/vendor/three.min.js"></script>
+
+  <!-- Punto de entrada del juego. `type="module"` habilita los imports y
+       hace que la carga sea deferred (el DOM ya existe al evaluarse). -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

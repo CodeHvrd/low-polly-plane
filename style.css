@@ -1,0 +1,2037 @@
+/* =========================================================
+   PAPERCRASH — style.css
+   Organización:
+     1. Reset y variables
+     2. Utilidades
+     3. Canvas y capas
+     4. Monedas y controles de sistema
+     5. HUD de vuelo
+     6. Overlay de inicio y selector de aeronave
+     7. Feedback de apuntado
+     8. Pantalla de resultado y tienda
+     9. Capas efímeras y cartel de error
+   Los colores viven en :root. Ningún valor de color se repite suelto.
+   ========================================================= */
+
+/* ── 1. Reset y variables ─────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --cyan: #00e5ff;
+  --cyan-dim: rgba(0, 229, 255, 0.18);
+  --orange: #ff6d00;
+  --purple: #7c3aed;
+  --gold: #ffd740;
+  --red: #ff5252;
+  --green: #3ddc84;
+
+  --bg: #0a0e1a;
+  --surface: rgba(10, 14, 26, 0.82);
+  --surface-2: rgba(255, 255, 255, 0.05);
+  --border: rgba(0, 229, 255, 0.18);
+  --border-soft: rgba(255, 255, 255, 0.1);
+  --text: #e0e8f8;
+  --muted: rgba(224, 232, 248, 0.55);
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+
+  --font-display: 'Orbitron', ui-monospace, monospace;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --z-canvas: 1;
+  --z-flash: 50;
+  --z-overlay: 80;
+  --z-feedback: 90;
+  --z-panel: 100;
+  --z-system: 120;
+  --z-fader: 200;
+  --z-error: 300;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font-body);
+  color: var(--text);
+  cursor: crosshair;
+  /* En un juego de arrastre, la selección de texto solo estorba. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* ── 2. Utilidades ────────────────────────────────────── */
+.hidden {
+  display: none !important;
+}
+
+kbd {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+}
+
+/* Botones: foco visible para navegación por teclado. */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+/* ── 3. Canvas y capas ────────────────────────────────── */
+#gameCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Sin esto, el arrastre sobre el canvas dispara el scroll/zoom táctil. */
+  touch-action: none;
+  z-index: var(--z-canvas);
+}
+
+/* ── 4. Monedas y controles de sistema ────────────────── */
+#global-coins-badge {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: var(--z-system);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid rgba(255, 215, 64, 0.45);
+  box-shadow: 0 0 20px rgba(255, 215, 64, 0.18);
+  padding: 8px 18px;
+  border-radius: 30px;
+  backdrop-filter: blur(12px);
+}
+
+#global-coins-badge .coin-icon {
+  font-size: 1.3rem;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 64, 0.8));
+}
+
+#global-coins-badge .coin-label {
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+}
+
+#global-coins-badge strong {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 215, 64, 0.7);
+}
+
+/* Los controles de sistema van a la IZQUIERDA: debajo del contador de
+   monedas ahora vive la tienda, así que a la derecha ya no hay lugar. */
+#system-controls {
+  position: fixed;
+  top: 16px;
+  left: 20px;
+  z-index: var(--z-system);
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Tienda: botón + panel, debajo del contador de monedas ── */
+#shop-dock {
+  position: fixed;
+  top: 68px;
+  right: 20px;
+  z-index: var(--z-system);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+#btn-shop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  padding: 8px 16px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.18s, background 0.18s;
+}
+
+#btn-shop:hover,
+#shop-dock.open #btn-shop {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.1);
+}
+
+.shop-btn-icon {
+  font-size: 1.1rem;
+}
+
+.shop-btn-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.shop-btn-text strong {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  color: #fff;
+}
+
+.shop-btn-text em {
+  font-size: 0.58rem;
+  font-style: normal;
+  color: var(--cyan);
+  letter-spacing: 0.06em;
+}
+
+.shop-btn-arrow {
+  font-size: 0.7rem;
+  color: var(--muted);
+  transition: transform 0.22s;
+}
+
+#shop-dock.open .shop-btn-arrow {
+  transform: rotate(180deg);
+}
+
+#shop-panel {
+  width: min(420px, calc(100vw - 40px));
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: shopIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes shopIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+#shop-upgrades-hint {
+  font-size: 0.66rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+/* Dentro del panel, las mejoras van en una sola columna: el panel es angosto. */
+#shop-panel #shop-grid {
+  grid-template-columns: 1fr;
+  margin-bottom: 0;
+}
+
+#btn-shop-close {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  padding: 9px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+#btn-shop-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+/* En pantallas chicas el panel ocupa el ancho disponible. */
+@media (max-width: 560px) {
+  #shop-dock {
+    top: 62px;
+    right: 12px;
+  }
+  #shop-panel {
+    max-height: calc(100vh - 150px);
+  }
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 50%;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, transform 0.12s;
+}
+
+.icon-btn:hover {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: var(--cyan);
+  transform: translateY(-1px);
+}
+
+/* ── 5. HUD de vuelo ──────────────────────────────────── */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /*
+   * ── Padding del HUD ──
+   *
+   * Arriba a la izquierda están los controles de sistema, pero en VUELO esos
+   * controles están ocultos (ver `body.en-vuelo`). Así que el margen superior se
+   * reduce y, en vertical, también los laterales: cada píxel que se recupera
+   * arriba es corredor visible.
+   */
+  padding: 14px 14px 10px;
+  z-index: var(--z-overlay);
+}
+
+#hud-top {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stat-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 92px;
+}
+
+.stat-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-family: var(--font-display);
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--cyan);
+  margin-top: 2px;
+}
+
+/* Las monedas del HUD se ocultan: el badge global ya las muestra. */
+#hud-coins {
+  display: none;
+}
+
+/* Aviso de booster: aparece al recoger uno y late para que se note.
+   El jugador está mirando al avión, así que el aviso tiene que llamar. */
+#booster-badge {
+  position: fixed;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.22), rgba(124, 58, 237, 0.22));
+  border: 1px solid var(--cyan);
+  border-radius: 30px;
+  padding: 7px 18px;
+  backdrop-filter: blur(12px);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  color: #fff;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+
+#booster-badge .booster-icon {
+  font-size: 1.05rem;
+  filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.9));
+}
+
+#booster-badge strong {
+  color: var(--cyan);
+  font-size: 0.95rem;
+}
+
+#booster-badge.pulse {
+  animation: boosterPulse 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes boosterPulse {
+  0%   { transform: translateX(-50%) scale(1); }
+  35%  { transform: translateX(-50%) scale(1.22); box-shadow: 0 0 30px rgba(0, 229, 255, 0.7); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+/* Barra del presupuesto de planeo.
+   Es la señal táctica del vuelo: cuando baja, hay que ir a buscar un booster. */
+#glide-gauge {
+  position: fixed;
+  left: 50%;
+  bottom: 112px;
+  transform: translateX(-50%);
+  width: min(260px, 60vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+
+#glide-gauge .stat-label {
+  font-size: 0.55rem;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+#glide-gauge strong {
+  color: var(--cyan);
+  font-size: 0.68rem;
+}
+
+#glide-bar {
+  width: 100%;
+  height: 7px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#glide-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #0057ff, var(--cyan));
+  border-radius: 3px;
+  transition: width 120ms linear, background 200ms;
+}
+
+/* Poco planeo: el avión está por caer. */
+#glide-fill.low {
+  background: linear-gradient(90deg, #ff8a00, var(--red, #ff4d5e));
+  animation: glideLow 620ms ease-in-out infinite;
+}
+
+@keyframes glideLow {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* Cargador de propulsión.
+   Es la información táctica del vuelo: cuántas unidades quedan para gastar. */
+#thrust-badge {
+  position: fixed;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--cyan);
+  border-radius: 30px;
+  padding: 8px 20px;
+  backdrop-filter: blur(12px);
+  font-family: var(--font-display);
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+
+#thrust-badge .thrust-icon {
+  font-size: 1.15rem;
+  filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.95));
+}
+
+#thrust-badge .thrust-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+#thrust-badge strong {
+  font-size: 1.15rem;
+  color: var(--cyan);
+}
+
+#thrust-badge em {
+  font-size: 0.55rem;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+#thrust-badge em kbd {
+  font-size: 0.52rem;
+  padding: 1px 4px;
+}
+
+/* Sin cargas: el cargador se apaga pero sigue visible, para que el jugador
+   sepa que existe y que hay que juntar boosters para usarlo. */
+#thrust-badge.empty {
+  border-color: var(--border-soft);
+  opacity: 0.5;
+}
+
+#thrust-badge.empty strong {
+  color: var(--muted);
+}
+
+#thrust-badge.full {
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.45);
+}
+
+#thrust-badge.pulse {
+  animation: thrustPulse 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes thrustPulse {
+  0%   { transform: translateX(-50%) scale(1); }
+  35%  { transform: translateX(-50%) scale(1.25); box-shadow: 0 0 34px rgba(0, 229, 255, 0.85); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+/* Tramo actual: aparece al entrar a cada uno y queda como referencia. */
+#stage-badge {
+  position: fixed;
+  top: 118px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-display);
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+
+#stage-badge strong {
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  color: #fff;
+  text-shadow: 0 0 14px rgba(0, 0, 0, 0.9);
+}
+
+#stage-badge span {
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+}
+
+#stage-badge.enter {
+  animation: stageEnter 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes stageEnter {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(0.94); }
+  40%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.06); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+#wind-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+#wind-arrow {
+  font-size: 1.2rem;
+  color: var(--cyan);
+  transition: transform 0.4s ease;
+}
+
+/* ── 6. Pantallas de inicio, preparado y hangar ───────── */
+
+/* ── Pantalla inicial: solo el título ── */
+#idle-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 26px 20px;
+  /* El overlay no captura el ratón: el arrastre debe llegar al canvas.
+     Solo los hijos con `pointer-events: auto` son interactivos. */
+  pointer-events: none;
+  z-index: var(--z-overlay);
+}
+
+#idle-title-block {
+  text-align: center;
+  pointer-events: none;
+}
+
+#game-title {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5.5vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow: 0 0 40px rgba(0, 229, 255, 0.5);
+}
+
+#game-title span {
+  color: var(--orange);
+}
+
+#game-subtitle {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  margin-top: 6px;
+  text-transform: uppercase;
+}
+
+/* ── Modo lanzamiento: pantalla limpia, solo la nave activa ──
+   El lanzador y el avión los dibuja el canvas; esto es apenas un cartel
+   que dice qué nave quedó seleccionada. */
+#aim-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 22px 20px;
+  pointer-events: none;
+  z-index: var(--z-overlay);
+}
+
+#aim-callout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 40px;
+  padding: 8px 22px 8px 16px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.12);
+  animation: aimIn 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes aimIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#aim-plane-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.5));
+}
+
+#btn-back-standby {
+  margin-top: 10px;
+  pointer-events: auto;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 30px;
+  padding: 7px 16px;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: color 0.18s, border-color 0.18s;
+}
+
+#btn-back-standby:hover {
+  color: var(--text);
+  border-color: var(--cyan);
+}
+
+#btn-back-standby kbd {
+  font-size: 0.55rem;
+  padding: 1px 5px;
+}
+
+#aim-callout div {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+#aim-plane-name {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.06em;
+}
+
+#aim-plane-tag {
+  font-size: 0.6rem;
+  font-style: normal;
+  color: var(--cyan);
+  letter-spacing: 0.1em;
+}
+
+/* ══════════════════════════════════════════════════════════
+   INTERFAZ DE MENÚ vs. INTERFAZ DE JUEGO
+   ══════════════════════════════════════════════════════════
+   La tienda, el silenciador y el borrar-progreso son de menú: durante el vuelo
+   no se usan y en móvil se pisaban con el HUD. `overlays.js` pone la clase
+   `en-vuelo` en el body y acá se decide qué desaparece.
+
+   Se ocultan con `display: none` y no con `visibility`: así liberan el espacio
+   y no quedan como capas invisibles que igual reciben clics. */
+body.en-vuelo #shop-dock,
+body.en-vuelo #system-controls,
+body.en-vuelo #global-coins,
+body.en-vuelo #mode-bar {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════════════════
+   VERTICAL: el juego ahora se juega en retrato
+   ══════════════════════════════════════════════════════════
+   El corredor corre a lo ancho de la pantalla, así que en vertical el espacio
+   útil es una franja vertical. Todo lo que sea interfaz tiene que ser chico y
+   vivir en los bordes; el centro se deja para el avión. */
+@media (orientation: portrait) {
+
+  /* El HUD se apoya en el borde superior y no se estira. */
+  #hud {
+    padding: 8px 10px 8px;
+  }
+
+  #hud-top {
+    gap: 8px;
+    /* Los tres indicadores (distancia, altura, velocidad) entran en una fila
+       angosta: se achican en vez de partirse. */
+    flex-wrap: nowrap;
+  }
+
+  /* Las cajas de datos se achican y pierden relleno. */
+  .stat-box {
+    padding: 5px 9px;
+    border-radius: 10px;
+    min-width: 0;
+  }
+
+  .stat-label {
+    font-size: 0.5rem;
+    letter-spacing: 0.06em;
+  }
+
+  .stat-value {
+    font-size: 0.95rem;
+    line-height: 1.15;
+  }
+
+  /*
+   * El cartel de tramo se ancla arriba y a la derecha, debajo de las monedas:
+   * en el centro tapaba justo el horizonte y los boosters que vienen.
+   */
+  #stage-badge {
+    top: 58px;
+    right: 10px;
+    left: auto;
+    transform: none;
+    font-size: 0.58rem;
+  }
+
+  /*
+   * La barra de planeo va en la franja inferior, entre la rueda y el boost.
+   *
+   * Es información que se mira periféricamente: abajo al centro queda fuera del
+   * recorrido del pulgar y no tapa el corredor.
+   */
+  #glide-gauge {
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 58%;
+  }
+}
+
+@media (orientation: portrait) {
+  /*
+   * ── El viento no puede vivir abajo a la derecha ──
+   *
+   * Ahí está el botón de boost. Medido en 390x844, el indicador de viento caía
+   * encima del botón y lo dejaba ilegible. Se mueve a la franja superior, debajo
+   * del cartel de tramo, donde no compite con ningún mando.
+   */
+  #wind-indicator {
+    bottom: auto;
+    right: 10px;
+    top: 84px;
+    padding: 5px 9px;
+    font-size: 0.6rem;
+  }
+
+  #wind-arrow {
+    font-size: 0.9rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   VERTICAL: el lobby
+   ══════════════════════════════════════════════════════════
+   En retrato la pantalla es angosta y alta: los controles de sistema (sonido,
+   borrar) y la tienda quedan arriba, así que el título necesita su propio espacio
+   debajo. Sin esto el título se cortaba contra las monedas. */
+@media (orientation: portrait) {
+
+  /*
+   * ── El título baja para no chocar con la tienda y las monedas ──
+   *
+   * En la esquina superior derecha viven las monedas y el botón de tienda, que
+   * se dibujan como `fixed` y llegan hasta ~210 px. El título estaba en 78 y
+   * quedaba TAPADO por ellos.
+   *
+   * Además la pista se fuerza al final con `order`: como ahora es hija del
+   * overlay, sin esto aparecía entre el título y el lanzador en vez de debajo.
+   */
+  #idle-overlay {
+    padding-top: 208px;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  /* La pista va SIEMPRE última, debajo del título. */
+  #idle-hint-block {
+    order: 99;
+  }
+
+  /* El título y su subtítulo no se estiran. */
+  #idle-title-block {
+    flex-shrink: 0;
+  }
+
+  /*
+   * ── Tamaño del título ──
+   *
+   * Con `5.5vw` en un teléfono de 390 px el título pedía 21 px de fuente pero el
+   * texto completo no entraba y desbordaba. Se usa un tamaño relativo al ANCHO con
+   * un tope, y `nowrap` para que no se parta en dos líneas.
+   */
+  #game-title {
+    font-size: clamp(1.6rem, 9vw, 2.6rem);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  #game-subtitle {
+    font-size: 0.6rem;
+    letter-spacing: 0.04em;
+    padding: 0 12px;
+    line-height: 1.5;
+  }
+
+  /*
+   * La pista de control se achica: en vertical ocupaba 33% del alto y el lobby se
+   * sentía como una pantalla de instrucciones en vez de un juego.
+   */
+  #idle-hint-block {
+    bottom: auto;
+    top: auto;
+    width: min(92vw, 420px);
+    padding: 10px 14px;
+    border-radius: 14px;
+    margin-top: 10px;
+  }
+
+  #idle-hint-icon {
+    font-size: 1.35rem;
+    margin-bottom: 0;
+  }
+
+  #idle-hint-text {
+    font-size: 0.78rem;
+    margin-bottom: 5px;
+  }
+
+  #idle-hint-controls {
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.62rem;
+    margin-bottom: 4px;
+  }
+
+  #idle-hint-sub {
+    font-size: 0.58rem;
+    line-height: 1.4;
+  }
+}
+
+/* ── Barra de modos ──
+   El modo es la elección más grande del juego, así que va arriba del todo y
+   siempre visible: no se esconde en la tienda ni en un menú. */
+#mode-bar {
+  /*
+   * Vive dentro del overlay inicial, arriba del título.
+   *
+   * Así queda por encima de las instrucciones (que es donde se pidió) y
+   * desaparece sola cuando el juego empieza, porque el overlay entero se oculta
+   * al pasar a la etapa de lanzamiento o de vuelo.
+   */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 5px 6px 5px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 26px;
+  backdrop-filter: blur(12px);
+  /*
+   * ── ESTA LÍNEA ES LA QUE HACE QUE SE PUEDA CLICKEAR ──
+   *
+   * El overlay inicial tiene `pointer-events: none` para que el arrastre llegue
+   * al canvas de abajo. Sin reactivarlo acá, la barra se VE pero no recibe ni un
+   * clic: parece rota. Es exactamente el bug que se reportó.
+   *
+   * La misma trampa está documentada más arriba, en `#idle-overlay`: "solo los
+   * hijos con pointer-events: auto son interactivos".
+   */
+  pointer-events: auto;
+}
+
+.mode-bar-label {
+  font-family: var(--font-display);
+  font-size: 0.54rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+
+#mode-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: color 0.16s, background 0.16s;
+}
+
+.mode-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mode-btn.active {
+  color: #04070f;
+  background: linear-gradient(135deg, var(--cyan), #7c3aed);
+  font-weight: 600;
+}
+
+/* ── Pestañas de la tienda ──
+   NAVES y MEJORAS son cosas distintas: una nave se elige, una mejora se sube
+   de nivel. Se separaron porque en una sola lista había que leer todo. */
+#shop-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.shop-tab {
+  flex: 1;
+  padding: 9px 8px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.18s, border-color 0.18s;
+}
+
+.shop-tab:hover {
+  color: var(--text);
+}
+
+.shop-tab.active {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+}
+
+#shop-hangar-hint,
+#shop-upgrades-hint {
+  font-size: 0.66rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+/* ── Hangar (dentro del panel de tienda) ── */
+#shop-hangar h3,
+#shop-upgrades h3 {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+/* ── Estadísticas por nave ──
+   Sin esto, la diferencia entre naves es invisible y elegir deja de tener
+   sentido: el jugador no puede saber que el de papel lo lleva el viento. */
+.plane-stats {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.plane-stat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.plane-stat > span {
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  width: 62px;
+  flex-shrink: 0;
+}
+
+.plane-stat-bar {
+  flex: 1;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.plane-stat-fill {
+  height: 100%;
+  width: 50%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #0057ff, var(--cyan));
+  transition: width 220ms ease-out;
+}
+
+/* Etiqueta de cada estadística, con ancho fijo para que las columnas
+   queden alineadas entre tarjetas: sin eso los números no se pueden comparar
+   de un vistazo, que es justo para lo que están. */
+.plane-stat-label {
+  width: 74px;
+  flex-shrink: 0;
+}
+
+/* El número al lado de la barra: responde "¿cuánto?" sin obligar a comparar
+   longitudes. */
+.plane-stat-value {
+  font-family: var(--font-display);
+  font-size: 0.54rem;
+  color: var(--text);
+  width: 62px;
+  text-align: right;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+/* Barra de un valor donde MENOS es mejor (viento, pérdida): se pinta distinto
+   para que no se lea como una virtud. */
+.plane-stat-fill[data-low="true"] {
+  background: linear-gradient(90deg, #7a3b1f, #ff8a1f);
+}
+
+/* Botón de acción de la tarjeta: ADQUIRIR / EQUIPAR / EN USO. */
+.plane-action {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: end;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  background: rgba(0, 229, 255, 0.08);
+  cursor: pointer;
+  transition: background 0.16s, transform 0.12s;
+  white-space: nowrap;
+}
+
+.plane-action:hover {
+  background: rgba(0, 229, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Sin acción disponible: se ve como etiqueta, no como botón. */
+.plane-action.disabled {
+  border-color: var(--border-soft);
+  color: var(--muted);
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.plane-action.disabled:hover {
+  transform: none;
+}
+
+/* Tarjeta PRESELECCIONADA: se agranda la info y se marca el borde, pero sin
+   confundirse con la equipada (que tiene el estilo "active"). */
+.plane-choice-btn.selected {
+  border-color: rgba(0, 229, 255, 0.55);
+  background: rgba(0, 229, 255, 0.05);
+}
+
+.plane-choice-btn.selected .plane-stats {
+  opacity: 1;
+}
+
+/* Las estadísticas de las tarjetas NO seleccionadas quedan atenuadas: se
+   comparan igual, pero la elegida se lee primero. */
+.plane-choice-btn:not(.selected) .plane-stats {
+  opacity: 0.62;
+}
+
+.plane-choice-btn.active .plane-stat-fill {
+  background: linear-gradient(90deg, var(--cyan), #7c3aed);
+}
+
+#aircraft-selector-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.plane-choice-btn {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    'icon name price'
+    'icon tag  status'
+    'stats stats stats';
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 2px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.plane-choice-btn:hover:not(.locked) {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: var(--cyan);
+  transform: translateX(2px);
+}
+
+.plane-choice-btn.active {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.22), rgba(124, 58, 237, 0.22));
+  border-color: var(--cyan);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.3);
+}
+
+.plane-choice-btn.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.plane-choice-btn .plane-icon {
+  grid-area: icon;
+  font-size: 1.5rem;
+  filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.5));
+}
+
+.plane-choice-btn .plane-name {
+  grid-area: name;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #fff;
+}
+
+.plane-choice-btn .plane-tag {
+  grid-area: tag;
+  font-size: 0.58rem;
+  color: var(--muted);
+}
+
+.plane-choice-btn.active .plane-tag {
+  color: var(--cyan);
+}
+
+.plane-choice-btn .plane-price {
+  grid-area: price;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  color: var(--green);
+  text-align: right;
+}
+
+.plane-choice-btn .plane-price.cant-afford {
+  color: var(--red);
+}
+
+.plane-choice-btn .plane-status {
+  grid-area: status;
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* ── Pista de control (compartida por inicio y preparado) ── */
+#idle-hint-block {
+  /*
+   * ── Deja de ser `fixed` ──
+   *
+   * Ahora es hija del overlay inicial, que es un flex en columna: se apila sola
+   * debajo del título. Cuando era `fixed` había que adivinar su posición para no
+   * pisar el título ni los mandos, y en vertical siempre quedaba mal.
+   */
+  position: static;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  padding: 14px 26px;
+  border-radius: 20px;
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.15);
+  pointer-events: auto;
+  cursor: pointer;
+  animation: pulseHint 2.4s ease-in-out infinite;
+  transition: border-color 0.2s;
+  /*
+   * ── Ancho: se le da un ANCHO y no un tope ──
+   *
+   * Con `max-width` solo, el bloque se encogía al ancho de su contenido más
+   * largo y el texto se partía en muchas líneas: medido en un móvil apaisado
+   * ocupaba 426x162 px en una pantalla de 851x393, o sea el 41% del alto. Con un
+   * ancho definido el texto se despliega a lo ancho y el bloque baja a la mitad
+   * de alto.
+   */
+  width: min(660px, 94vw);
+  z-index: var(--z-overlay);
+}
+
+/*
+ * ── En móvil apaisado el bloque se achica y sube ──
+ *
+ * El alto útil es de ~390 px y el bloque ocupaba 162. Además estaba pegado al
+ * fondo, que es justo donde viven los mandos táctiles: se pisaban.
+ */
+@media (max-height: 520px) {
+  #idle-hint-block {
+    /*
+     * ── Deja de ser `fixed` y FLUYE debajo del título ──
+     *
+     * Con posiciones fijas había que adivinar la altura del título para no
+     * pisarlo, y medido siempre quedaba mal: el bloque caía en y=128 y el título
+     * terminaba en y=159. En el flujo del overlay se acomoda solo, sin importar
+     * cuánto ocupe el título ni el alto de la pantalla.
+     *
+     * El overlay inicial ya es un flex en columna con `align-items: center`, así
+     * que basta con sacarle el `fixed` y darle un margen.
+     */
+    /*
+     * ── Anclado desde ABAJO, no desde arriba ──
+     *
+     * El bloque NO está dentro del overlay inicial: vive aparte porque también
+     * se muestra en la etapa de lanzamiento. Así que no puede "fluir" debajo del
+     * título, y anclarlo por arriba obligaba a adivinar dónde termina el título
+     * (medido: el título acababa en y=159 y el bloque caía en y=128, pisándolo).
+     *
+     * Anclado desde abajo el problema desaparece: el bloque crece hacia arriba
+     * desde una altura que deja libres los mandos táctiles, que ocupan los
+     * últimos ~124 px de la pantalla. No hay que saber nada del título.
+     */
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 132px);
+    width: min(560px, 92vw);
+    padding: 8px 16px;
+    border-radius: 14px;
+  }
+
+  /* El ícono grande se come 30 px de alto y no aporta nada acá. */
+  #idle-hint-icon {
+    display: none;
+  }
+
+  #idle-hint-text {
+    font-size: 0.78rem;
+    margin-bottom: 4px;
+  }
+
+  #idle-hint-controls {
+    gap: 12px;
+    font-size: 0.62rem;
+    margin-bottom: 3px;
+  }
+
+  #idle-hint-sub {
+    font-size: 0.58rem;
+    line-height: 1.4;
+  }
+}
+
+#idle-hint-block:hover {
+  border-color: var(--cyan);
+}
+
+@keyframes pulseHint {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 229, 255, 0.15); }
+  50%      { box-shadow: 0 0 35px rgba(0, 229, 255, 0.35); }
+}
+
+#idle-hint-icon {
+  font-size: 1.9rem;
+  color: var(--cyan);
+  margin-bottom: 2px;
+}
+
+#idle-hint-text {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+#idle-hint-controls {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+#idle-hint-controls em {
+  color: var(--cyan);
+  font-style: normal;
+  font-weight: 600;
+}
+
+#idle-hint-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #idle-hint-block { animation: none; }
+}
+
+/* ── 7. Feedback de apuntado ──────────────────────────── */
+#sling-feedback {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  border-radius: var(--radius-md);
+  padding: 10px 18px;
+  pointer-events: none;
+  z-index: var(--z-feedback);
+  max-width: 94vw;
+}
+
+.fb-grid {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.fb-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 74px;
+}
+
+.fb-label {
+  font-family: var(--font-display);
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.fb-cell strong {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  color: var(--cyan);
+}
+
+#fb-bar-wrap {
+  width: 88px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+#fb-bar {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), var(--orange));
+  transition: width 0.05s linear;
+}
+
+/* ── 8. Pantalla de resultado y tienda ────────────────── */
+#result-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 14, 26, 0.9);
+  backdrop-filter: blur(6px);
+  z-index: var(--z-panel);
+  overflow-y: auto;
+  padding: 20px 12px;
+}
+
+#result-inner {
+  text-align: center;
+  padding: 32px 34px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(20px);
+  max-width: 580px;
+  width: 100%;
+  margin: auto;
+}
+
+#total-coins-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 215, 64, 0.12);
+  border: 1px solid rgba(255, 215, 64, 0.4);
+  border-radius: 30px;
+  padding: 8px 24px;
+  margin-bottom: 18px;
+}
+
+#total-coins-banner span {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+
+#total-coins-banner strong {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 215, 64, 0.6);
+}
+
+#result-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 4vw, 1.7rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-bottom: 18px;
+  color: var(--cyan);
+  text-shadow: 0 0 30px rgba(0, 229, 255, 0.4);
+}
+
+#result-title.res-crash { color: var(--orange); text-shadow: 0 0 30px rgba(255, 109, 0, 0.5); }
+#result-title.res-hard  { color: var(--gold);   text-shadow: 0 0 30px rgba(255, 215, 64, 0.45); }
+#result-title.res-good  { color: var(--green);  text-shadow: 0 0 30px rgba(61, 220, 132, 0.45); }
+#result-title.res-out   { color: var(--red);    text-shadow: 0 0 30px rgba(255, 82, 82, 0.5); }
+
+#result-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 520px) {
+  #result-stats { grid-template-columns: repeat(3, 1fr); }
+}
+
+.result-stat {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.result-stat span {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.result-stat strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--cyan);
+}
+
+.coins-earned {
+  grid-column: 1 / -1;
+  border-color: rgba(255, 215, 64, 0.3) !important;
+  background: rgba(255, 215, 64, 0.06) !important;
+}
+
+.coins-earned strong {
+  color: var(--gold) !important;
+  font-size: 1.3rem !important;
+}
+
+#res-record {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 18px;
+  min-height: 1.2em;
+}
+
+#res-record.is-record {
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(255, 215, 64, 0.6);
+}
+
+#shop h3 {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+#shop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 9px;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 560px) {
+  #shop-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.shop-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+
+.shop-card:hover:not(.maxed):not(.locked) {
+  background: rgba(0, 229, 255, 0.07);
+  border-color: var(--cyan);
+  transform: translateY(-2px);
+}
+
+.shop-card.maxed {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.shop-card.locked {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.shop-card-icon { font-size: 1.4rem; line-height: 1; }
+
+.shop-card-name {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.shop-card-desc {
+  font-size: 0.64rem;
+  color: var(--muted);
+  line-height: 1.35;
+  min-height: 2.7em;
+}
+
+.shop-card-level-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.shop-card-level-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--cyan), var(--purple));
+  transition: width 0.35s;
+}
+
+.shop-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 1.1em;
+}
+
+.shop-card-cost {
+  font-size: 0.72rem;
+  color: var(--gold);
+  font-family: var(--font-display);
+}
+
+.shop-card-cost.cant-afford { color: var(--red); }
+
+.shop-card-status {
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+}
+
+/* El botón de reintentar de la pantalla de resultado, más el de tienda. */
+#btn-open-shop {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  padding: 11px 24px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(0, 229, 255, 0.08);
+  color: var(--cyan);
+  cursor: pointer;
+  transition: background 0.18s, transform 0.15s;
+}
+
+#btn-open-shop:hover {
+  background: rgba(0, 229, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+#btn-again {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 13px 34px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0057ff, var(--cyan));
+  color: #fff;
+  letter-spacing: 0.08em;
+  box-shadow: 0 4px 24px rgba(0, 229, 255, 0.3);
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+#btn-again:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 36px rgba(0, 229, 255, 0.45);
+}
+
+#btn-again:active { transform: translateY(0); }
+
+#btn-again-hint {
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── 9. Capas efímeras y cartel de error ──────────────── */
+#crash-flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 55%, rgba(255, 90, 30, 0.65), rgba(255, 40, 0, 0.15));
+  pointer-events: none;
+  opacity: 0;
+  z-index: var(--z-flash);
+}
+
+#fader {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  /*
+   * CLAVE: `pointer-events: none` de base. El velo está SIEMPRE en el DOM,
+   * aunque sea transparente, y si capturara el ratón se comería todos los
+   * clics del juego. overlays.js lo habilita solo mientras dura el fundido.
+   */
+  pointer-events: none;
+  opacity: 0;
+  z-index: var(--z-fader);
+  transition: opacity 200ms ease;
+}
+
+#boot-error {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 14, 26, 0.96);
+  z-index: var(--z-error);
+  padding: 24px;
+}
+
+.boot-error-box {
+  max-width: 560px;
+  width: 100%;
+  background: rgba(255, 82, 82, 0.08);
+  border: 1px solid rgba(255, 82, 82, 0.4);
+  border-radius: var(--radius-lg);
+  padding: 28px 30px;
+  text-align: left;
+}
+
+.boot-error-box h2 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--red);
+  margin-bottom: 12px;
+}
+
+.boot-error-box p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.boot-error-detail {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.boot-error-hint {
+  margin-top: 14px;
+  color: var(--muted) !important;
+  font-size: 0.75rem !important;
+}
+
+.boot-error-hint code {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: ui-monospace, monospace;
+  color: var(--cyan);
+}
+
+/* ── Pantallas angostas ───────────────────────────────── */
+@media (max-width: 560px) {
+  #global-coins-badge { padding: 6px 12px; }
+  #global-coins-badge .coin-label { display: none; }
+  #system-controls { top: 62px; }
+  #result-inner { padding: 24px 18px; }
+  .fb-grid { gap: 12px; }
+  .fb-cell { min-width: 62px; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   MANDOS TÁCTILES (móvil)
+   ══════════════════════════════════════════════════════════
+   Se muestran SÓLO volando, y sólo en dispositivos táctiles: en escritorio no
+   se construyen siquiera. Ocupan las esquinas inferiores, que es donde llegan
+   los pulgares sin tapar el corredor. */
+#touch-controls {
+  position: fixed;
+  inset: 0;
+  /* El contenedor no captura nada: sólo los mandos, que están encima del canvas
+     y no deben bloquear el arrastre de apuntado. */
+  pointer-events: none;
+  z-index: var(--z-panel);
+}
+
+#touch-controls.hidden {
+  display: none;
+}
+
+.touch-stick {
+  position: absolute;
+  /*
+   * ── Única rueda de vuelo: abajo a la izquierda ──
+   *
+   * ── Por qué bajó de 168 a 128 px ──
+   * Con la pantalla en VERTICAL la rueda de 168 ocupaba el 43% del ancho y, junto
+   * al botón de boost, tapaba el tercio inferior: el corredor quedaba en una
+   * franja angosta y no se veía a dónde ir.
+   *
+   * 128 px sigue siendo cómodo para el pulgar (un dedo mide ~18 mm de ancho) y
+   * libera casi 1000 px² de pantalla.
+   */
+  left: max(12px, env(safe-area-inset-left));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: 128px;
+  height: 128px;
+  pointer-events: auto;
+  /* Sin selección ni menú contextual: son mandos, no texto. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+/* La rueda es más grande que los viejos joysticks: ahora gobierna las cuatro
+   direcciones, así que necesita recorrido para ser precisa. El tamaño de la
+   perilla lo define la regla `.touch-stick-knob` de más abajo. */
+
+.touch-stick-base {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: radial-gradient(circle, rgba(10, 14, 26, 0.32) 0%, rgba(10, 14, 26, 0.52) 100%);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.16s, background 0.16s;
+}
+
+/* Activo: se enciende, para que el jugador sepa que el dedo está enganchado. */
+.touch-stick.activo .touch-stick-base {
+  border-color: var(--cyan);
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.16) 0%, rgba(10, 14, 26, 0.5) 100%);
+}
+
+.touch-stick-knob {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(233, 240, 255, 0.22);
+  border: 1px solid rgba(233, 240, 255, 0.35);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.25);
+  /* Sin transición: la perilla tiene que seguir al dedo sin retardo. */
+  will-change: transform;
+}
+
+.touch-stick.activo .touch-stick-knob {
+  background: rgba(0, 229, 255, 0.4);
+  border-color: var(--cyan);
+}
+
+/* Cruz de referencia: marca los dos ejes que gobierna la rueda. Sin ella no se
+   ve que también controla el morro, y el jugador lo descubre por casualidad. */
+.touch-stick-cross {
+  position: absolute;
+  inset: 12%;
+  pointer-events: none;
+}
+
+.touch-stick-cross i {
+  position: absolute;
+  background: rgba(233, 240, 255, 0.14);
+  border-radius: 1px;
+}
+
+/* Línea horizontal. */
+.touch-stick-cross i:nth-child(1) {
+  left: 0; right: 0; top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+/* Línea vertical. */
+.touch-stick-cross i:nth-child(2) {
+  top: 0; bottom: 0; left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+.touch-stick.activo .touch-stick-cross i {
+  background: rgba(0, 229, 255, 0.3);
+}
+
+.touch-stick-label {
+  position: absolute;
+  bottom: -16px;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+/* Botón de propulsión: separado del joystick porque es una habilidad con
+   recurso limitado, no un eje. Va donde llega el pulgar derecho sin soltar. */
+#touch-thrust {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  /* Bajo el pulgar derecho, alineado con el centro de la rueda: se alcanza sin
+     mover la mano y sin soltar el mando de vuelo. */
+  bottom: max(32px, calc(env(safe-area-inset-bottom) + 32px));
+  /* Bajó de 104 a 84: ver la nota de la rueda sobre el espacio en vertical. */
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 1px solid var(--cyan);
+  background: rgba(0, 229, 255, 0.14);
+  color: var(--cyan);
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  transition: transform 0.1s, background 0.16s;
+}
+
+/* El ícono crece con el botón. */
+#touch-thrust span {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+#touch-thrust.activo {
+  transform: scale(0.9);
+  background: rgba(0, 229, 255, 0.4);
+}
+
+#touch-back {
+  position: absolute;
+  /*
+   * Pegado al borde SUPERIOR izquierdo.
+   *
+   * Antes estaba arriba de la rueda, en pleno recorrido del pulgar: un
+   * movimiento amplio hacia arriba lo tocaba sin querer y abortaba el vuelo. En
+   * el borde queda lejos de todo lo que se usa volando.
+   */
+  left: max(10px, env(safe-area-inset-left));
+  top: max(10px, env(safe-area-inset-top));
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-soft);
+  background: rgba(10, 14, 26, 0.5);
+  color: var(--muted);
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+#touch-back.activo {
+  transform: scale(0.9);
+  color: var(--text);
+}
+
+/* En pantallas bajas (apaisado) los mandos se achican para no tapar el
+   corredor: en apaisado hay mucha menos altura útil. */
+@media (max-height: 480px) {
+  /* En apaisado hay mucha menos altura: la rueda se achica pero sigue siendo la
+     protagonista, y la propulsión también para no comerse el corredor. */
+  .touch-stick { width: 136px; height: 136px; }
+  .touch-stick-knob { width: 52px; height: 52px; }
+  #touch-thrust { width: 84px; height: 84px; bottom: max(34px, calc(env(safe-area-inset-bottom) + 34px)); }
+  #touch-thrust span { font-size: 1.9rem; }
+  #touch-back { width: 46px; height: 46px; }
+}

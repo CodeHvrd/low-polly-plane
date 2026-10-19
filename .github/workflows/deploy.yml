@@ -1,0 +1,63 @@
+# Deploy a GitHub Pages
+#
+# ── Qué hace ──
+# Publica el juego (archivos estáticos) en
+#   https://CodeHvrd.github.io/low-polly-plane/
+# cada vez que se sube un cambio a `main`.
+#
+# ── Por qué alcanza con esto ──
+# El juego es HTML + CSS + JS: no necesita backend ni build. GitHub Pages sirve
+# archivos estáticos gratis, con HTTPS incluido (que es requisito del service
+# worker, o sea del modo offline).
+#
+# ── Lo que NO se publica ──
+# `tools/`, `.android-build/`, `native/` y los `.md`: son de desarrollo. El
+# `.nojekyll` evita que GitHub procese el sitio con Jekyll, que se comería las
+# carpetas que empiezan con guion bajo y agregaría latencia.
+name: Deploy a GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Permite dispararlo a mano desde la pestaña Actions.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un deploy a la vez; si llega otro, cancela el anterior en curso.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Bajar el repo
+        uses: actions/checkout@v4
+
+      - name: Preparar la carpeta del sitio
+        run: |
+          mkdir -p _sitio
+          # Sólo lo que el juego necesita para correr.
+          cp -r index.html style.css manifest.webmanifest sw.js icons js fonts _sitio/
+          # Sin Jekyll: sirve los archivos tal cual.
+          touch _sitio/.nojekyll
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+
+      - name: Empaquetar
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _sitio
+
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v4
