@@ -217,7 +217,14 @@ export const frenetic = {
      */
     boosterSpacing: 45,
     /** Boosters de emergencia por vuelo. */
-    emergency: 3,
+    /*
+     * ── El dorado aparece MUCHO menos ──
+     *
+     * Bajó de 3 a 1 por vuelo. El dorado repone combustible: es el que rescata un
+     * vuelo que se está quedando sin margen, así que tiene que ser un alivio raro
+     * y no un recurso que aparezca siempre. Con 3 dejaba de ser una emergencia.
+     */
+    emergency: 1,
     /** El violeta repone combustible de vuelo, no planeo. */
     glideBonus: 0,
     /** El azul empuja fuerte: se tiene que sentir en el momento. */

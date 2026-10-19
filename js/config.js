@@ -574,7 +574,22 @@ export const CAMERA = {
    * cámara quedara a la altura del avión, la trayectoria se vería de canto.
    */
   LAUNCH_POS: { x: -12.5, y: 6.6, z: 0 },
-  LAUNCH_TARGET: { x: 30, y: 4.0, z: 0 },
+  /*
+   * El objetivo de la vista de apuntado mira un poco MÁS ABAJO y más lejos.
+   *
+   * Con y=4.0 la cámara quedaba casi nivelada: el horizonte alto y el corredor
+   * aplastado en una franja fina. Bajando el objetivo a 2.2 el corredor se abre y
+   * los obstáculos se leen antes de lanzar.
+   */
+  /*
+   * El objetivo vuelve a y=4.0.
+   *
+   * Se probó bajarlo a 2.2 para "abrir" el corredor en el apuntado, pero eso
+   * aplana el tiro por defecto: medido, el vuelo de prueba caía a los 18.6 m en
+   * vez de superar los 20. El corredor se abre mejor acortando la pista libre
+   * (ver CLEAR_RUNWAY), que no toca la física.
+   */
+  LAUNCH_TARGET: { x: 42, y: 4.0, z: 0 },
 
   /**
    * Duración de la transición entre las dos vistas, en segundos.
@@ -634,7 +649,23 @@ export const OBSTACLES = {
   /** Semilla del generador determinista: el corredor es igual en cada partida. */
   SEED: 20240517,
   /** Los primeros metros quedan libres para que el jugador aprenda a apuntar. */
-  CLEAR_RUNWAY: 45,
+  /*
+   * ── Pista libre inicial (m) ──
+   *
+   * Bajó de 45 a 34. Con 45 m vacíos, más la separación del primer obstáculo, la
+   * vista de apuntado mostraba una franja de pasto enorme y los objetos quedaban
+   * aplastados contra el horizonte: parecía que no había nada.
+   *
+   * Además acorta la distancia al primer booster, que era lo que hacía costoso
+   * arrancar.
+   *
+   * ── Por qué no más corto ──
+   * Con 22 el primer obstáculo podía quedar centrado en 22 m, y su caja se
+   * extiende varios metros hacia ATRÁS: medido, el vuelo de prueba chocaba a los
+   * 18.6 m sin haber llegado a la pista. 34 deja margen para que el avión tome
+   * velocidad y el obstáculo más cercano siga estando delante.
+   */
+  CLEAR_RUNWAY: 34,
   /** Separación mínima entre obstáculos (m). */
   MIN_SPACING: 22,
   /** Separación máxima entre obstáculos (m). */
@@ -829,7 +860,38 @@ export const PICKUPS = {
      * Es lo pedido: un 50% de la potencia con la que salió el avión, no un valor
      * fijo. Así el booster sigue siendo relevante después de comprar mejoras.
      */
-    SPEED_FRACTION: 0.5,
+    /**
+     * Empuje del booster CELESTE, como fracción de la velocidad de lanzamiento.
+     *
+     * ── Por qué bajó de 0.5 a 0.16 ──
+     * Antes el celeste era el que daba el empuje grande. Ahora ese papel pasó a
+     * los AROS: cinco aros dan el empujón de verdad. El celeste queda como una
+     * ayuda chica, para estirar un poco el vuelo, no para resolverlo.
+     */
+    SPEED_FRACTION: 0.16,
+
+    /**
+     * ── Aros: el nuevo premio grande ──
+     *
+     * Cada `RING_COMBO` aros seguidos dan un empuje considerable. Es más que el
+     * viejo booster (0.5) a propósito: los aros pasan a ser el objetivo del vuelo,
+     * y el jugador tiene que seguirlos en vez de ir juntando boosters sueltos.
+     *
+     * `SPEED_FRACTION` se aplica sobre la velocidad de lanzamiento, y
+     * `BURN_TIME` sobre el empuje sostenido de la propulsión.
+     */
+    RING_COMBO: {
+      /** Cuántos aros hacen falta. */
+      EVERY: 5,
+      /** Empuje por combo, como fracción de la velocidad de lanzamiento. */
+      SPEED_FRACTION: 0.65,
+      /** Tope de velocidad después del combo (m/s). */
+      MAX_SPEED: 72,
+      /** Duración del empuje sostenido (s). */
+      BURN_TIME: 1.1,
+      /** Combustible de planeo que regala. */
+      GLIDE_BONUS: 1.6,
+    },
     /** Tope de velocidad tras el impulso (m/s), para no salirse del corredor. */
     MAX_SPEED: 64,
     /** Duración del empuje sostenido tras recogerlo (s). */

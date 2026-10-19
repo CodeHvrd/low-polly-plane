@@ -604,6 +604,24 @@ export class RunController {
       for (const ob of passed) {
         this.stats.rings++;
         ringsHit.push(ob);
+
+        /*
+         * ── Cada N aros, empuje de verdad ──
+         *
+         * ── Por qué acá y no en un evento aparte ──
+         * Se aplica DENTRO del sub-paso, como el booster instantáneo: el empuje
+         * tiene que sentirse en el mismo instante en que se cruza el aro, no un
+         * frame después.
+         */
+        const combo = PICKUPS.BOOSTERS.RING_COMBO;
+        if (this.stats.rings % combo.EVERY === 0) {
+          const launchSpeed = this.stats.launchSpeed || this.getSpec().baseSpeed;
+          applyBoost(this.flight, launchSpeed * combo.SPEED_FRACTION, combo.BURN_TIME, 0);
+          this.clampSpeed(combo.MAX_SPEED);
+          addGlideBudget(this.flight, combo.GLIDE_BONUS, PROPULSION.GLIDE_MAX);
+          this.stats.ringCombos = (this.stats.ringCombos ?? 0) + 1;
+          this.onEvent('ringCombo', { total: this.stats.rings, x: s.x, y: s.y, z: s.z });
+        }
       }
 
       // Obstáculos.
@@ -767,8 +785,13 @@ export class RunController {
    * Encadenar boosters azules no debe sacar al avión del corredor ni romper la
    * lectura de la escena.
    */
-  clampSpeed() {
-    const max = PROPULSION.MAX_SPEED;
+  /**
+   * Recorta la velocidad al tope.
+   *
+   * @param {number} [tope]  tope alternativo (el combo de aros usa uno más alto)
+   */
+  clampSpeed(tope = PROPULSION.MAX_SPEED) {
+    const max = tope;
     const speed = this.currentSpeed();
     if (speed <= max) return speed;
     const k = max / speed;

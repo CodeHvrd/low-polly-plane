@@ -1103,6 +1103,23 @@ export class Game {
         sfx.ring();
         break;
 
+      /*
+       * ── Combo de aros: el empuje grande ──
+       *
+       * Cada N aros el vuelo recibe un empujón considerable. Es el premio por
+       * seguir el circuito, y reemplaza al viejo booster como la recompensa
+       * principal de velocidad.
+       *
+       * El aviso visual es a propósito más fuerte que el del aro suelto: el
+       * jugador tiene que SENTIR que esta vez ganó algo de verdad.
+       */
+      case 'ringCombo':
+        sfx.ring();
+        sfx.booster();
+        this.effects.ringBurst(payload.x, payload.y, payload.z);
+        this.effects.boosterBurst(payload.x, payload.y, payload.z);
+        break;
+
       case 'coin':
         sfx.coin(payload.value);
         this.effects.coinPop(payload.pickup.x, payload.pickup.y, payload.pickup.z, payload.value);
