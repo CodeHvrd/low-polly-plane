@@ -14,7 +14,8 @@
  * Uso: node tools/sync-sw.mjs
  */
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join, relative, sep, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** Recorre un directorio y devuelve rutas relativas con barras normales. */
 function listar(dir, filtro, acumulado = []) {
@@ -47,3 +48,29 @@ const cuerpo = modulos.map((m) => `  './${m}',`).join('\n');
 const nuevo = t.slice(0, inicio) + `const MODULOS = [\n${cuerpo}\n` + t.slice(fin);
 writeFileSync(f, nuevo, 'utf8');
 console.log(`  sw.js actualizado con ${modulos.length} módulos`);
+
+
+/* ── --bump: sube la versión del cache ──
+ *
+ * El service worker cachea el juego para que ande offline. Si la versión no
+ * cambia, el teléfono sigue sirviendo la copia vieja aunque el servidor tenga la
+ * nueva: el jugador no ve las actualizaciones.
+ *
+ * Este flag sube el último número de la versión, que es lo que invalida el cache.
+ * Se usa antes de cada push:
+ *
+ *   node tools/sync-sw.mjs --bump
+ */
+if (process.argv.includes('--bump')) {
+  const ruta = join(dirname(fileURLToPath(import.meta.url)), '..', 'sw.js');
+  let sw = readFileSync(ruta, 'utf8');
+  const m = sw.match(/const VERSION = '([^']+)'/);
+  if (m) {
+    const partes = m[1].split('.');
+    partes[partes.length - 1] = String(Number(partes[partes.length - 1]) + 1);
+    const nueva = partes.join('.');
+    sw = sw.replace(m[0], `const VERSION = '${nueva}'`);
+    writeFileSync(ruta, sw, 'utf8');
+    console.log(`  versión del cache: ${nueva}`);
+  }
+}
