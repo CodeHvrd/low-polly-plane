@@ -2058,8 +2058,16 @@ body.en-vuelo #mode-bar {
    ══════════════════════════════════════════════════════════ */
 
 /* El bloque técnico de la derrota no se ve: sólo existe para el código. */
+/*
+ * El bloque técnico de la derrota NO se ve.
+ *
+ * Hace falta el `!important` porque `#result-stats` tiene su propia regla de
+ * `display` más específica por ser un ID, y ganaba: los números viejos seguían
+ * apareciendo aunque el contenedor tuviera esta clase.
+ */
+#result-stats.oculto-tecnico,
 .oculto-tecnico {
-  display: none;
+  display: none !important;
 }
 
 #main-menu {

@@ -853,11 +853,17 @@ export class Game {
     document.getElementById('btn-new-game')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      // "Nueva partida" lleva al lanzador: la misma transición que ya existía.
-      this.switchScreen?.(1);
-      this.overlays.set(Screen.AIM);
-      this.syncAimCallout();
-      this.aiming.refresh();
+      /*
+       * ── Se usa la MISMA transición que la tecla Enter ──
+       *
+       * Antes se llamaba a `overlays.set(AIM)` a mano, que sólo cambia las capas
+       * de UI: la cámara se quedaba donde estaba y aparecía de costado o de atrás,
+       * sin el viaje hasta detrás del lanzador.
+       *
+       * `enterLaunchMode()` es el camino real: mueve la cámara, recalcula el neutro
+       * del ángulo y recién entonces muestra la pantalla de apuntado.
+       */
+      this.enterLaunchMode();
     });
 
     document.getElementById('btn-awards')?.addEventListener('click', (e) => {
@@ -892,17 +898,37 @@ export class Game {
       e.currentTarget.textContent = isMuted() ? 'OFF' : 'ON';
     });
 
+    /*
+     * ── Música ──
+     *
+     * Todavía NO hay pista de música: el juego sólo tiene efectos. El interruptor
+     * se deja igual porque el estado ya se guarda, así cuando se agregue la música
+     * no hay que tocar la UI.
+     */
+    const btnMusic = document.getElementById('btn-options-music');
+    if (btnMusic) {
+      btnMusic.textContent = STATE.musicOff ? 'OFF' : 'ON';
+      btnMusic.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.click();
+        STATE.musicOff = !STATE.musicOff;
+        e.currentTarget.textContent = STATE.musicOff ? 'OFF' : 'ON';
+        this.persist();
+      });
+    }
+
     document.getElementById('btn-options-reset')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
       // Sin confirmación nativa: un `confirm()` bloquea el bucle de juego.
-      if (this._confirmReset) {
-        this._confirmReset();
-        e.currentTarget.textContent = 'BORRADO';
-      } else {
-        this.resetProgress?.();
-        e.currentTarget.textContent = 'BORRADO';
-      }
+      /*
+       * Se dispara el botón OCULTO en vez de duplicar la lógica.
+       *
+       * Así el reinicio pasa por el mismo camino ya verificado (con su
+       * confirmación y su guardado) en vez de una copia que se desincroniza.
+       */
+      document.getElementById('btn-reset-save')?.click();
+      e.currentTarget.textContent = 'BORRAR';
     });
 
     /*

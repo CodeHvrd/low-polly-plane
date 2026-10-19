@@ -90,7 +90,7 @@
   </div>
 
   <!-- ── CONTROLES DE SISTEMA ── -->
-  <div id="system-controls" data-ui-interactive>
+  <div id="system-controls" class="hidden" data-ui-interactive>
     <button type="button" id="btn-mute" class="icon-btn" aria-label="Silenciar">🔊</button>
     <button type="button" id="btn-reset-save" class="icon-btn" aria-label="Borrar progreso" title="Borrar todo el progreso">🗑</button>
   </div>
@@ -136,8 +136,12 @@
     <section id="options-panel" class="menu-panel hidden" data-ui-interactive>
       <h2>OPCIONES</h2>
       <div class="options-row">
-        <span>Sonido</span>
+        <span>Sonidos</span>
         <button type="button" id="btn-options-mute" class="menu-toggle">ON</button>
+      </div>
+      <div class="options-row">
+        <span>Música</span>
+        <button type="button" id="btn-options-music" class="menu-toggle">ON</button>
       </div>
       <div class="options-row">
         <span>Borrar progreso</span>
