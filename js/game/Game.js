@@ -212,6 +212,32 @@ export class Game {
    */
   startRun(opts = {}) {
     /*
+     * ══════════════════════════════════════════════════════════
+     * LA VENTANA DEL CORREDOR VUELVE AL INICIO
+     * ══════════════════════════════════════════════════════════
+     *
+     * ── El bug que esto arregla ──
+     * La ventana de tramos sólo se movía DURANTE el vuelo, siguiendo al avión.
+     * Al terminar una partida larga los obstáculos quedaban centrados donde cayó
+     * el avión —a 1200, 3000, 8000 m— y el lanzador está en x≈0.
+     *
+     * Resultado: en el lanzador se veía el piso y las montañas (que son fijas)
+     * pero NINGÚN obstáculo, moneda, booster ni aro, porque todos estaban lejos,
+     * fuera de cuadro. En cuanto se lanzaba, la ventana se recentraba y aparecían.
+     *
+     * Era intermitente porque dependía de dónde hubiera terminado la partida
+     * anterior: cayendo a 30 m no se notaba.
+     *
+     * Se reinicia acá, ANTES de sortear los recolectables, para que éstos también
+     * se generen en la ventana correcta.
+     */
+    this.updateChunkWindow(0, true);
+    disposeObstacleMeshes();
+    buildObstacleMeshes(this.obstacles);
+    this.controller.obstacles = this.obstacles;
+    updateTerrainWindow(0, true);
+
+    /*
      * Camino nuevo en cada intento. Va ANTES de reiniciar el controlador porque
      * `reset()` limpia el estado de los recolectables y necesita los nuevos.
      */
