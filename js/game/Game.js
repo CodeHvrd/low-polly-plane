@@ -659,6 +659,27 @@ export class Game {
     this._aimEnteredAt = performance.now();
 
     /*
+     * ── Red de seguridad: mallas que faltan ──
+     *
+     * Se reportó que al entrar al lanzador desaparecen obstáculos, monedas,
+     * boosters y aros (las montañas NO, que son otro grupo). Si los datos existen
+     * pero las mallas no están en la escena, se reconstruyen.
+     *
+     * Es barato —ocurre una vez por intento de lanzamiento— y convierte un fallo
+     * visual intermitente en algo que se autorrepara.
+     */
+    const grupoObst = scene.getObjectByName('obstacles');
+    if (this.obstacles?.length && !grupoObst) {
+      buildObstacleMeshes(this.obstacles);
+      console.warn('[papercrash] faltaban las mallas de obstáculos: reconstruidas');
+    }
+    const grupoRec = scene.getObjectByName('pickups');
+    if (this.pickups?.length && !grupoRec) {
+      buildPickupMeshes(this.pickups);
+      console.warn('[papercrash] faltaban las mallas de recolectables: reconstruidas');
+    }
+
+    /*
      * Se recalcula el neutro del control de ángulo para el tramo en el que está
      * el avión. Sin esto, apuntar en el tramo 1 usaba el neutro del arranque
      * (38°) cuando la línea de ese tramo está a 15 m: el avión salía demasiado
@@ -769,6 +790,41 @@ export class Game {
    *
    * Sólo se ve con la tecla O apretada (`body.modo-diagnostico`).
    */
+  /**
+   * Estado de los grupos de la escena.
+   *
+   * ── Por qué ──
+   * Se reportó que al entrar al lanzador desaparecen las piedras, árboles,
+   * boosters, monedas y aros, pero las pirámides de fondo SÍ se ven. Eso descarta
+   * un problema de render general: son grupos distintos.
+   *
+   * Esta función dice, grupo por grupo, cuántos hijos tiene, si está en la escena
+   * y si está visible. Con eso el bug deja de ser "no se ven los objetos".
+   *
+   * Se puede llamar desde la consola: __escena()
+   */
+  estadoEscena() {
+    const nombre = (o) => o.name || o.type;
+    const salida = {};
+    for (const hijo of scene.children) {
+      const clave = nombre(hijo);
+      if (!['obstacles', 'pickups', 'mountains', 'terrain', 'aircraft', 'launcher'].includes(clave)) continue;
+      let total = 0;
+      let visibles = 0;
+      hijo.traverse((o) => { if (o.isMesh) { total++; if (o.visible) visibles++; } });
+      salida[clave] = { enEscena: hijo.parent === scene, visible: hijo.visible, meshes: `${visibles}/${total}` };
+    }
+    return {
+      grupos: salida,
+      datos: {
+        obstaculos: this.obstacles?.length ?? 0,
+        recolectables: this.pickups?.length ?? 0,
+        fase: this.controller?.phase,
+        pantalla: this.overlays?.current,
+      },
+    };
+  }
+
   syncDiagnostico() {
     let el = document.getElementById('diag-overlay');
     if (!el) {
@@ -776,9 +832,14 @@ export class Game {
       el.id = 'diag-overlay';
       document.body.appendChild(el);
     }
+    const g = this.estadoEscena();
+    const lineasEscena = Object.entries(g.grupos).map(([k, v]) =>
+      `${k}: ${v.meshes}${v.visible ? '' : ' [OCULTO]'}${v.enEscena ? '' : ' [FUERA]'}`);
+    const datos = `datos: obst ${g.datos.obstaculos} · rec ${g.datos.recolectables} · ${g.datos.fase}/${g.datos.pantalla}`;
+
     const d = this.controller.impactDebug;
     if (!d) {
-      el.textContent = 'DIAGNÓSTICO · todavía no chocaste';
+      el.textContent = ['DIAGNÓSTICO · todavía no chocaste', '', ...lineasEscena, datos].join('\n');
       return;
     }
     el.textContent = [

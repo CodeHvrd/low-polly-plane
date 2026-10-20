@@ -70,6 +70,14 @@ function boot() {
       game.start();
       // Expuesto para depurar desde la consola; el juego no depende de esto.
       window.__papercrash = game;
+    /*
+     * Diagnóstico de escena desde la consola.
+     *
+     * Para el bug de "desaparecen los objetos en el lanzador": dice grupo por
+     * grupo cuántos hijos tiene y si están visibles. Escribir __escena() en la
+     * consola del navegador.
+     */
+    window.__escena = () => game.estadoEscena();
     })
     .catch((err) => {
       reportBootError(err);
