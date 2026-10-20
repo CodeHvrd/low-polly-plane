@@ -252,6 +252,34 @@ async function apoyarConfirmando(x, y, dedo) {
 }
 
 /** Suelta todo y espera, para que el gesto siguiente empiece limpio. */
+/**
+ * Mantiene apretado un botón de morro y lee los ejes.
+ *
+ * El pointerdown se dispara sobre el botón; los ejes se leen ANTES de soltar,
+ * porque al soltar vuelven a cero.
+ *
+ * @param {string} id @param {(e:object) => boolean} esperado
+ */
+async function sostener(id, esperado) {
+  const apretar = (tipo) => ev((params) => {
+    const b = document.getElementById(params.id);
+    b.dispatchEvent(new PointerEvent(params.tipo, { bubbles: true, pointerId: 41, pointerType: 'touch' }));
+    return true;
+  }, { id, tipo });
+  for (let intento = 0; intento < 3; intento++) {
+    await apretar('pointerdown');
+    await sleep(180);
+    const e = await ev(async () => (await import('/js/core/input.js')).readFlightControls());
+    if (esperado(e)) {
+      await apretar('pointerup');
+      await sleep(120);
+      return e;
+    }
+  }
+  return ev(async () => (await import('/js/core/input.js')).readFlightControls());
+}
+
+
 async function soltarTodo() {
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await sleep(250);
@@ -328,15 +356,23 @@ console.log('\n  ── La rueda da las CUATRO direcciones ──');
     izquierda.steer < -0.5 && Math.abs(izquierda.nose) < 0.05,
     `steer=${izquierda.steer.toFixed(2)}`);
 
-  const arriba = await moverConfirmando(geo.stick.cx, geo.stick.cy - lejos, 1, (e) => e.nose > 0.5);
-  check('empujar hacia ARRIBA sube el morro',
-    arriba.nose > 0.5 && Math.abs(arriba.steer) < 0.05,
-    `nose=${arriba.nose.toFixed(2)}`);
+  /*
+   * ── El MORRO ahora son botones, no la rueda ──
+   *
+   * Se cambió el diseño: la rueda mueve sólo el RUMBO y el morro tiene dos
+   * botones sostenibles, como W y S en la PC. Antes había que sostener el pulgar
+   * en un punto exacto y cualquier temblor cambiaba también la dirección.
+   */
+  const morroArriba = await sostener('touch-nose-up', (e) => e.nose > 0.9);
+  check('el botón ▲ sube el morro a fondo', morroArriba.nose > 0.9, `nose=${morroArriba.nose.toFixed(2)}`);
+  check('el botón ▲ no toca el rumbo', Math.abs(morroArriba.steer) < 0.05, `steer=${morroArriba.steer.toFixed(2)}`);
 
-  const abajo = await moverConfirmando(geo.stick.cx, geo.stick.cy + lejos, 1, (e) => e.nose < -0.5);
-  check('empujar hacia ABAJO baja el morro',
-    abajo.nose < -0.5 && Math.abs(abajo.steer) < 0.05,
-    `nose=${abajo.nose.toFixed(2)}`);
+  const morroAbajo = await sostener('touch-nose-down', (e) => e.nose < -0.9);
+  check('el botón ▼ baja el morro a fondo', morroAbajo.nose < -0.9, `nose=${morroAbajo.nose.toFixed(2)}`);
+
+  // Y la rueda ya NO debe mover el morro.
+  const ruedaVertical = await moverConfirmando(geo.stick.cx, geo.stick.cy - lejos, 1, (e) => Math.abs(e.nose) < 0.05);
+  check('la rueda ya no mueve el morro', Math.abs(ruedaVertical.nose) < 0.05, `nose=${ruedaVertical.nose.toFixed(2)}`);
 
   const centro = await moverConfirmando(geo.stick.cx, geo.stick.cy, 1, (e) => Math.abs(e.steer) < 0.01);
   check('el centro queda en neutro (zona muerta)',
@@ -347,12 +383,12 @@ console.log('\n  ── La rueda da las CUATRO direcciones ──');
 
 console.log('\n  ── Un dedo gobierna las dos cosas a la vez ──');
 {
-  await revivir();
+  await arrastrar(geo.stick.cx, geo.stick.cy, d, 0, 2, false);
   const d = Math.round(geo.stick.r * 0.6);
   await arrastrar(geo.stick.cx, geo.stick.cy, d, -d, 2, false);
   const diag = await ev(async () => (await import('/js/core/input.js')).readFlightControls());
-  check('la diagonal mueve rumbo Y morro a la vez',
-    diag.steer > 0.35 && diag.nose > 0.35,
+  check('la rueda da rumbo mientras el botón da morro',
+    diag.steer > 0.35 && Math.abs(diag.nose) < 0.05,
     `steer=${diag.steer.toFixed(2)} nose=${diag.nose.toFixed(2)}`);
 
   /*

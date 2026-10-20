@@ -202,6 +202,51 @@ export class TouchControls {
      * esto no se puede volver de la etapa de lanzamiento. Va pegado al borde para
      * quedar FUERA del recorrido natural del pulgar sobre la rueda.
      */
+    /*
+     * ── Botones de MORRO (sostener, como W y S en la PC) ──
+     *
+     * ── Por qué separados del analógico ──
+     * En la PC, mantener W sube el morro con autoridad plena y sin tocar el rumbo:
+     * son teclas independientes. En la rueda, sostener el morro exigía dejar el
+     * pulgar quieto en un punto exacto, y cualquier temblor cambiaba TAMBIÉN la
+     * dirección, que es justo lo que hacía incómodo planear.
+     *
+     * Con dos botones sostenibles, subir y bajar el morro se vuelve una acción
+     * binaria y estable, igual que el teclado. La rueda queda para el rumbo.
+     */
+    const crearBotonMorro = (id, icono, etiqueta, signo) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.id = id;
+      b.className = 'touch-nose';
+      b.textContent = icono;
+      b.setAttribute('aria-label', etiqueta);
+      const soltar = (e) => {
+        e.preventDefault();
+        b.classList.remove('activo');
+        if (signo > 0) this.noseUp = false;
+        else this.noseDown = false;
+        this._aplicar();
+      };
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        b.setPointerCapture?.(e.pointerId);
+        b.classList.add('activo');
+        // Un solo sentido a la vez: pulsar el contrario cancela el otro.
+        if (signo > 0) { this.noseUp = true; this.noseDown = false; }
+        else { this.noseDown = true; this.noseUp = false; }
+        this._aplicar();
+      });
+      b.addEventListener('pointerup', soltar);
+      b.addEventListener('pointercancel', soltar);
+      b.addEventListener('pointerleave', soltar);
+      return b;
+    };
+    const morroArriba = crearBotonMorro('touch-nose-up', '▲', 'Subir el morro', 1);
+    const morroAbajo = crearBotonMorro('touch-nose-down', '▼', 'Bajar el morro', -1);
+    cont.append(morroArriba, morroAbajo);
+
     const atras = document.createElement('button');
     atras.type = 'button';
     atras.id = 'touch-back';
@@ -424,9 +469,27 @@ export class TouchControls {
     setTouchAxes({
       // X de pantalla crece hacia la derecha, igual que el `steer` del juego.
       steer: this.stick?.x ?? 0,
-      // Y de pantalla crece hacia ABAJO y el `nose` del juego hacia arriba: de
-      // ahí el signo invertido.
-      nose: -(this.stick?.y ?? 0),
+      /*
+       * ── El MORRO viene de los botones, no de la rueda ──
+       *
+       * La rueda manda sólo el RUMBO. Así el morro se sostiene con el pulgar
+       * apoyado (como W y S) y no se contamina con el temblor del eje vertical.
+       *
+       * Signo: +1 = subir, -1 = bajar. Los botones ya lo aplican.
+       */
+      /*
+       * ── El morro acepta DOS fuentes ──
+       *
+       * 1. Los botones ▲/▼ (sostener, como W y S).
+       * 2. La rueda en vertical, como respaldo.
+       *
+       * ── Por qué las dos ──
+       * Los botones son la mejora, pero su cableado todavía no está verificado.
+       * Si quedaran sin efecto, el jugador se quedaría SIN control de morro, que
+       * es peor que el problema original. Así la rueda sigue funcionando y los
+       * botones se suman cuando enganchen.
+       */
+      nose: this.noseUp ? 1 : (this.noseDown ? -1 : -(this.stick?.y ?? 0)),
       thrust: this.thrustHeld,
     });
   }
