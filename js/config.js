@@ -286,7 +286,22 @@ export const FLIGHT_CONTROLS = {
    * teletransporte— pero deja de sentirse como un retardo.
    */
   LATERAL_ACCEL: 90,
-  /** Velocidad lateral máxima (m/s). Define cuánto CIERRA la curva. */
+  /**
+   * ── Tope lateral PROPORCIONAL a la velocidad ──
+   *
+   * El tope fijo de 34 m/s hacía que esquivar fuera más difícil cuanto más rápido
+   * volabas: el ratio "metros de costado por metro de avance" caía de 0.85 a 40
+   * m/s a 0.52 a 65 m/s, así que el corredor se angostaba en tiempo útil.
+   *
+   * Con un RATIO constante, la maniobrabilidad es la misma a cualquier velocidad.
+   */
+  get LATERAL_RATIO() { return MODE.motion.lateralRatio ?? 0.85; },
+  /** Piso del tope (m/s): a baja velocidad hace falta un mínimo para girar. */
+  LATERAL_MAX_MIN: 20,
+  /** Techo del tope (m/s): evita que a velocidades absurdas sea teletransporte. */
+  LATERAL_MAX_MAX: 62,
+
+  /** Velocidad lateral máxima (m/s) a la velocidad de referencia. Sólo informativo. */
   get LATERAL_MAX() { return MODE.id === 'frenetic' ? 34 : 19; },
   /**
    * Amortiguación lateral al soltar (1/s).

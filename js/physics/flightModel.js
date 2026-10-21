@@ -451,7 +451,28 @@ export function integrateSubstep(s, p, h) {
       pz = 1;
     }
     s.lateralVel += s.steer * FLIGHT_CONTROLS.LATERAL_ACCEL * p.control * h;
-    s.lateralVel = Math.max(-FLIGHT_CONTROLS.LATERAL_MAX, Math.min(FLIGHT_CONTROLS.LATERAL_MAX, s.lateralVel));
+
+    /*
+     * ── El tope lateral ESCALA con la velocidad de avance ──
+     *
+     * ── El problema que resuelve ──
+     * El tope estaba FIJO en 34 m/s. Eso significa que la capacidad de esquivar
+     * dependía de la velocidad: a 40 m/s el avión se movía 34 m de costado por
+     * cada 40 m de avance (ratio 0.85), pero a 65 m/s el mismo tope da 0.52. O sea
+     * que cuanto más rápido ibas, MÁS ANGOSTO se volvía el corredor en tiempo
+     * útil, y con la nave al máximo era imposible esquivar rocas seguidas.
+     *
+     * ── La solución ──
+     * El tope pasa a ser proporcional a la velocidad horizontal, así que el RATIO
+     * de giro se mantiene constante sin importar lo rápido que vayas. Acotado por
+     * arriba para que a velocidades absurdas no se vuelva un teletransporte.
+     */
+    const ratio = FLIGHT_CONTROLS.LATERAL_RATIO;
+    const topeLateral = Math.min(
+      FLIGHT_CONTROLS.LATERAL_MAX_MAX,
+      Math.max(FLIGHT_CONTROLS.LATERAL_MAX_MIN, hLen * ratio),
+    );
+    s.lateralVel = Math.max(-topeLateral, Math.min(topeLateral, s.lateralVel));
     s.vx += px * s.lateralVel * h;
     s.vz += pz * s.lateralVel * h;
   } else if (s.lateralVel !== 0) {
