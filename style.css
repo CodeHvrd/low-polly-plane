@@ -605,6 +605,14 @@ kbd {
      Solo los hijos con `pointer-events: auto` son interactivos. */
   pointer-events: none;
   z-index: var(--z-overlay);
+  /*
+   * Scroll de respaldo.
+   *
+   * En vertical el overlay arranca 208 px abajo (por el título), así que un panel
+   * alto no entra completo. Con esto se puede llegar a todo el contenido.
+   */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 #idle-title-block {
@@ -2218,6 +2226,22 @@ body.en-vuelo #mode-bar {
   color: var(--muted);
 }
 
+/*
+ * VOLVER queda pegado al pie del panel que scrollea.
+ *
+ * Así está siempre al alcance aunque el contenido sea largo, que es lo que se
+ * pidió: poder salir desde cualquier punto.
+ */
+.menu-back {
+  position: sticky;
+  bottom: 0;
+  margin-top: 4px;
+  /* Fondo opaco: si no, el texto se transparenta por detrás al scrollear. */
+  background: var(--surface);
+  z-index: 1;
+  flex-shrink: 0;
+}
+
 .menu-back,
 .menu-toggle {
   font-family: var(--font-display);
@@ -2329,12 +2353,28 @@ body.en-vuelo #mode-bar {
 /* ── LOGROS Y PERFIL ──
  * Los logros bloqueados van en GRIS con su progreso visible: se pidió poder ver
  * lo que falta, no sólo lo conseguido. Es lo que engancha a seguir jugando. */
+/*
+ * ── El panel entero scrollea, no sólo la lista ──
+ *
+ * ── El bug que esto arregla ──
+ * #awards-list tenía `max-height: 40vh` y scroll propio, pero el PANEL no tenía
+ * límite: con 14 logros + ranking + perfil, el contenido se salía de la pantalla
+ * y el botón VOLVER quedaba fuera de alcance. Se podía bajar dentro de la lista
+ * de trofeos pero no ver el resto ni volver.
+ */
+#awards-panel {
+  max-height: min(80vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 #awards-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 40vh;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   padding-right: 4px;
 }
 
