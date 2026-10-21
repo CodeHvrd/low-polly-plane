@@ -932,7 +932,14 @@ export const PICKUPS = {
    * exclusión dejaban casi todos los intentos sin hueco. Medido, la ventana
    * generaba 4 boosters en vez de los ~35 que corresponden por espaciado.
    */
-  CLEAR_OF_OBSTACLE: 7,
+  /**
+   * Distancia minima de un recolectable a un obstaculo (m).
+   *
+   * Subio de 7 a 14: los boosters aparecian pegados a las rocas y agujas, y en
+   * el circuito rasante (donde ya hay que picar para alcanzar los aros) habia
+   * que meterse entre el obstaculo y el premio, que era casi imposible.
+   */
+  CLEAR_OF_OBSTACLE: 14,
     /**
      * Altura total de la columna de cada booster (m).
      *

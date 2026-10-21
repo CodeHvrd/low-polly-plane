@@ -290,6 +290,13 @@ export function buildObstacleMeshes(obstacles) {
    *
    * TODO: darles una columna translúcida visible para que el jugador los vea.
    */
+  /*
+   * Los VENDAVALES se dibujan aparte, con su propia malla.
+   *
+   * Antes se filtraban y quedaban invisibles, lo que hacia la mecanica inusable:
+   * el avion subia solo sin que se entendiera por que.
+   */
+  const vendavales = obstacles.filter((o) => o.type === 'updraft');
   obstacles = obstacles.filter((o) => o.type !== 'updraft');
 
   const rng = createRng(777);
@@ -321,6 +328,35 @@ export function buildObstacleMeshes(obstacles) {
   group.traverse((child) => {
     if (child.geometry) disposables.push(child);
   });
+
+  /*
+   * ── Columnas de VENDAVAL ──
+   *
+   * Cilindros translucidos que se aclaran hacia arriba. Marcan DONDE esta la
+   * corriente y hasta que altura llega, que es lo que faltaba para poder usarla.
+   *
+   * depthWrite desactivado: no ocluyen el corredor. DoubleSide: se ven desde
+   * adentro cuando el avion entra en la columna.
+   */
+  for (const u of vendavales) {
+    const radio = u.params?.radius ?? 7;
+    const alto = u.params?.height ?? 40;
+    const base = u.params?.baseY ?? 0;
+    const geo = new THREE.CylinderGeometry(radio * 0.85, radio, alto, 10, 1, true);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x8ef2ff,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      flatShading: true,
+    });
+    const malla = new THREE.Mesh(geo, mat);
+    malla.position.set(u.x, base + alto / 2, u.z);
+    malla.renderOrder = 2;
+    track(malla);
+    group.add(malla);
+  }
 
   return group;
 }
