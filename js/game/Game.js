@@ -685,6 +685,21 @@ export class Game {
     this._aimEnteredAt = performance.now();
 
     /*
+     * ── El modelo del avión siempre tiene que estar ──
+     *
+     * Se reportó: tras hacer una run corta, tocar "menú" y luego "nueva partida",
+     * el avión desaparece y sólo se ve la estela celeste volando.
+     *
+     * Pasa cuando el grupo raíz del avión quedó fuera de la escena o invisible
+     * tras cambiar de pantalla. Se fuerza visible y en escena en cada entrada al
+     * lanzador: es barato y evita quedarse sin nave sin poder hacer nada.
+     */
+    if (this.view?.root) {
+      if (!this.view.root.parent) scene.add(this.view.root);
+      if (!this.view.root.visible) this.view.root.visible = true;
+    }
+
+    /*
      * ── Red de seguridad: mallas que faltan ──
      *
      * Se reportó que al entrar al lanzador desaparecen obstáculos, monedas,

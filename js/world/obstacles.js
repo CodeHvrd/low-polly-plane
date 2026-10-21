@@ -284,7 +284,15 @@ export function generateCourse(rango = {}) {
       if (progress > 0.06 && rngTramo.chance(0.32)) type = 'mesa';
       {
       const circ = PICKUPS.CIRCUITOS[nivelDeCircuito(tramoIdx)] ?? PICKUPS.CIRCUITOS.alto;
-      if (progress > 0.18 && rngTramo.chance(circ.ringChance)) type = 'ring';
+      /*
+       * Los aros ya NO esperan al 18% del recorrido.
+       *
+       * Ese umbral dejaba los primeros ~450 m sin aros, y como el circuito rasante
+       * se reconoce por la CANTIDAD de aros, al principio no habia ningun circuito:
+       * solo planear alto juntando boosters. Se pidio que el rasante se sienta
+       * desde el arranque.
+       */
+      if (rngTramo.chance(circ.ringChance)) type = 'ring';
     }
 
       // Posición lateral: se evita el centro exacto del carril sólo en los
