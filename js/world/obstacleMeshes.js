@@ -282,6 +282,16 @@ function buildRing(ob) {
 export function buildObstacleMeshes(obstacles) {
   disposeObstacleMeshes();
 
+  /*
+   * Los VENDAVALES no tienen malla: son una zona física, no un objeto sólido.
+   *
+   * Se filtran antes de construir para no intentar generar geometría con sus
+   * parámetros, que producía NaN en la bounding sphere y ensuciaba la consola.
+   *
+   * TODO: darles una columna translúcida visible para que el jugador los vea.
+   */
+  obstacles = obstacles.filter((o) => o.type !== 'updraft');
+
   const rng = createRng(777);
   const materials = rockMaterials();
   materials.forEach(track);

@@ -859,6 +859,37 @@ export const PICKUPS = {
    *   'rasante' → aros a 5-12 m, en seguidilla, muchas monedas en fila.
    *               Se juega con velocidad y reflejos, cerca del piso.
    */
+  /**
+   * ══════════════════════════════════════════════════════════
+   * VENDAVAL (corriente ascendente)
+   * ══════════════════════════════════════════════════════════
+   *
+   * ── El problema que resuelve ──
+   * En el circuito rasante los aros están a 5-12 m del suelo. Para pasarlos hay
+   * que picar, y después NO queda aceleración para volver a subir: el jugador
+   * quedaba atrapado abajo hasta estrellarse.
+   *
+   * Se pidió una mecánica que lo levante 10-15 m sin regalarle el empuje del
+   * booster celeste, para que pueda seguir jugando y enganchar algo en la subida.
+   *
+   * Sube y da un empujón CHICO (5% de la velocidad de lanzamiento, contra el 16%
+   * del celeste): sirve para remontar, no para ganar la partida.
+   */
+  UPDRAFT: {
+    /** Aceleración vertical que aplica mientras se está dentro (m/s²). */
+    LIFT: 30,
+    /** Tope de velocidad vertical ganada (m/s): evita salir disparado al cielo. */
+    LIFT_MAX: 15,
+    /** Empujón horizontal, fracción de la velocidad de lanzamiento. */
+    SPEED_BONUS: 0.05,
+    /** Radio de la columna (m). */
+    RADIUS: 7,
+    /** Alto de la columna (m): se extiende hasta bien arriba del corredor. */
+    HEIGHT: 40,
+    /** Separación entre columnas dentro de un tramo rasante (m). */
+    SPACING: 100,
+  },
+
   CIRCUITOS: {
     alto: {
       ringMin: 15, ringMax: 30,

@@ -635,6 +635,42 @@ export class RunController {
         }
       }
 
+      /*
+       * ── VENDAVAL: corriente ascendente ──
+       *
+       * ── Por qué existe ──
+       * En el circuito rasante los aros están a 5-12 m del suelo. Para pasarlos hay
+       * que picar, y después no queda aceleración para volver a subir: el jugador
+       * quedaba atrapado abajo hasta estrellarse contra el terreno.
+       *
+       * Dentro de la columna se aplica sustentación vertical y un empujón CHICO
+       * (5% de la velocidad de lanzamiento, contra el 16% del celeste): alcanza
+       * para remontar 10-15 m y enganchar algo en la subida, sin regalar la run.
+       */
+      for (const u of this.obstacles) {
+        if (u.type !== 'updraft') continue;
+        const r = u.params?.radius ?? 7;
+        if (Math.abs(s.x - u.x) > r || Math.abs(s.z - u.z) > r) continue;
+        const alto = u.params?.height ?? 40;
+        const base = u.params?.baseY ?? 0;
+        if (s.y > base + alto) continue;
+
+        // Vista como aceleración con tope: sube parejo y no sale disparado.
+        if (s.vy < PICKUPS.PICKUPS.UPDRAFT.LIFT_MAX) {
+          s.vy = Math.min(UPDRAFT.LIFT_MAX, s.vy + UPDRAFT.LIFT * h);
+        }
+        /*
+         * El empujón horizontal se aplica UNA sola vez al entrar, no en cada paso:
+         * si se aplicara continuo, quedarse dentro de la columna aceleraría sin
+         * límite y rompería el balance.
+         */
+        if (!u._empujado) {
+          u._empujado = true;
+          applyBoost(s, this.stats.launchSpeed * PICKUPS.UPDRAFT.SPEED_BONUS, 0, 0);
+          addGlideBudget(s, PROPULSION.BASE_GLIDE * 0.3, PROPULSION.GLIDE_MAX);
+        }
+      }
+
       // Obstáculos.
       const hit = findCollision(this.obstacles, s.x, s.y, s.z, PLANE_RADIUS);
       if (hit) {

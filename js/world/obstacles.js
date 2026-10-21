@@ -362,6 +362,31 @@ export function generateCourse(rango = {}) {
     }
   }
 
+  /*
+   * ── Vendavales: corrientes ascendentes en los tramos rasantes ──
+   *
+   * Van sólo donde el circuito es bajo, que es donde el jugador se queda sin
+   * altura para remontar. No colisionan: se detectan aparte, en el vuelo.
+   */
+  {
+    for (let x = desde; x < hasta; x += PICKUPS.UPDRAFT.SPACING) {
+      const tramo = Math.floor(x / STAGES.SEGMENT_LENGTH);
+      if (nivelDeCircuito(tramo) !== 'rasante') continue;
+      const g = terrainHeightAt(x, 0);
+      list.push({
+        id: 900000 + Math.round(x),
+        type: 'updraft',
+        x,
+        z: 0,
+        groundY: g,
+        passed: false,
+        // Sin volumen de colisión: la caja es un punto.
+        aabb: { minX: x, maxX: x, minY: g, maxY: g, minZ: 0, maxZ: 0 },
+        params: { radius: PICKUPS.UPDRAFT.RADIUS, height: PICKUPS.UPDRAFT.HEIGHT, baseY: g },
+      });
+    }
+  }
+
   return list;
 }
 
@@ -806,7 +831,11 @@ export function findCollision(obstacles, x, y, z, radius) {
        * El premio se detecta aparte, en `findRingsPassed`, que sólo cuenta el
        * cruce por DENTRO del agujero.
        */
-      if (ob.type === 'ring') continue;
+      /*
+       * Aros y vendavales NO son obstáculos: el vendaval es una AYUDA, y morir
+       * contra una corriente de aire sería absurdo.
+       */
+      if (ob.type === 'ring' || ob.type === 'updraft') continue;
       return ob;
     }
   }
