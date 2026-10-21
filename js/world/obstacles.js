@@ -727,13 +727,25 @@ function buildObstacle(type, id, x, z, progress, rng) {
     z,
     groundY,
     passed: false,
+    /*
+     * ── La caja sigue al CONO, no a su base ──
+     *
+     * ── El caso reportado ──
+     * Avión a y=9 contra una aguja de 9.6 m de alto, a 3.7 m en Z. Cerca de la
+     * punta el cono ya es finísimo, pero la caja usaba el ancho de la BASE y
+     * bloqueaba todo el volumen: se moría rosando la punta.
+     *
+     * Se reduce el ancho al 0.78 y se recorta la altura al 0.9, que es donde el
+     * cono todavía conserva cuerpo. Un roce cerca del vértice ya no mata; tocar
+     * la parte maciza sí, como se pidió.
+     */
     aabb: {
-      minX: x - halfX,
-      maxX: x + halfX,
+      minX: x - halfX * 0.78,
+      maxX: x + halfX * 0.78,
       minY: groundY,
-      maxY: groundY + height,
-      minZ: z - halfZ,
-      maxZ: z + halfZ,
+      maxY: groundY + height * 0.9,
+      minZ: z - halfZ * 0.78,
+      maxZ: z + halfZ * 0.78,
     },
     params: { height, halfX, halfZ, sides: isMesa ? rng.int(6, 8) : rng.int(5, 7), rotation: rng.range(0, Math.PI) },
   };

@@ -57,7 +57,17 @@ export const PHASE = {
 };
 
 /** Radio de colisión del avión contra obstáculos (m). */
-const PLANE_RADIUS = 0.85;
+/**
+ * Radio de colisión del avión.
+ *
+ * ── Por qué es más chico que el modelo ──
+ * Se pidió poder ROSAR objetos sin morir, manteniendo la regla de que tocarlos sí
+ * mata (nada de durabilidad ni rebotes). Achicar el radio del avión da ese margen
+ * sin tocar la regla: lo que se ve como un roce no cuenta como impacto.
+ *
+ * 0.7 en vez de 0.85 deja ~15 cm de gracia por lado.
+ */
+const PLANE_RADIUS = 0.7;
 
 /** Velocidad vertical por encima de la cual tocar el suelo es un choque. */
 const HARD_LANDING_VY = 4.2;
