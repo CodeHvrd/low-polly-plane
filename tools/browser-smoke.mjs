@@ -295,7 +295,7 @@ async function main() {
     check('el HUD está oculto al inicio', init.hudHidden === true);
     check('la pantalla de resultado está oculta', init.resultHidden === true);
     check('el hangar tiene las 4 aeronaves', init.aircraftButtons === 4, `${init.aircraftButtons}`);
-    check('la tienda tiene las 8 mejoras', init.shopCards === 8, `${init.shopCards}`);
+    check('la tienda tiene las 9 mejoras', init.shopCards === 9, `${init.shopCards}`);
     check('el corredor tiene obstáculos', init.obstacles >= 8, `${init.obstacles}`);
     check('la línea de trayectoria está oculta sin arrastre', init.dashVisible === false);
     check('el marcador de impacto está oculto sin arrastre', init.markerVisible === false);

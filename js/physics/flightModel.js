@@ -227,6 +227,8 @@ export function paramsFromSpec(spec, mods = {}) {
      * rodilla y después la vuelve asintótica, así que nunca se vuelve ingobernable
      * pero tampoco se congela.
      */
+    /** Multiplicador de agilidad lateral (mejora "Alerones"). */
+    lateral: mods.lateralMult ?? 1,
     control: (() => {
       /*
        * El efecto de la estabilidad se aplica al 55% y no al 100%.
@@ -450,7 +452,7 @@ export function integrateSubstep(s, p, h) {
       px = 0;
       pz = 1;
     }
-    s.lateralVel += s.steer * FLIGHT_CONTROLS.LATERAL_ACCEL * p.control * h;
+    s.lateralVel += s.steer * FLIGHT_CONTROLS.LATERAL_ACCEL * p.control * (p.lateral ?? 1) * h;
 
     /*
      * ── El tope lateral ESCALA con la velocidad de avance ──
@@ -467,7 +469,7 @@ export function integrateSubstep(s, p, h) {
      * de giro se mantiene constante sin importar lo rápido que vayas. Acotado por
      * arriba para que a velocidades absurdas no se vuelva un teletransporte.
      */
-    const ratio = FLIGHT_CONTROLS.LATERAL_RATIO;
+    const ratio = FLIGHT_CONTROLS.LATERAL_RATIO * (p.lateral ?? 1);
     const topeLateral = Math.min(
       FLIGHT_CONTROLS.LATERAL_MAX_MAX,
       Math.max(FLIGHT_CONTROLS.LATERAL_MAX_MIN, hLen * ratio),

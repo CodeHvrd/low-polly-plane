@@ -299,7 +299,7 @@ export const FLIGHT_CONTROLS = {
   /** Piso del tope (m/s): a baja velocidad hace falta un mínimo para girar. */
   LATERAL_MAX_MIN: 20,
   /** Techo del tope (m/s): evita que a velocidades absurdas sea teletransporte. */
-  LATERAL_MAX_MAX: 62,
+  LATERAL_MAX_MAX: 90,
 
   /** Velocidad lateral máxima (m/s) a la velocidad de referencia. Sólo informativo. */
   get LATERAL_MAX() { return MODE.id === 'frenetic' ? 34 : 19; },

@@ -77,9 +77,13 @@ export const UPGRADES = [
     name: 'Aerodinámica',
     icon: '💨',
     desc: 'Menos resistencia al aire: conserva la velocidad por más tiempo.',
-    maxLevel: 8,
+    /*
+     * Tope en 6 niveles: con 0.14 por nivel se llega al techo real de 90 m/s en el
+     * nivel 6, así que 7 y 8 serían monedas gastadas sin efecto visible.
+     */
+    maxLevel: 6,
     baseCost: 110,
-    costMult: 1.55,
+    costMult: 1.5,
     effect: (lvl) => ({ dragMult: Math.max(0.55, 1 - lvl * 0.06) }),
   },
   {
@@ -101,6 +105,26 @@ export const UPGRADES = [
     baseCost: 200,
     costMult: 2.0,
     effect: (lvl) => ({ bounceMult: lvl * 0.18 }),
+  },
+  {
+    /*
+     * ── Alerones: agilidad lateral ──
+     *
+     * Se pidió una mejora que cubra la falta de agilidad de costado: es la
+     * carencia que más se siente al esquivar rocas seguidas en el circuito
+     * rasante, y hasta ahora no había forma de invertir monedas en resolverla.
+     *
+     * Sube la ACELERACIÓN lateral y el TOPE de desvío a la vez, así mejora tanto
+     * la respuesta inmediata como la capacidad de mantener el giro.
+     */
+    id: 'ailerons',
+    name: 'Alerones',
+    icon: '🪁',
+    desc: 'Más agilidad de costado: responde antes y gira más por metro.',
+    maxLevel: 8,
+    baseCost: 110,
+    costMult: 1.55,
+    effect: (lvl) => ({ lateralMult: 1 + lvl * 0.14 }),
   },
   {
     id: 'nose',
