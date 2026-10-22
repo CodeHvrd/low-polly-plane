@@ -232,8 +232,14 @@ export class Game {
      * se generen en la ventana correcta.
      */
     this.updateChunkWindow(0, true);
+    const _t1 = performance.now();
     disposeObstacleMeshes();
     buildObstacleMeshes(this.obstacles);
+    this._meshMs = performance.now() - _t1;
+    this._lastRebuild = Math.round((this._genMs ?? 0) + (this._meshMs ?? 0));
+    if (this._lastRebuild > 30) {
+      console.warn('[papercrash] regenerar ventana:', this._lastRebuild + ' ms (generar ' + Math.round(this._genMs ?? 0) + ' + mallas ' + Math.round(this._meshMs ?? 0) + ')');
+    }
     this.controller.obstacles = this.obstacles;
     updateTerrainWindow(0, true);
 
@@ -877,6 +883,7 @@ export class Game {
     const lineasEscena = Object.entries(g.grupos).map(([k, v]) =>
       `${k}: ${v.meshes}${v.visible ? '' : ' [OCULTO]'}${v.enEscena ? '' : ' [FUERA]'}`);
     const datos = `datos: obst ${g.datos.obstaculos} · rec ${g.datos.recolectables} · ${g.datos.fase}/${g.datos.pantalla}`;
+    const rebuild = 'última regeneración: ' + (this._lastRebuild ?? '—') + ' ms';
 
     const d = this.controller.impactDebug;
     if (!d) {
