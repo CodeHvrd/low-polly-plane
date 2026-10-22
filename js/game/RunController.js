@@ -656,8 +656,8 @@ export class RunController {
         if (s.y > base + alto) continue;
 
         // Vista como aceleración con tope: sube parejo y no sale disparado.
-        if (s.vy < PICKUPS.PICKUPS.UPDRAFT.LIFT_MAX) {
-          s.vy = Math.min(UPDRAFT.LIFT_MAX, s.vy + UPDRAFT.LIFT * h);
+        if (s.vy < PICKUPS.UPDRAFT.LIFT_MAX) {
+          s.vy = Math.min(PICKUPS.UPDRAFT.LIFT_MAX, s.vy + PICKUPS.UPDRAFT.LIFT * SIM.FIXED_DT);
         }
         /*
          * El empujón horizontal se aplica UNA sola vez al entrar, no en cada paso:
