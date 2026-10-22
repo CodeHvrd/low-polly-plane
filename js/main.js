@@ -104,7 +104,19 @@ if (document.readyState === 'loading') {
  */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch((err) => {
+    /*
+     * ── updateViaCache: none ──
+     *
+     * ── El bug que esto arregla ──
+     * Sin esta opción el navegador sirve el PROPIO sw.js desde su caché HTTP
+     * (GitHub Pages lo cachea unos 10 minutos). Aunque se despliegue una versión
+     * nueva, el navegador NI CONSULTA si existe: sigue corriendo el service
+     * worker viejo con su caché viejo.
+     *
+     * Se reportó actualizar la página 50 veces y seguir viendo la versión
+     * anterior. Era exactamente esto.
+     */
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch((err) => {
       console.warn('[papercrash] service worker no registrado:', err.message);
     });
   });

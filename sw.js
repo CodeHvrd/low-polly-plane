@@ -22,7 +22,7 @@
  */
 
 /** Subir esto en cada despliegue que cambie archivos. */
-const VERSION = 'papercrash-alpha-1.1.34';
+const VERSION = 'papercrash-alpha-1.1.35';
 
 /** Archivos del juego. Si falta uno, la instalación falla entera. */
 const NUCLEO = [
@@ -166,7 +166,14 @@ self.addEventListener('fetch', (evento) => {
    */
   evento.respondWith(
     (async () => {
-      const guardado = await caches.match(request);
+      /*
+       * Se busca SÓLO en el caché de esta versión.
+       *
+       * `caches.match()` sin nombre recorre TODOS los cachés y puede devolver una
+       * entrada vieja de un caché anterior que todavía no se borró. Eso hacía que
+       * un archivo nuevo nunca se viera aunque el service worker se actualizara.
+       */
+      const guardado = await caches.match(request, { cacheName: VERSION });
       if (guardado) return guardado;
 
       try {
