@@ -279,6 +279,15 @@ function buildRing(ob) {
  * Construye la malla de todos los obstáculos.
  * @param {import('./obstacles.js').Obstacle[]} obstacles
  */
+/**
+ * Material y geometría compartidos por todas las columnas de vendaval.
+ *
+ * Se crean una sola vez y se reutilizan: recrearlos en cada reconstrucción de la
+ * ventana del corredor provocaba recompilaciones de shader (tirones de frame).
+ */
+let materialVendaval = null;
+let geometriaVendaval = null;
+
 export function buildObstacleMeshes(obstacles) {
   disposeObstacleMeshes();
 
@@ -326,7 +335,8 @@ export function buildObstacleMeshes(obstacles) {
 
   // Libera las geometrías creadas para cada obstáculo.
   group.traverse((child) => {
-    if (child.geometry) disposables.push(child);
+    // Las columnas de vendaval comparten geometría: liberarlas rompería las demás.
+    if (child.geometry && child.geometry !== geometriaVendaval) disposables.push(child);
   });
 
   /*
@@ -338,26 +348,48 @@ export function buildObstacleMeshes(obstacles) {
    * depthWrite desactivado: no ocluyen el corredor. DoubleSide: se ven desde
    * adentro cuando el avion entra en la columna.
    */
-  for (const u of vendavales) {
-    const radio = u.params?.radius ?? 7;
-    const alto = u.params?.height ?? 40;
-    const base = u.params?.baseY ?? 0;
-    const geo = new THREE.CylinderGeometry(radio * 0.85, radio, alto, 10, 1, true);
-    const mat = new THREE.MeshBasicMaterial({
+  /*
+   * ── Material y geometría COMPARTIDOS ──
+   *
+   * ── El bug que esto arregla ──
+   * Cada columna creaba su propio material y su propia geometría. Como las
+   * mallas se reconstruyen cada vez que se mueve la ventana del corredor, se
+   * generaban materiales nuevos todo el tiempo y three.js recompilaba el shader
+   * al dibujarlos por primera vez: un tirón de uno o dos frames JUSTO al
+   * acercarse a la columna.
+   *
+   * Ese tirón hacía que el paso fijo acumulara varios ciclos de física en un
+   * solo frame: el avión aparecía de golpe DESPUÉS de la columna y no llegaba a
+   * recibir el empuje.
+   *
+   * Con un material y un cilindro unitario compartidos (escalado por malla) no
+   * hay recompilaciones ni basura de geometría.
+   */
+  if (!materialVendaval) {
+    materialVendaval = new THREE.MeshBasicMaterial({
       color: 0x8ef2ff,
       transparent: true,
       opacity: 0.16,
       side: THREE.DoubleSide,
       depthWrite: false,
-      flatShading: true,
     });
-    const malla = new THREE.Mesh(geo, mat);
-    malla.position.set(u.x, base + alto / 2, u.z);
-    malla.renderOrder = 2;
-    track(malla);
-    group.add(malla);
+  }
+  if (!geometriaVendaval) {
+    // Cilindro unitario: radio 1, alto 1, abierto. Se escala por malla.
+    geometriaVendaval = new THREE.CylinderGeometry(0.85, 1, 1, 10, 1, true);
   }
 
+  for (const u of vendavales) {
+    const radio = u.params?.radius ?? 7;
+    const alto = u.params?.height ?? 40;
+    const base = u.params?.baseY ?? 0;
+    const malla = new THREE.Mesh(geometriaVendaval, materialVendaval);
+    malla.scale.set(radio, alto, radio);
+    malla.position.set(u.x, base + alto / 2, u.z);
+    malla.renderOrder = 2;
+    // Geometría y material compartidos: NO se encolan para liberar por malla.
+    group.add(malla);
+  }
   return group;
 }
 

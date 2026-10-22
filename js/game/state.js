@@ -124,7 +124,12 @@ export const UPGRADES = [
     maxLevel: 8,
     baseCost: 110,
     costMult: 1.55,
-    effect: (lvl) => ({ lateralMult: 1 + lvl * 0.14 }),
+    /*
+     * 0.14 por nivel no alcanzaba: con la nave a fondo y mucha velocidad el avión
+     * seguía sin doblar. Se duplicó a 0.30, así el nivel 6 da x2.8 de agilidad
+     * lateral en vez de x1.84.
+     */
+    effect: (lvl) => ({ lateralMult: 1 + lvl * 0.3 }),
   },
   {
     id: 'nose',

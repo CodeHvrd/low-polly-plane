@@ -299,7 +299,14 @@ export const FLIGHT_CONTROLS = {
   /** Piso del tope (m/s): a baja velocidad hace falta un mínimo para girar. */
   LATERAL_MAX_MIN: 20,
   /** Techo del tope (m/s): evita que a velocidades absurdas sea teletransporte. */
-  LATERAL_MAX_MAX: 90,
+  /**
+   * Techo del tope lateral (m/s).
+   *
+   * Subió de 90 a 150 porque con Alerones al máximo el tope proporcional llega a
+   * ~2.8x la velocidad, y 90 lo recortaba justo cuando el jugador ya había pagado
+   * la mejora completa.
+   */
+  LATERAL_MAX_MAX: 150,
 
   /** Velocidad lateral máxima (m/s) a la velocidad de referencia. Sólo informativo. */
   get LATERAL_MAX() { return MODE.id === 'frenetic' ? 34 : 19; },
