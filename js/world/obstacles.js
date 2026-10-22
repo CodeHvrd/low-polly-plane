@@ -387,6 +387,15 @@ export function generateCourse(rango = {}) {
     }
   }
 
+  /*
+   * ── Ordenar por x ──
+   *
+   * Los vendavales se agregan al final del recorrido, así que sin este orden la
+   * lista quedaba desordenada. Varias partes del juego asumen que los obstáculos
+   * vienen en orden de avance, y la ventana del corredor también.
+   */
+  list.sort((a, b) => a.x - b.x);
+
   return list;
 }
 
