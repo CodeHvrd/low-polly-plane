@@ -67,6 +67,17 @@ export class TouchControls {
      * paridad con el teclado, que es lo que la rueda nunca pudo dar.
      */
     this.dir = { left: false, right: false, up: false, down: false };
+    /**
+     * Dedo (pointerId) -> flecha que está pisando.
+     *
+     * ── Por qué un mapa y no un booleano por flecha ──
+     * Con dos dedos apoyados hay que saber CUÁL dedo sostiene CUÁL flecha: si se
+     * guardara sólo "la flecha está apretada", levantar un dedo soltaría también la
+     * flecha del otro. Con el mapa, cada dedo suelta lo suyo.
+     */
+    this.punteros = new Map();
+    /** Botones del D-pad, para pintar el resaltado. */
+    this.botones = [];
     /** Si la propulsión está apretada ahora. */
     this.thrustHeld = false;
     /** Si los mandos están visibles. */
@@ -149,16 +160,27 @@ export class TouchControls {
   }
 
   /**
-   * Crea el D-pad de cuatro flechas.
+   * Crea el D-pad de cuatro flechas DESLIZABLES.
    *
-   * ── Por qué binario y no analógico ──
-   * Cada flecha entrega autoridad PLENA: apretada = 100%. Es exactamente lo que
-   * dan W y A/D en la PC, y es lo que la rueda nunca pudo igualar, porque
-   * sostenía los dos ejes con un solo pulgar.
+   * ── Qué significa "deslizable" ──
+   * El pulgar no queda atado a la flecha donde tocó: si se arrastra hasta otra, el
+   * mando cambia a esa. Se pasa de ◀ a ▶ con un solo gesto, sin levantar el dedo.
    *
-   * ── Por qué captura el puntero ──
-   * Cada flecha captura SU dedo, así se pueden mantener dos a la vez (diagonal) y
-   * el pulgar del booster no interfiere con el de la dirección.
+   * ── Por qué así y no con botones sueltos ──
+   * Con botones independientes, cada uno recibe su propio `pointerdown`/`pointerup`.
+   * Eso obliga a SOLTAR una flecha para tocar la siguiente, y en un juego donde hay
+   * que corregir el rumbo a cada rato se siente trabado. Es la misma razón por la
+   * que la rueda analógica, pese a sus problemas, se extrañaba para girar.
+   *
+   * ── Cómo funciona ──
+   * El contenedor captura el puntero y sigue su recorrido con `pointermove`. En
+   * cada movimiento se pregunta qué flecha hay DEBAJO del dedo con
+   * `elementFromPoint`, y se actualiza el estado. El resultado es una autoridad
+   * binaria (como el teclado) que además se desliza (como un analógico).
+   *
+   * ── Multi-touch ──
+   * Cada puntero se guarda por separado en `this.punteros`. Así dos dedos pueden
+   * sostener ▲ y ▶ a la vez, y el del booster no interfiere.
    *
    * @returns {{raiz: HTMLDivElement}}
    */
@@ -167,7 +189,7 @@ export class TouchControls {
     raiz.className = 'touch-dpad';
 
     /**
-     * Crea una flecha.
+     * Crea una flecha (sólo el aspecto: los eventos los lleva el contenedor).
      *
      * @param {string} id       id del elemento
      * @param {string} icono    ▲ ▼ ◀ ▶
@@ -182,57 +204,101 @@ export class TouchControls {
       b.textContent = icono;
       b.setAttribute('aria-label', etiqueta);
       b.dataset.dir = tecla;
-
-      const soltar = (e) => {
-        e.preventDefault();
-        b.classList.remove('activo');
-        this.dir[tecla] = false;
-        this._aplicar();
-      };
-
-      b.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        /*
-         * ── Primero el estado, después la captura ──
-         *
-         * ── El bug que esto arregla ──
-         * `setPointerCapture` LANZA una excepción si el puntero no es válido
-         * (eventos sintéticos, o cuando el navegador ya soltó el dedo). Al
-         * llamarlo ANTES de guardar el estado, la excepción abortaba el handler y
-         * la flecha nunca quedaba apretada.
-         *
-         * Ésa fue la razón de que los botones ▲▼ de la versión 10 "no engancharan"
-         * nunca: el evento llegaba, pero moría antes de aplicarse.
-         *
-         * Ahora el estado se guarda primero y la captura es opcional: si falla, la
-         * flecha funciona igual y sólo se pierde el seguimiento al salir del botón.
-         */
-        this.dir[tecla] = true;
-        b.classList.add('activo');
-        try {
-          b.setPointerCapture?.(e.pointerId);
-        } catch {
-          // Sin captura la flecha igual funciona mientras el dedo esté encima.
-        }
-        this._aplicar();
-      });
-
-      for (const tipo of ['pointerup', 'pointercancel']) {
-        b.addEventListener(tipo, soltar);
-      }
-
       return b;
     };
 
-    raiz.append(
+    this.botones = [
       flecha('touch-left', '◀', 'Girar a la izquierda', 'left'),
       flecha('touch-up', '▲', 'Subir el morro', 'up'),
       flecha('touch-down', '▼', 'Bajar el morro', 'down'),
       flecha('touch-right', '▶', 'Girar a la derecha', 'right'),
-    );
+    ];
+    raiz.append(...this.botones);
+
+    /**
+     * Qué flecha hay debajo de un punto de la pantalla.
+     *
+     * `elementFromPoint` es geométrico: devuelve el elemento que se ve en ese
+     * píxel, sin importar qué elemento tenga la captura del puntero. Eso es lo que
+     * permite que el dedo "salte" de una flecha a otra.
+     *
+     * @param {number} x @param {number} y
+     * @returns {'left'|'right'|'up'|'down'|null}
+     */
+    const teclaEn = (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      const boton = el?.closest?.('.touch-dir');
+      return boton?.dataset?.dir ?? null;
+    };
+
+    raiz.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      /*
+       * El estado se guarda ANTES de cualquier otra cosa.
+       *
+       * `setPointerCapture` puede lanzar si el puntero no es válido, y si eso pasa
+       * antes de anotar la tecla el gesto se pierde entero (fue el bug que dejó
+       * muertos los botones de morro de la versión 10).
+       */
+      const tecla = teclaEn(e.clientX, e.clientY);
+      if (!tecla) return;
+      this.punteros.set(e.pointerId, tecla);
+      this._sincronizar();
+      try {
+        // Captura en el CONTENEDOR: así el recorrido sigue llegando aunque el dedo
+        // se salga de la caja del D-pad.
+        raiz.setPointerCapture?.(e.pointerId);
+      } catch {
+        // Sin captura el gesto funciona igual dentro del D-pad.
+      }
+    });
+
+    raiz.addEventListener('pointermove', (e) => {
+      if (!this.punteros.has(e.pointerId)) return;
+      e.preventDefault();
+      /*
+       * Se recalcula la flecha bajo el dedo en CADA movimiento. Ésta es la parte
+       * que hace que el mando se deslice en vez de quedar bloqueado.
+       */
+      const tecla = teclaEn(e.clientX, e.clientY);
+      const anterior = this.punteros.get(e.pointerId);
+      if (tecla === anterior) return;
+      /*
+       * Salir del D-pad NO suelta la flecha: el dedo puede irse un poco afuera y
+       * volver. Sólo se suelta al levantar. Si se soltara al salir, el jugador
+       * perdería el mando por rozar el borde.
+       */
+      if (!tecla) return;
+      this.punteros.set(e.pointerId, tecla);
+      this._sincronizar();
+    });
+
+    const soltar = (e) => {
+      if (!this.punteros.has(e.pointerId)) return;
+      this.punteros.delete(e.pointerId);
+      this._sincronizar();
+    };
+    raiz.addEventListener('pointerup', soltar);
+    raiz.addEventListener('pointercancel', soltar);
+    raiz.addEventListener('lostpointercapture', soltar);
 
     return { raiz };
+  }
+
+  /**
+   * Recalcula los ejes a partir de los dedos apoyados y actualiza el resaltado.
+   *
+   * Se deriva del conjunto de punteros, no de un booleano por flecha: así dos
+   * dedos pueden sostener dos flechas sin pisarse el estado.
+   */
+  _sincronizar() {
+    const activas = new Set(this.punteros.values());
+    for (const tecla of Object.keys(this.dir)) this.dir[tecla] = activas.has(tecla);
+    for (const b of this.botones ?? []) {
+      b.classList.toggle('activo', activas.has(b.dataset.dir));
+    }
+    this._aplicar();
   }
 
 
@@ -321,8 +387,14 @@ export class TouchControls {
    * apoyado no arrastre la dirección a la partida siguiente.
    */
   _resetDpad() {
+    /*
+     * Se vacía el mapa de punteros, no sólo el estado.
+     *
+     * Si quedara un pointerId colgado, el siguiente `pointermove` de ese dedo
+     * seguiría moviendo el avión aunque el jugador ya hubiera levantado.
+     */
+    this.punteros.clear();
     for (const tecla of Object.keys(this.dir)) this.dir[tecla] = false;
-    const raiz = document.getElementById('touch-controls');
-    raiz?.querySelectorAll('.touch-dir').forEach((b) => b.classList.remove('activo'));
+    for (const b of this.botones ?? []) b.classList.remove('activo');
   }
 }

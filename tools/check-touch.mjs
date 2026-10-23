@@ -190,10 +190,17 @@ async function apretar(ids, pointerId = 61) {
     async (params) => {
       const input = await import('/js/core/input.js');
       input.releaseTouchAxes();
+      const centro = (id) => {
+        const r = document.getElementById(id).getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      };
       for (const b of params.ids) {
+        const c = centro(b);
         document.getElementById(b).dispatchEvent(
           new PointerEvent('pointerdown', {
             bubbles: true,
+            clientX: c.x,
+            clientY: c.y,
             pointerId: params.pointerId,
             pointerType: 'touch',
           }),
@@ -205,9 +212,12 @@ async function apretar(ids, pointerId = 61) {
         document.getElementById(b).classList.contains('activo'),
       ).length;
       for (const b of params.ids) {
+        const c = centro(b);
         document.getElementById(b).dispatchEvent(
           new PointerEvent('pointerup', {
             bubbles: true,
+            clientX: c.x,
+            clientY: c.y,
             pointerId: params.pointerId,
             pointerType: 'touch',
           }),
@@ -246,6 +256,95 @@ console.log('\n  ── Al soltar, todo vuelve a cero ──');
   check('soltar limpia el morro', r.trasSoltar.nose === 0, `nose=${r.trasSoltar.nose}`);
 }
 
+console.log('\n  ── DESLIZAR el pulgar entre flechas ──');
+await volverAlVuelo();
+{
+  /*
+   * ── El pedido concreto ──
+   * "No me bloquee sobre esa flecha: si arrastro hacia la de la derecha, que
+   * reconozca que el dedo ya está en esa flecha y me haga doblar."
+   *
+   * Sin levantar el dedo: se apoya en ◀, se DESLIZA hasta ▶ y se comprueba que el
+   * rumbo pasa de -1 a +1 en el mismo gesto. Es lo que hace que el D-pad se sienta
+   * como un analógico de cuatro posiciones en vez de cuatro botones sueltos.
+   */
+  const r = await ev(async () => {
+    const input = await import('/js/core/input.js');
+    input.releaseTouchAxes();
+    const centro = (id) => {
+      const b = document.getElementById(id).getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    };
+    const raiz = document.querySelector('.touch-dpad');
+    const ci = centro('touch-left');
+    const cd = centro('touch-right');
+    const ca = centro('touch-up');
+
+    const mover = (x, y) => {
+      const dest = document.elementFromPoint(x, y) ?? raiz;
+      dest.dispatchEvent(
+        new PointerEvent('pointermove', {
+          bubbles: true,
+          clientX: x,
+          clientY: y,
+          pointerId: 101,
+          pointerType: 'touch',
+        }),
+      );
+    };
+
+    // 1. Apoyar el dedo en ◀
+    document.getElementById('touch-left').dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        clientX: ci.x,
+        clientY: ci.y,
+        pointerId: 101,
+        pointerType: 'touch',
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 100));
+    const enIzquierda = input.readFlightControls();
+
+    // 2. DESLIZAR el mismo dedo hasta ▶, SIN levantarlo
+    mover(cd.x, cd.y);
+    await new Promise((r) => setTimeout(r, 120));
+    const trasDeslizar = input.readFlightControls();
+
+    // 3. Y seguir hasta ▲
+    mover(ca.x, ca.y);
+    await new Promise((r) => setTimeout(r, 120));
+    const trasSubir = input.readFlightControls();
+
+    // 4. Levantar
+    document.getElementById('touch-up').dispatchEvent(
+      new PointerEvent('pointerup', {
+        bubbles: true,
+        clientX: ca.x,
+        clientY: ca.y,
+        pointerId: 101,
+        pointerType: 'touch',
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 120));
+    const trasSoltar = input.readFlightControls();
+    return { enIzquierda, trasDeslizar, trasSubir, trasSoltar };
+  });
+  check('el dedo apoya en ◀ y gira a la izquierda', r.enIzquierda.steer === -1, `steer=${r.enIzquierda.steer}`);
+  check(
+    'DESLIZAR a ▶ cambia el rumbo sin levantar el dedo',
+    r.trasDeslizar.steer === 1 && r.trasDeslizar.nose === 0,
+    `steer=${r.trasDeslizar.steer} nose=${r.trasDeslizar.nose}`,
+  );
+  check(
+    'DESLIZAR a ▲ sube el morro',
+    r.trasSubir.nose === 1 && r.trasSubir.steer === 0,
+    `steer=${r.trasSubir.steer} nose=${r.trasSubir.nose}`,
+  );
+  check('levantar el dedo vuelve a cero', r.trasSoltar.steer === 0 && r.trasSoltar.nose === 0,
+    `steer=${r.trasSoltar.steer} nose=${r.trasSoltar.nose}`);
+}
+
 console.log('\n  ── Dos dedos: diagonal ──');
 await volverAlVuelo();
 {
@@ -257,15 +356,21 @@ await volverAlVuelo();
   const diag = await ev(async () => {
     const input = await import('/js/core/input.js');
     input.releaseTouchAxes();
+    const centro = (id) => {
+      const r = document.getElementById(id).getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    };
     const a = document.getElementById('touch-up');
     const b = document.getElementById('touch-right');
-    a.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 71, pointerType: 'touch' }));
-    b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 72, pointerType: 'touch' }));
+    const ca = centro('touch-up');
+    const cb = centro('touch-right');
+    a.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: ca.x, clientY: ca.y, pointerId: 71, pointerType: 'touch' }));
+    b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: cb.x, clientY: cb.y, pointerId: 72, pointerType: 'touch' }));
     await new Promise((r) => setTimeout(r, 120));
     const ejes = input.readFlightControls();
     const dosActivas = a.classList.contains('activo') && b.classList.contains('activo');
     // Se suelta SOLO una: la otra debe seguir mandando.
-    b.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 72, pointerType: 'touch' }));
+    b.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: cb.x, clientY: cb.y, pointerId: 72, pointerType: 'touch' }));
     await new Promise((r) => setTimeout(r, 120));
     const soloMorro = input.readFlightControls();
     // Se lee también el estado interno: es más estable que los ejes, que vuelven a
@@ -328,7 +433,8 @@ await volverAlVuelo();
     const G = window.__papercrash;
     input.releaseTouchAxes();
     const b = document.getElementById('touch-right');
-    b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 91, pointerType: 'touch' }));
+    const rc = b.getBoundingClientRect();
+    b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: rc.left + rc.width / 2, clientY: rc.top + rc.height / 2, pointerId: 91, pointerType: 'touch' }));
     await new Promise((r) => setTimeout(r, 90));
     const antes = input.readFlightControls();
     G.touch.setVisible(false);
