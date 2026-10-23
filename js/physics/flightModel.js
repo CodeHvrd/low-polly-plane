@@ -504,9 +504,19 @@ export function integrateSubstep(s, p, h) {
      */
     const margen = CLIMB_MIN_AUTHORITY
       + (1 - CLIMB_MIN_AUTHORITY) * Math.min(1, s.glideBudget / CLIMB_FULL_AUTHORITY);
-    if (s.vy < FLIGHT_CONTROLS.NOSE_UP_MAX_VY) {
+    /*
+     * ── El tope sube si hay propulsión activa ──
+     *
+     * ── El bug que esto arregla ──
+     * Se reportó que ▲ + booster no hace nada. El motivo: el booster ya deja
+     * `vy` en NOSE_UP_MAX_VY, así que la flecha arriba encontraba el tope y no
+     * sumaba nada. Con el margen extra la flecha sigue teniendo efecto durante
+     * la propulsión, que es justo cuando el jugador la aprieta.
+     */
+    const topeVy = FLIGHT_CONTROLS.NOSE_UP_MAX_VY + (s.burnTime > 0 ? FLIGHT_CONTROLS.NOSE_UP_BOOST_EXTRA : 0);
+    if (s.vy < topeVy) {
       s.vy = Math.min(
-        FLIGHT_CONTROLS.NOSE_UP_MAX_VY,
+        topeVy,
         s.vy + s.nose * margen * FLIGHT_CONTROLS.NOSE_UP_ACCEL * p.control * h,
       );
     }

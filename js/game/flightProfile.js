@@ -88,6 +88,12 @@ function smoothstep01(t) {
  * @param {number} segmento
  * @returns {'alto'|'rasante'}
  */
+/**
+ * Circuito de un tramo.
+ *
+ * @param {number} segmento
+ * @returns {'alto'|'rasante'}
+ */
 export function nivelDeCircuito(segmento) {
   return segmento % 2 === 0 ? 'alto' : 'rasante';
 }

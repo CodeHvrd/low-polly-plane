@@ -288,6 +288,37 @@ function buildRing(ob) {
 let materialVendaval = null;
 let geometriaVendaval = null;
 
+/**
+ * Precompila el material del vendaval.
+ *
+ * ── Por qué existe ──
+ * Se reportó que el PRIMER vendaval warpea el avión y el segundo ya anda bien.
+ * Es el costo de compilar un material transparente la primera vez que se dibuja:
+ * ese tirón hace que la física acumule pasos y el avión salte.
+ *
+ * Se crea el material y se fuerza su compilación antes de volar, así el costo
+ * se paga en la carga y no en el primer vendaval.
+ */
+export function precalentarVendaval() {
+  if (!materialVendaval) {
+    materialVendaval = new THREE.MeshBasicMaterial({
+      color: 0x8ef2ff,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+  }
+  if (!geometriaVendaval) {
+    geometriaVendaval = new THREE.CylinderGeometry(0.85, 1, 1, 10, 1, true);
+  }
+  // Un meshe invisible fuerza la compilación sin mostrarse en pantalla.
+  const malla = new THREE.Mesh(geometriaVendaval, materialVendaval);
+  malla.visible = false;
+  malla.scale.set(1, 1, 1);
+  return malla;
+}
+
 export function buildObstacleMeshes(obstacles) {
   disposeObstacleMeshes();
 

@@ -691,6 +691,30 @@ export class Game {
     this._aimEnteredAt = performance.now();
 
     /*
+     * ── Calentamiento del vendaval ──
+     *
+     * Se reportó que el PRIMER vendaval warpea el avión hacia adelante y el
+     * segundo ya funciona bien. Es el costo de compilar el material transparente
+     * la primera vez que se dibuja: ese tirón hace que la física acumule varios
+     * pasos y el avión salte.
+     *
+     * Dibujar una columna fuera de cámara durante la carga hace que el costo se
+     * pague antes de volar, no en el primer vendaval.
+     */
+    /*
+     * El calentamiento NUNCA puede romper la entrada al lanzador.
+     *
+     * Va en try/catch a propósito: es una optimización de rendimiento, no una
+     * parte del juego. Si falla, se pierde el precalentado y nada más.
+     */
+    try {
+      const calentamiento = precalentarVendaval();
+      if (calentamiento && !calentamiento.parent) scene.add(calentamiento);
+    } catch (err) {
+      console.warn('[papercrash] no se pudo precalentar el vendaval:', err.message);
+    }
+
+    /*
      * ── El modelo del avión siempre tiene que estar ──
      *
      * Se reportó: tras hacer una run corta, tocar "menú" y luego "nueva partida",

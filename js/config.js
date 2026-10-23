@@ -329,6 +329,14 @@ export const FLIGHT_CONTROLS = {
    * ser sobre volar. Con tope, W sirve para alcanzar algo que quedó alto y
    * después hay que seguir.
    */
+  /**
+   * Margen extra de subida mientras hay propulsión activa.
+   *
+   * Se reportó que ▲ + booster no hace nada: el impulso ya dejaba `vy` en el
+   * tope, así que la flecha arriba no tenía efecto. Con este margen sigue
+   * respondiendo justo cuando el jugador la aprieta.
+   */
+  NOSE_UP_BOOST_EXTRA: 9,
   get NOSE_UP_MAX_VY() { return MODE.id === 'frenetic' ? 13 : 7; },
   /** Multiplicador global de los mandos, por modo. */
   get SCALE() { return MODE.motion.controlScale; },
@@ -894,7 +902,7 @@ export const PICKUPS = {
     /** Alto de la columna (m): se extiende hasta bien arriba del corredor. */
     HEIGHT: 40,
     /** Separación entre columnas dentro de un tramo rasante (m). */
-    SPACING: 100,
+    SPACING: 250,
   },
 
   CIRCUITOS: {
