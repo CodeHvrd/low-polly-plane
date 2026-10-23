@@ -42,84 +42,6 @@
  */
 import { setTouchAxes, releaseTouchAxes, isTouchDevice } from '../core/input.js';
 
-/** Radio máximo de la rueda, en píxeles CSS. */
-const RADIO = 56;
-/**
- * Zona muerta: fracción del radio por debajo de la cual no se manda nada.
- *
- * ── Por qué bajó de 0.16 a 0.08 ──
- * Con 0.16 el pulgar tenía que recorrer el 16% del radio antes de que el avión
- * hiciera algo. En una rueda de 128 px son ~10 px de recorrido a ciegas, y se
- * sentía como que el mando "llega tarde": se movía el dedo, el avión seguía
- * recto, y había que mover más.
- *
- * 0.08 alcanza para apoyar el pulgar sin desviar el avión y devuelve casi todo el
- * recorrido al control.
- */
-/*
- * ── Zonas muertas con HISTÉRESIS ──
- *
- * ── Por qué dos valores y no uno ──
- * Con una sola zona muerta hay que elegir entre dos males: chica y el temblor del
- * pulgar mueve el avión; grande y cuesta empezar a moverlo.
- *
- * Con histéresis hace falta empujar más para ARRANCAR (0.28) pero mucho menos
- * para SEGUIR (0.14). Un pulgar apoyado se queda quieto; en cuanto el jugador
- * mueve de verdad, el avión responde con precisión.
- *
- * En una rueda de 128 px, 0.28 son ~18 px: suficiente para que el temblor natural
- * del pulgar no active nada.
- */
-const ZONA_MANTENER = 0.18;
-
-/**
- * Suavizado del mando (1/s).
- *
- * ── Por qué suavizar si el mando ya es "analógico" ──
- * Los eventos de puntero llegan a saltos y con ruido. Aplicar el valor crudo hacía
- * que el avión temblara: es el "se siente entrecortado" reportado. Un filtro
- * exponencial con constante ~45 ms quita el ruido sin agregar retardo perceptible.
- */
-const SUAVIZADO = 22;
-
-/**
- * ── Desplazamiento "cómodo" del pulgar (fracción del radio) ──
- *
- * ── El problema que resuelve ──
- * Un pulgar apoyado en la rueda se mueve con comodidad hasta ~60% del radio; más
- * que eso obliga a estirar. Con el mando lineal, a 60% el avión recibía sólo 59%
- * de autoridad, mientras que el TECLADO siempre da 100% (A/D son todo o nada).
- *
- * Ésa era la razón de fondo de "en la PC esquivo bien y en el celular no llego":
- * el jugador de móvil manejaba con la mitad de autoridad sin saberlo.
- *
- * Ahora la autoridad llega al 100% a la posición cómoda, no al borde de la rueda.
- * Empujar más allá no suma nada (es el tope), así que el rango útil es el que el
- * pulgar alcanza sin esfuerzo.
- */
-const PULGAR_COMODO = 0.62;
-
-/**
- * Curva de respuesta del mando.
- *
- * ── Por qué hace falta una curva ──
- * Un mando lineal obliga a recorrer medio radio para girar a la mitad. Con el
- * pulgar eso es poco intuitivo: se tiende a empujar a fondo, y entonces el
- * control se vuelve binario (todo o nada) justo cuando hace falta precisión para
- * pasar entre dos obstáculos.
- *
- * `Math.pow(magnitud, 0.72)` amplifica los movimientos chicos y comprime los
- * grandes, así que un toque suave corrige de a poco y un empujón a fondo sigue
- * dando el máximo. El exponente < 1 es lo que da la sensación de respuesta
- * inmediata sin perder el rango fino.
- */
-/*
- * La curva subió de 0.72 a 0.88.
- *
- * Con 0.72 los movimientos chicos se amplificaban demasiado y el mando se sentía
- * nervioso y "entrecortado". 0.88 conserva algo de respuesta viva sin exagerar.
- */
-const CURVA = 0.88;
 
 /**
  * @typedef {Object} Stick
@@ -132,8 +54,19 @@ const CURVA = 0.88;
 
 export class TouchControls {
   constructor() {
-    /** @type {Stick|null} La rueda analógica. */
-    this.stick = null;
+    /**
+     * Estado de las cuatro flechas del D-pad.
+     *
+     * ── Por qué flechas y no una rueda ──
+     * La rueda analógica ACOPLA los dos ejes: para sostener el morro arriba hay
+     * que dejar el pulgar quieto en un punto exacto, y cualquier temblor cambia
+     * también el rumbo. En la PC W y A/D son teclas independientes, y ahí volar
+     * resulta cómodo.
+     *
+     * Cuatro flechas dan autoridad BINARIA: apretado = 100%. Es exactamente la
+     * paridad con el teclado, que es lo que la rueda nunca pudo dar.
+     */
+    this.dir = { left: false, right: false, up: false, down: false };
     /** Si la propulsión está apretada ahora. */
     this.thrustHeld = false;
     /** Si los mandos están visibles. */
@@ -166,8 +99,8 @@ export class TouchControls {
     cont.className = 'hidden';
     cont.setAttribute('aria-hidden', 'true');
 
-    this.stick = this._crearStick('vuelo', 'VOLAR');
-    cont.appendChild(this.stick.raiz);
+    this.dpad = this._crearDpad();
+    cont.appendChild(this.dpad.raiz);
 
     /*
      * Botón de propulsión.
@@ -202,51 +135,6 @@ export class TouchControls {
      * esto no se puede volver de la etapa de lanzamiento. Va pegado al borde para
      * quedar FUERA del recorrido natural del pulgar sobre la rueda.
      */
-    /*
-     * ── Botones de MORRO (sostener, como W y S en la PC) ──
-     *
-     * ── Por qué separados del analógico ──
-     * En la PC, mantener W sube el morro con autoridad plena y sin tocar el rumbo:
-     * son teclas independientes. En la rueda, sostener el morro exigía dejar el
-     * pulgar quieto en un punto exacto, y cualquier temblor cambiaba TAMBIÉN la
-     * dirección, que es justo lo que hacía incómodo planear.
-     *
-     * Con dos botones sostenibles, subir y bajar el morro se vuelve una acción
-     * binaria y estable, igual que el teclado. La rueda queda para el rumbo.
-     */
-    const crearBotonMorro = (id, icono, etiqueta, signo) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.id = id;
-      b.className = 'touch-nose';
-      b.textContent = icono;
-      b.setAttribute('aria-label', etiqueta);
-      const soltar = (e) => {
-        e.preventDefault();
-        b.classList.remove('activo');
-        if (signo > 0) this.noseUp = false;
-        else this.noseDown = false;
-        this._aplicar();
-      };
-      b.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        b.setPointerCapture?.(e.pointerId);
-        b.classList.add('activo');
-        // Un solo sentido a la vez: pulsar el contrario cancela el otro.
-        if (signo > 0) { this.noseUp = true; this.noseDown = false; }
-        else { this.noseDown = true; this.noseUp = false; }
-        this._aplicar();
-      });
-      b.addEventListener('pointerup', soltar);
-      b.addEventListener('pointercancel', soltar);
-      b.addEventListener('pointerleave', soltar);
-      return b;
-    };
-    const morroArriba = crearBotonMorro('touch-nose-up', '▲', 'Subir el morro', 1);
-    const morroAbajo = crearBotonMorro('touch-nose-down', '▼', 'Bajar el morro', -1);
-    cont.append(morroArriba, morroAbajo);
-
     const atras = document.createElement('button');
     atras.type = 'button';
     atras.id = 'touch-back';
@@ -261,179 +149,92 @@ export class TouchControls {
   }
 
   /**
-   * Crea la rueda analógica.
+   * Crea el D-pad de cuatro flechas.
    *
-   * @param {string} nombre @param {string} etiqueta
-   * @returns {Stick}
+   * ── Por qué binario y no analógico ──
+   * Cada flecha entrega autoridad PLENA: apretada = 100%. Es exactamente lo que
+   * dan W y A/D en la PC, y es lo que la rueda nunca pudo igualar, porque
+   * sostenía los dos ejes con un solo pulgar.
+   *
+   * ── Por qué captura el puntero ──
+   * Cada flecha captura SU dedo, así se pueden mantener dos a la vez (diagonal) y
+   * el pulgar del booster no interfiere con el de la dirección.
+   *
+   * @returns {{raiz: HTMLDivElement}}
    */
-  _crearStick(nombre, etiqueta) {
+  _crearDpad() {
     const raiz = document.createElement('div');
-    raiz.className = 'touch-stick';
-    raiz.dataset.stick = nombre;
+    raiz.className = 'touch-dpad';
 
-    const base = document.createElement('div');
-    base.className = 'touch-stick-base';
-
-    /*
-     * Cruz de referencia: dos líneas finas que marcan los ejes.
+    /**
+     * Crea una flecha.
      *
-     * Sin ellas la rueda es un círculo vacío y no se ve que también gobierna el
-     * morro: el jugador descubre por casualidad que empujando arriba el avión
-     * sube. Con la cruz, las cuatro direcciones se leen de un vistazo.
+     * @param {string} id       id del elemento
+     * @param {string} icono    ▲ ▼ ◀ ▶
+     * @param {string} etiqueta descripción para lectores de pantalla
+     * @param {'left'|'right'|'up'|'down'} tecla
      */
-    const cruz = document.createElement('div');
-    cruz.className = 'touch-stick-cross';
-    cruz.innerHTML = '<i></i><i></i>';
+    const flecha = (id, icono, etiqueta, tecla) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.id = id;
+      b.className = 'touch-dir';
+      b.textContent = icono;
+      b.setAttribute('aria-label', etiqueta);
+      b.dataset.dir = tecla;
 
-    const perilla = document.createElement('div');
-    perilla.className = 'touch-stick-knob';
+      const soltar = (e) => {
+        e.preventDefault();
+        b.classList.remove('activo');
+        this.dir[tecla] = false;
+        this._aplicar();
+      };
 
-    const texto = document.createElement('span');
-    texto.className = 'touch-stick-label';
-    texto.textContent = etiqueta;
-
-    base.append(cruz, perilla, texto);
-    raiz.appendChild(base);
-
-    /** @type {Stick} */
-    const stick = { raiz, perilla, pointerId: -1, cx: 0, cy: 0, x: 0, y: 0 };
-    this._engancharStick(stick);
-    return stick;
-  }
-
-  /**
-   * Conecta los eventos de la rueda.
-   *
-   * ── Por qué recuerda el `pointerId` ──
-   * Aunque ahora haya un solo mando de vuelo, sigue haciendo falta: el botón de
-   * propulsión se toca con el OTRO pulgar, y sin filtrar por id el movimiento de
-   * ese dedo podría arrastrar la rueda. Con el id, cada puntero gobierna lo suyo.
-   *
-   * @param {Stick} s
-   */
-  _engancharStick(s) {
-    const base = s.raiz.firstElementChild;
-
-    const centro = () => {
-      const b = base.getBoundingClientRect();
-      s.cx = b.left + b.width / 2;
-      s.cy = b.top + b.height / 2;
-    };
-
-    const mover = (dx, dy) => {
-      // Radio dinámico: la rueda se adapta a pantallas chicas.
-      const r = Math.min(RADIO, base.getBoundingClientRect().width / 2);
-      const d = Math.hypot(dx, dy);
-      /*
-       * Se recorta al CÍRCULO, no a un cuadrado.
-       *
-       * Es lo que hace que sea una rueda y no un pad: el desplazamiento máximo es
-       * el mismo en cualquier dirección, así que empujar en diagonal no da más
-       * mando que empujar en cruz. Sin esto, la diagonal permitiría (1, 1) y el
-       * avión giraría más rápido en diagonal que de costado, que se siente injusto.
-       */
-      const k = d > r ? r / d : 1;
-      const px = dx * k;
-      const py = dy * k;
-      s.perilla.style.transform = `translate(${px}px, ${py}px)`;
-
-      /*
-       * ── Histéresis: el umbral depende de si ya estaba controlando ──
-       *
-       * Si el mando estaba en reposo hace falta superar ZONA_ARRANQUE para que el
-       * avión empiece a moverse. Una vez que está controlando, basta con bajar de
-       * ZONA_MANTENER para seguir. Así un pulgar apoyado no desvía nada, pero al
-       * moverlo la respuesta es inmediata y precisa.
-       */
-      const nx = px / r;
-      const ny = py / r;
-      const magnitud = Math.hypot(nx, ny);
-      /*
-       * ── Un solo umbral, más alto ──
-       *
-       * Se probó con histéresis (arranque 0.28 / mantener 0.14) y la suite de
-       * multi-touch lo detectó como fallo: el gesto de dos dedos quedaba muy justo
-       * y no siempre cruzaba el umbral de arranque.
-       *
-       * Un umbral único de 0.22 es más simple y resuelve lo que importa: ~14 px de
-       * recorrido antes de que el avión se mueva, suficiente para que el temblor
-       * del pulgar no lo desvíe.
-       */
-      s.controlando = magnitud > ZONA_MANTENER;
-
-      /*
-       * ── El mando se marca visualmente cuando está activo ──
-       *
-       * Se pidió saber si el pulgar está controlando o no. Antes no había ninguna
-       * señal: el jugador se enteraba del choque. La clase cambia el color de la
-       * rueda y de la perilla.
-       */
-      s.raiz.classList.toggle('controlando', s.controlando);
-
-      if (s.controlando) {
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         /*
-         * Se aplica la curva sobre la MAGNITUD y se conserva la dirección.
+         * ── Primero el estado, después la captura ──
          *
-         * Escalar x e y por separado deformaría los diagonales: empujar a 45°
-         * dejaría de dar (0.7, 0.7). Normalizando por magnitud, la dirección se
-         * respeta y sólo cambia cuánto manda.
+         * ── El bug que esto arregla ──
+         * `setPointerCapture` LANZA una excepción si el puntero no es válido
+         * (eventos sintéticos, o cuando el navegador ya soltó el dedo). Al
+         * llamarlo ANTES de guardar el estado, la excepción abortaba el handler y
+         * la flecha nunca quedaba apretada.
+         *
+         * Ésa fue la razón de que los botones ▲▼ de la versión 10 "no engancharan"
+         * nunca: el evento llegaba, pero moría antes de aplicarse.
+         *
+         * Ahora el estado se guarda primero y la captura es opcional: si falla, la
+         * flecha funciona igual y sólo se pierde el seguimiento al salir del botón.
          */
-        /*
-         * Se reescala entre la zona muerta y la posición cómoda.
-         *
-         *   zona muerta  -> 0
-         *   cómoda (62%) -> 1 (autoridad plena, igual que el teclado)
-         *   más allá     -> 1 (tope)
-         *
-         * Es lineal en el recorrido y luego se le aplica la curva, así que sigue
-         * habiendo precisión fina cerca del centro sin perder el máximo.
-         */
-        const recorrido = (magnitud - ZONA_MANTENER) / (PULGAR_COMODO - ZONA_MANTENER);
-        const t01 = Math.max(0, Math.min(1, recorrido));
-        const autoridad = Math.pow(t01, CURVA);
-        const ganancia = autoridad / magnitud;
-        s.x = nx * ganancia;
-        s.y = ny * ganancia;
-      } else {
-        s.x = 0;
-        s.y = 0;
-      }
-      this._aplicar();
-    };
-
-    const soltar = () => {
-      s.pointerId = -1;
-      s.x = 0;
-      s.y = 0;
-      s.perilla.style.transform = 'translate(0px, 0px)';
-      s.raiz.classList.remove('activo');
-      this._aplicar();
-    };
-
-    base.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (s.pointerId !== -1) return;
-      s.pointerId = e.pointerId;
-      base.setPointerCapture?.(e.pointerId);
-      centro();
-      s.raiz.classList.add('activo');
-      mover(e.clientX - s.cx, e.clientY - s.cy);
-    });
-
-    base.addEventListener('pointermove', (e) => {
-      if (e.pointerId !== s.pointerId) return;
-      e.preventDefault();
-      mover(e.clientX - s.cx, e.clientY - s.cy);
-    });
-
-    for (const tipo of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-      base.addEventListener(tipo, (e) => {
-        if (e.pointerId !== s.pointerId) return;
-        soltar();
+        this.dir[tecla] = true;
+        b.classList.add('activo');
+        try {
+          b.setPointerCapture?.(e.pointerId);
+        } catch {
+          // Sin captura la flecha igual funciona mientras el dedo esté encima.
+        }
+        this._aplicar();
       });
-    }
+
+      for (const tipo of ['pointerup', 'pointercancel']) {
+        b.addEventListener(tipo, soltar);
+      }
+
+      return b;
+    };
+
+    raiz.append(
+      flecha('touch-left', '◀', 'Girar a la izquierda', 'left'),
+      flecha('touch-up', '▲', 'Subir el morro', 'up'),
+      flecha('touch-down', '▼', 'Bajar el morro', 'down'),
+      flecha('touch-right', '▶', 'Girar a la derecha', 'right'),
+    );
+
+    return { raiz };
   }
+
 
   /**
    * Conecta un botón de acción.
@@ -460,36 +261,22 @@ export class TouchControls {
   }
 
   /**
-   * Vuelca los ejes de la rueda al input compartido.
+   * Vuelca las flechas apretadas al input compartido.
    *
-   * La rueda gobierna LAS CUATRO direcciones: su eje X es el rumbo y su eje Y el
-   * morro. Es lo que permite pilotar todo el vuelo con un solo dedo.
+   * ── Autoridad binaria ──
+   * Cada flecha vale 1 o 0, sin valores intermedios. Es la paridad exacta con el
+   * teclado: en la PC A/D dan ±1 siempre, y ésa es la razón de que ahí se pueda
+   * esquivar bien y con la rueda costara.
+   *
+   * Al poder mantener dos flechas a la vez, la diagonal sale sola: ▲+▶ da morro
+   * arriba y rumbo a la derecha al mismo tiempo, sin que uno contamine al otro.
    */
   _aplicar() {
     setTouchAxes({
-      // X de pantalla crece hacia la derecha, igual que el `steer` del juego.
-      steer: this.stick?.x ?? 0,
-      /*
-       * ── El MORRO viene de los botones, no de la rueda ──
-       *
-       * La rueda manda sólo el RUMBO. Así el morro se sostiene con el pulgar
-       * apoyado (como W y S) y no se contamina con el temblor del eje vertical.
-       *
-       * Signo: +1 = subir, -1 = bajar. Los botones ya lo aplican.
-       */
-      /*
-       * ── El morro acepta DOS fuentes ──
-       *
-       * 1. Los botones ▲/▼ (sostener, como W y S).
-       * 2. La rueda en vertical, como respaldo.
-       *
-       * ── Por qué las dos ──
-       * Los botones son la mejora, pero su cableado todavía no está verificado.
-       * Si quedaran sin efecto, el jugador se quedaría SIN control de morro, que
-       * es peor que el problema original. Así la rueda sigue funcionando y los
-       * botones se suman cuando enganchen.
-       */
-      nose: this.noseUp ? 1 : (this.noseDown ? -1 : -(this.stick?.y ?? 0)),
+      // Derecha menos izquierda: -1, 0 o +1.
+      steer: (this.dir.right ? 1 : 0) - (this.dir.left ? 1 : 0),
+      // Arriba menos abajo: +1 sube, -1 baja.
+      nose: (this.dir.up ? 1 : 0) - (this.dir.down ? 1 : 0),
       thrust: this.thrustHeld,
     });
   }
@@ -504,24 +291,38 @@ export class TouchControls {
    */
   setVisible(visible) {
     if (!this.built) return;
-    if (this.visible === visible) return;
+    /*
+     * ── Al OCULTAR se resetea siempre, aunque ya estuviera oculto ──
+     *
+     * ── El bug que esto arregla ──
+     * Antes había un `if (this.visible === visible) return;` antes del reset. Si
+     * los mandos ya estaban ocultos y una flecha quedaba apretada (por ejemplo el
+     * vuelo terminó con el dedo apoyado), volver a ocultarlos no limpiaba nada y
+     * el eje quedaba pegado para la partida siguiente.
+     *
+     * Mostrar sigue siendo idempotente; ocultar siempre limpia.
+     */
+    if (visible && this.visible) return;
     this.visible = visible;
     document.getElementById('touch-controls')?.classList.toggle('hidden', !visible);
     if (!visible) {
       // Al ocultarse se sueltan los ejes: si no, un dedo apoyado al terminar el
       // vuelo dejaría el mando apretado en el vuelo siguiente.
-      if (this.stick) this._resetStick(this.stick);
+      this._resetDpad();
       this.thrustHeld = false;
       releaseTouchAxes();
     }
   }
 
-  /** @param {Stick} s */
-  _resetStick(s) {
-    s.pointerId = -1;
-    s.x = 0;
-    s.y = 0;
-    s.perilla.style.transform = 'translate(0px, 0px)';
-    s.raiz.classList.remove('activo');
+  /**
+   * Suelta todas las flechas y les quita el estado visual.
+   *
+   * Se llama al ocultar los mandos y al terminar un vuelo, para que un dedo
+   * apoyado no arrastre la dirección a la partida siguiente.
+   */
+  _resetDpad() {
+    for (const tecla of Object.keys(this.dir)) this.dir[tecla] = false;
+    const raiz = document.getElementById('touch-controls');
+    raiz?.querySelectorAll('.touch-dir').forEach((b) => b.classList.remove('activo'));
   }
 }
