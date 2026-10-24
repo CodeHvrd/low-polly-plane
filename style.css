@@ -1858,21 +1858,21 @@ body.en-vuelo #mode-bar {
 
 /* ══════════════════════════════════════════════════════════
 /* ══════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════
    D-PAD (mobile) — bloque unificado estilo joystick
    ══════════════════════════════════════════════════════════
-   Cuatro piezas CUADRADAS con una punta que mira al centro. Se tocan entre sí y
-   sólo las separa una X fina, así el conjunto se lee como un solo mando y no como
-   cuatro botones sueltos.
+   Cuatro piezas cuadradas con una punta triangular que mira al centro. Las separa
+   sólo una X fina, así el conjunto se lee como un solo mando.
 
-   ── Por qué la X sale sola ──
-   El contenedor tiene un fondo claro y las cuatro piezas están recortadas con una
-   punta hacia adentro. Donde las puntas se encuentran queda visible ese fondo: una
-   X de dos o tres píxeles. No hace falta dibujarla.
+   ── Por qué rejilla y no posiciones absolutas ──
+   Con `width: 50%` y `left: 25%` cada pieza ocupaba el 50% del pad y se
+   SUPERPONÍAN 50×50 px en el centro: la X no se veía porque no había hueco.
+   Una rejilla 3x3 nunca solapa: cada brazo vive en su celda.
 
-   ── Por qué `clip-path` acá y no `border-radius` ──
-   `border-radius` sólo redondea esquinas; para la punta triangular hace falta
-   recortar. El borde se pierde con el recorte, así que el contraste lo da el fondo
-   del contenedor que asoma entre las piezas.
+   ── Cómo se arma la X ──
+   Cada brazo crece hacia el centro con un margen negativo, y el recorte lo deja en
+   punta. Las cuatro puntas se juntan en la celda central SIN tocarse, y el fondo
+   claro del contenedor asoma entre ellas: la X aparece sola, no hay que dibujarla.
    ══════════════════════════════════════════════════════════ */
 .touch-dpad {
   position: absolute;
@@ -1882,49 +1882,49 @@ body.en-vuelo #mode-bar {
    * `min()` contra el ancho de pantalla: en un teléfono de 320 px un pad fijo de
    * 210 más el boost de 84 se pisarían. Así se achica solo donde hace falta.
    */
-  width: min(210px, 54vw);
-  height: min(210px, 54vw);
+  --lado: min(210px, 54vw);
+  --hueco: 2px;
+  width: var(--lado);
+  height: var(--lado);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--hueco);
   pointer-events: none;
   /*
-   * ── El fondo del contenedor es el MARCO ──
+   * ── Sin fondo: los huecos son TRANSPARENTES ──
    *
-   * Es el color que asoma en la X del centro y en el borde exterior.
+   * Antes el contenedor tenía un color claro como "marco", y con las puntas
+   * recortadas ese color asomaba como una banda gruesa alrededor y en el centro.
+   * Se veía pesado y poco unificado.
    *
-   * ── Por qué el contenedor está recortado en cruz ──
-   * Sin recortar, este fondo llenaba el cuadrado entero y se veía como una caja
-   * translúcida grande detrás de las flechas. Recortado a la silueta de cruz, sólo
-   * queda visible el marco: el resto (las cuatro esquinas) desaparece.
+   * En la referencia los huecos entre botones son transparentes: se ve el fondo.
+   * Así la X del centro la forma el propio juego, y el bloque se lee como una sola
+   * pieza con cuatro flechas.
    */
-  background: rgba(150, 175, 200, 0.28);
+  background: transparent;
   clip-path: polygon(
-    25% 0%, 75% 0%, 75% 25%, 100% 25%, 100% 75%, 75% 75%,
-    75% 100%, 25% 100%, 25% 75%, 0% 75%, 0% 25%, 25% 25%
+    33.3% 0%, 66.7% 0%, 66.7% 33.3%, 100% 33.3%, 100% 66.7%, 66.7% 66.7%,
+    66.7% 100%, 33.3% 100%, 33.3% 66.7%, 0% 66.7%, 0% 33.3%, 33.3% 33.3%
   );
 }
 
 @media (max-height: 480px) {
-  .touch-dpad { width: min(186px, 48vw); height: min(186px, 48vw); }
+  .touch-dpad { --lado: min(186px, 48vw); }
 }
 
-/*
- * ── Cada brazo ──
- *
- * Posicionado en absoluto ocupando la mitad del pad, pegado a su borde. La punta
- * del recorte apunta al centro.
- */
+/* ── Cada brazo: un cuadradado con una punta que mira al centro ── */
 .touch-dir {
   pointer-events: auto;
-  position: absolute;
-  width: calc(50% - 2px);
-  height: calc(50% - 2px);
   display: flex;
   align-items: center;
   justify-content: center;
   border: 0;
+  margin: 0;
   /* Degradé de arriba-izquierda a abajo-derecha: da volumen sin sombras extra. */
   background: linear-gradient(155deg, #3b414b 0%, #262a31 45%, #12141a 100%);
   color: #a8bccd;
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -1935,36 +1935,38 @@ body.en-vuelo #mode-bar {
   transition: background 0.08s, color 0.08s, filter 0.08s;
 }
 
-/* Arriba: cuadrado con la punta hacia ABAJO (al centro). */
+/*
+ * Arriba: crece hacia ABAJO (margen negativo) y el recorte lo deja en punta.
+ *
+ * El `padding-bottom` empuja el ícono hacia afuera, así el triángulo no le queda
+ * encima al dibujo de la flecha.
+ */
 #touch-up {
-  top: 0;
-  left: 25%;
-  clip-path: polygon(0% 0%, 100% 0%, 100% 76%, 50% 100%, 0% 76%);
-  padding-bottom: 18%;
+  grid-area: 1 / 2;
+  margin-bottom: calc(-1 * (100% / 3 + var(--hueco) * 2) / 2);
+  clip-path: polygon(0% 0%, 100% 0%, 100% 88%, 50% 100%, 0% 88%);
+  padding-bottom: 12%;
 }
 
-/* Abajo: punta hacia ARRIBA. */
 #touch-down {
-  bottom: 0;
-  left: 25%;
-  clip-path: polygon(0% 24%, 50% 0%, 100% 24%, 100% 100%, 0% 100%);
-  padding-top: 18%;
+  grid-area: 3 / 2;
+  margin-top: calc(-1 * (100% / 3 + var(--hueco) * 2) / 2);
+  clip-path: polygon(0% 12%, 50% 0%, 100% 12%, 100% 100%, 0% 100%);
+  padding-top: 12%;
 }
 
-/* Izquierda: punta hacia la DERECHA. */
 #touch-left {
-  left: 0;
-  top: 25%;
-  clip-path: polygon(0% 0%, 76% 0%, 100% 50%, 76% 100%, 0% 100%);
-  padding-right: 18%;
+  grid-area: 2 / 1;
+  margin-right: calc(-1 * (100% / 3 + var(--hueco) * 2) / 2);
+  clip-path: polygon(0% 0%, 88% 0%, 100% 50%, 88% 100%, 0% 100%);
+  padding-right: 12%;
 }
 
-/* Derecha: punta hacia la IZQUIERDA. */
 #touch-right {
-  right: 0;
-  top: 25%;
-  clip-path: polygon(24% 0%, 100% 0%, 100% 100%, 24% 100%, 0% 50%);
-  padding-left: 18%;
+  grid-area: 2 / 3;
+  margin-left: calc(-1 * (100% / 3 + var(--hueco) * 2) / 2);
+  clip-path: polygon(12% 0%, 100% 0%, 100% 100%, 12% 100%, 0% 50%);
+  padding-left: 12%;
 }
 
 /*
