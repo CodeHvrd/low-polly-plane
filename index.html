@@ -151,6 +151,17 @@
         <span>Borrar progreso</span>
         <button type="button" id="btn-options-reset" class="menu-toggle danger">BORRAR</button>
       </div>
+      <!--
+        ── Forzar actualización ──
+        Cuando el juego queda pegado a una versión vieja (típico del PWA instalado,
+        que tiene su propio almacenamiento y al que no le llega "borrar datos del
+        sitio"), este botón desregistra el service worker, vacía los cachés y
+        recarga. Es la salida de emergencia.
+      -->
+      <div class="options-row">
+        <span>Forzar actualización</span>
+        <button type="button" id="btn-options-update" class="menu-toggle">ACTUALIZAR</button>
+      </div>
       <button type="button" id="btn-options-back" class="menu-back">← VOLVER</button>
     </section>
 

@@ -22,7 +22,7 @@
  */
 
 /** Subir esto en cada despliegue que cambie archivos. */
-const VERSION = 'papercrash-alpha-1.1.38';
+const VERSION = 'papercrash-alpha-1.1.39';
 
 /** Archivos del juego. Si falta uno, la instalación falla entera. */
 const NUCLEO = [
@@ -158,30 +158,35 @@ self.addEventListener('fetch', (evento) => {
   }
 
   /*
-   * Archivos propios: primero el caché.
+   * Archivos propios: RED PRIMERO, caché como respaldo.
    *
-   * Es lo que hace que abrir la app sea instantáneo y que ande sin conexión. El
-   * juego no tiene datos en vivo, así que no hay nada que ganar yendo a la red
-   * primero.
+   * ── Por qué cambió de "caché primero" ──
+   * Con caché primero, una versión nueva no se veía hasta que el service worker
+   * rotara su caché. En un teléfono con la app INSTALADA como PWA eso puede no
+   * pasar nunca: el PWA tiene su propio contenedor de almacenamiento, separado del
+   * navegador, así que borrar los datos del sitio desde el navegador NO lo toca.
+   *
+   * Se reportó actualizar 30 veces, borrar los datos del sitio y seguir viendo la
+   * versión anterior. Era esto.
+   *
+   * ── Lo que se pierde y lo que se gana ──
+   * Con red primero, abrir la app con conexión tarda lo que tarde la red (medido en
+   * milisegundos para archivos locales del mismo origen). Sin conexión se sigue
+   * usando el caché igual que antes, así que la app NO deja de funcionar offline.
+   *
+   * La versión siempre está al día cuando hay internet: eso vale más que unos
+   * milisegundos de arranque.
    */
   evento.respondWith(
     (async () => {
-      /*
-       * Se busca SÓLO en el caché de esta versión.
-       *
-       * `caches.match()` sin nombre recorre TODOS los cachés y puede devolver una
-       * entrada vieja de un caché anterior que todavía no se borró. Eso hacía que
-       * un archivo nuevo nunca se viera aunque el service worker se actualizara.
-       */
-      const guardado = await caches.match(request, { cacheName: VERSION });
-      if (guardado) return guardado;
-
       try {
-        const respuesta = await fetch(request);
+        const respuesta = await fetch(request, { cache: 'no-cache' });
         /*
-         * Se guarda una copia de lo que se pidió y no estaba. Cubre el caso de
-         * un archivo agregado después del despliegue: entra al caché en el
-         * primer uso en vez de fallar para siempre sin conexión.
+         * Se guarda la copia fresca para poder abrir sin conexión.
+         *
+         * `no-cache` obliga al navegador a revalidar con el servidor en vez de
+         * servir de su propio caché HTTP: sin eso, GitHub Pages puede entregar una
+         * copia de hasta 10 minutos de antigüedad y el problema vuelve.
          */
         if (respuesta.ok && respuesta.type === 'basic') {
           const cache = await caches.open(VERSION);
@@ -190,12 +195,19 @@ self.addEventListener('fetch', (evento) => {
         return respuesta;
       } catch (err) {
         /*
-         * Sin conexión y sin caché. Para una navegación se devuelve el index,
-         * que es lo que permite abrir la app desde el icono aunque la URL
-         * exacta no esté cacheada.
+         * Sin conexión: se usa lo guardado.
+         *
+         * Se busca SÓLO en el caché de esta versión. `caches.match()` sin nombre
+         * recorre TODOS los cachés y puede devolver una entrada vieja de un caché
+         * anterior que todavía no se borró.
          */
+        const guardado = await caches.match(request, { cacheName: VERSION });
+        if (guardado) return guardado;
+
+        // Para una navegación se devuelve el index, que permite abrir la app
+        // desde el icono aunque la URL exacta no esté cacheada.
         if (request.mode === 'navigate') {
-          const index = await caches.match('./index.html');
+          const index = await caches.match('./index.html', { cacheName: VERSION });
           if (index) return index;
         }
         throw err;

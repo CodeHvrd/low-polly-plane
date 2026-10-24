@@ -1270,6 +1270,48 @@ export class Game {
     });
 
     /*
+     * ══════════════════════════════════════════════════════════
+     * FORZAR ACTUALIZACIÓN
+     * ══════════════════════════════════════════════════════════
+     *
+     * ── Por qué hace falta ──
+     * En el teléfono, con la app INSTALADA como PWA, el juego tiene su propio
+     * contenedor de almacenamiento. Borrar "datos del sitio" desde el navegador no
+     * lo toca, así que el jugador puede quedar pegado a una versión vieja sin
+     * ninguna forma de salir.
+     *
+     * Esto es la salida de emergencia: desregistra el service worker, vacía todos
+     * los cachés y recarga con un parámetro que saltea el caché del navegador.
+     */
+    document.getElementById('btn-options-update')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const btn = e.currentTarget;
+      btn.textContent = 'ACTUALIZANDO…';
+      try {
+        // 1. Fuera los service workers.
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+        // 2. Fuera los cachés.
+        if ('caches' in window) {
+          const claves = await caches.keys();
+          await Promise.all(claves.map((k) => caches.delete(k)));
+        }
+      } catch (err) {
+        console.warn('[papercrash] no se pudo limpiar del todo:', err?.message);
+      }
+      /*
+       * El parámetro en la URL es clave: sin él, el navegador puede volver a
+       * servir el index.html de su caché HTTP y todo el trabajo anterior no se
+       * nota. Con `?v=<tiempo>` la petición es distinta y va sí o sí a la red.
+       */
+      const url = new URL(window.location.href);
+      url.searchParams.set('v', String(Date.now()));
+      window.location.replace(url.toString());
+    });
+
+    /*
      * "Exit": una página web no se puede cerrar sola.
      *
      * En el APK el botón Atrás de Android hace `moveTaskToBack`, pero desde la web
