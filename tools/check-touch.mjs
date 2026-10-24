@@ -135,7 +135,7 @@ console.log('\n  ── Montaje del D-pad ──');
     const ids = ['touch-left', 'touch-up', 'touch-down', 'touch-right'];
     return {
       dpad: Boolean(dpad),
-      display: dpad ? getComputedStyle(dpad).display : 'n/a',
+      hijos: dpad ? dpad.querySelectorAll('.touch-dir').length : 0,
       flechas: ids.filter((i) => document.getElementById(i)).length,
       ruedaVieja: Boolean(document.querySelector('.touch-stick')),
       noseViejos: Boolean(document.getElementById('touch-nose-up')),
@@ -146,7 +146,14 @@ console.log('\n  ── Montaje del D-pad ──');
   });
   check('el juego arrancó', m.arranco);
   check('el D-pad existe', m.dpad);
-  check('el D-pad se muestra como rejilla', m.display === 'grid', m.display);
+  /*
+   * El D-pad ya no es una rejilla: son cuatro piezas posicionadas en absoluto que
+   * se tocan entre sí, separadas sólo por la X del centro.
+   *
+   * El tamaño se mide DESPUÉS de mostrar los mandos: ocultos el contenedor mide 0
+   * y la comprobación fallaría sin que exista ningún problema.
+   */
+  check('el D-pad tiene las cuatro piezas', m.hijos === 4, m.hijos + ' piezas');
   check('tiene las CUATRO flechas', m.flechas === 4, `${m.flechas}/4`);
   check('la rueda analógica ya no está', m.ruedaVieja === false);
   check('los botones de morro viejos ya no están', m.noseViejos === false);
@@ -175,6 +182,23 @@ async function volverAlVuelo() {
     await new Promise((r) => setTimeout(r, 120));
     return true;
   });
+}
+
+await volverAlVuelo();
+{
+  // Con los mandos a la vista se puede medir el tamaño real.
+  const tam = await ev(async () => {
+    const d = document.querySelector('.touch-dpad');
+    const u = document.getElementById('touch-up');
+    const boost = document.getElementById('touch-thrust');
+    const rd = d.getBoundingClientRect();
+    const ru = u.getBoundingClientRect();
+    const rb = boost.getBoundingClientRect();
+    return { pad: Math.round(rd.width), flecha: Math.round(ru.width), solapa: rd.right > rb.left };
+  });
+  check('el D-pad es grande y usable', tam.pad >= 150, tam.pad + ' px');
+  check('cada flecha es cómoda de tocar', tam.flecha >= 55, tam.flecha + ' px');
+  check('el D-pad no pisa el boost', tam.solapa === false);
 }
 
 /* Lanzar para que los ejes táctiles se lean (antes de volar no se pilota). */

@@ -268,9 +268,17 @@
       <span id="stage-progress" data-required>0 m</span>
     </div>
 
-    <!-- Barra del presupuesto de planeo: cuánto queda antes de que el avión
-         empiece a caer. Es la señal para ir a buscar el próximo booster. -->
-    <div id="glide-gauge">
+    <!--
+      Barra del presupuesto de planeo.
+
+      Se OCULTA a pedido: ocupaba lugar al pie de la pantalla y en el teléfono
+      quedaba justo debajo del D-pad. El dato no se pierde — el avión sigue
+      gastando planeo igual, y el jugador lo percibe por el comportamiento — pero
+      deja de ocupar el borde inferior.
+
+      El elemento queda en el DOM para no romper el código que lo actualiza.
+    -->
+    <div id="glide-gauge" class="hidden">
       <span class="stat-label">PLANEO <strong id="glide-pct" data-required>100%</strong></span>
       <div id="glide-bar"><div id="glide-fill" data-required></div></div>
     </div>
