@@ -1912,9 +1912,16 @@ body.en-vuelo #mode-bar {
   border: 0;
   margin: 0;
   padding: 0;
-  /* Degradé de arriba-izquierda a abajo-derecha: da volumen sin sombras extra. */
-  background: linear-gradient(155deg, #3b414b 0%, #262a31 45%, #12141a 100%);
-  color: #a8bccd;
+  /*
+   * ── Celeste translúcido, igual que el botón de boost ──
+   *
+   * Se pidió la misma estética: fondo celeste con transparencia y borde del mismo
+   * color. Al compartir lenguaje visual, todo el bloque de mandos se lee como una
+   * sola familia en vez de dos estilos distintos.
+   */
+  background: rgba(0, 229, 255, 0.16);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
   font-size: 1.3rem;
   line-height: 1;
   cursor: pointer;
@@ -1938,6 +1945,7 @@ body.en-vuelo #mode-bar {
   width: 33.334%;
   height: var(--media);
   clip-path: polygon(0% 0%, 100% 0%, 100% 66.7%, 50% 100%, 0% 66.7%);
+  border-radius: 18px 18px 0 0;
   align-items: center;
   justify-content: center;
   padding-bottom: 22%;
@@ -1950,6 +1958,7 @@ body.en-vuelo #mode-bar {
   width: 33.334%;
   height: var(--media);
   clip-path: polygon(0% 33.3%, 50% 0%, 100% 33.3%, 100% 100%, 0% 100%);
+  border-radius: 0 0 18px 18px;
   align-items: center;
   justify-content: center;
   padding-top: 22%;
@@ -1962,6 +1971,7 @@ body.en-vuelo #mode-bar {
   height: 33.334%;
   width: var(--media);
   clip-path: polygon(0% 0%, 66.7% 0%, 100% 50%, 66.7% 100%, 0% 100%);
+  border-radius: 18px 0 0 18px;
   align-items: center;
   justify-content: center;
   padding-right: 22%;
@@ -1974,6 +1984,7 @@ body.en-vuelo #mode-bar {
   height: 33.334%;
   width: var(--media);
   clip-path: polygon(33.3% 0%, 100% 0%, 100% 100%, 33.3% 100%, 0% 50%);
+  border-radius: 0 18px 18px 0;
   align-items: center;
   justify-content: center;
   padding-left: 22%;
@@ -1986,7 +1997,8 @@ body.en-vuelo #mode-bar {
  * el jugador no sabe si el dedo enganchó.
  */
 .touch-dir.activo {
-  background: linear-gradient(155deg, #8ff7ff 0%, #00e5ff 55%, #00b8d4 100%);
+  background: rgba(0, 229, 255, 0.85);
+  border-color: #9ff8ff;
   color: #04121a;
   filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.8));
 }

@@ -801,7 +801,19 @@ export class RunController {
     if (kind === 'instant') {
       const launchSpeed = this.stats.launchSpeed || this.getSpec().baseSpeed;
       const accel = launchSpeed * PICKUPS.BOOSTERS.SPEED_FRACTION;
-      applyBoost(this.flight, accel, cfg.BURN_TIME, 0);
+    /*
+     * ── Morro arriba + recoger un booster = SUBIR ──
+     *
+     * ── El bug que esto arregla ──
+     * Acá el empuje vertical estaba fijo en 0, así que recoger un booster daba
+     * velocidad pero nada de altura, aunque el jugador estuviera apretando ▲.
+     * El botón de propulsión sí lo aplicaba; este camino no.
+     *
+     * Misma regla que el botón, para que las dos formas de propulsar se sientan
+     * iguales.
+     */
+    const climbKick = this.flight.nose > 0 ? cfg.CLIMB_KICK * this.flight.nose : 0;
+    applyBoost(this.flight, accel, cfg.BURN_TIME, climbKick);
       this.clampSpeed();
       addGlideBudget(this.flight, cfg.GLIDE_BONUS, cfg.GLIDE_MAX);
       addFuel(this, cfg.FUEL_REFILL);
