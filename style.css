@@ -1869,45 +1869,53 @@ body.en-vuelo #mode-bar {
   position: absolute;
   left: max(12px, env(safe-area-inset-left));
   bottom: max(18px, env(safe-area-inset-bottom) + 18px);
-  /* Rejilla 3x3: las flechas ocupan los brazos de la cruz y el centro queda libre. */
+  /*
+   * ── Rejilla 3x3 apretada ──
+   *
+   * Se pidió juntar las flechas: antes el hueco era de 6 px y quedaban como cuatro
+   * botones sueltos. Con 2 px se leen como una cruz continua, igual que el D-pad de
+   * un joystick.
+   *
+   * El centro queda vacío a propósito: ahí no hay nada que tocar y así el pulgar
+   * encuentra los cuatro brazos por tacto.
+   */
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 6px;
-  /*
-   * Subió de 172 a 240 px: se pidió más grande en el teléfono. Con 172 las flechas
-   * quedaban de ~53 px y el pulgar las erraba.
-   */
+  gap: 2px;
   /*
    * `min()` contra el ancho de pantalla: en un teléfono de 320 px un D-pad fijo de
-   * 240 más el boost de 84 se pisarían. Así se achica solo donde hace falta.
+   * 210 más el boost de 84 se pisarían. Así se achica solo donde hace falta.
    */
-  width: min(240px, 58vw);
-  height: min(240px, 58vw);
+  width: min(210px, 54vw);
+  height: min(210px, 54vw);
   pointer-events: none;
 }
 
 @media (max-height: 480px) {
-  .touch-dpad { width: 198px; height: 198px; gap: 5px; }
+  .touch-dpad { width: min(186px, 48vw); height: min(186px, 48vw); gap: 2px; }
 }
 
 /*
- * ── Las flechas usan el MISMO lenguaje visual que el boost ──
+ * ── Botones estilo PlayStation ──
  *
- * Se pidió que tengan la transparencia y el celeste claro del botón de propulsión.
- * Además de ser más legible, así queda claro de un vistazo que todo el bloque de
- * mandos es lo mismo: cosas que se aprietan para pilotar.
+ * Cada brazo es una pieza oscura con degradé que APUNTA AL CENTRO: redondeada por
+ * fuera y en punta por dentro, como los botones separados del D-pad de la consola.
+ *
+ * La punta se logra con `border-radius` asimétrico en vez de `clip-path`: el
+ * recorte con clip elimina el borde y el resaltado, y en un mando táctil el borde
+ * es lo que define dónde se puede tocar.
  */
 .touch-dir {
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  border: 1px solid var(--cyan);
-  background: rgba(0, 229, 255, 0.14);
-  color: var(--cyan);
-  font-size: 1.5rem;
+  border: 1px solid rgba(120, 140, 165, 0.35);
+  /* Degradé de arriba-izquierda a abajo-derecha: da volumen sin sombras costosas. */
+  background: linear-gradient(155deg, #363b44 0%, #24272d 45%, #14161a 100%);
+  color: #9fb4c9;
+  font-size: 1.35rem;
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -1915,28 +1923,57 @@ body.en-vuelo #mode-bar {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   touch-action: none;
-  transition: background 0.08s, border-color 0.08s, transform 0.06s;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.35);
+  transition: background 0.08s, color 0.08s, box-shadow 0.08s, transform 0.06s;
 }
 
-/* Posiciones en la rejilla. */
-#touch-left  { grid-area: 2 / 1; }
-#touch-up    { grid-area: 1 / 2; }
-#touch-down  { grid-area: 3 / 2; }
-#touch-right { grid-area: 2 / 3; }
+/*
+ * Posiciones en la rejilla y forma de cada brazo.
+ *
+ * El redondeo grande va del lado EXTERIOR y la punta del lado interior, así los
+ * cuatro convergen hacia el centro.
+ */
+#touch-left {
+  grid-area: 2 / 1;
+  border-radius: 46% 6% 6% 46% / 50% 8% 8% 50%;
+  padding-right: 18%;
+}
+
+#touch-right {
+  grid-area: 2 / 3;
+  border-radius: 6% 46% 46% 6% / 8% 50% 50% 8%;
+  padding-left: 18%;
+}
+
+#touch-up {
+  grid-area: 1 / 2;
+  border-radius: 46% 46% 6% 6% / 46% 46% 8% 8%;
+  padding-bottom: 16%;
+}
+
+#touch-down {
+  grid-area: 3 / 2;
+  border-radius: 6% 6% 46% 46% / 8% 8% 46% 46%;
+  padding-top: 16%;
+}
 
 /*
- * Apretada: cian pleno.
+ * Apretada: celeste pleno, como el botón de boost activo.
  *
- * El cambio de color es la única confirmación de que la flecha está tomada. Sin
- * eso el jugador no sabe si el dedo enganchó, que fue justo una de las quejas de
- * la rueda.
+ * El cambio de color es la única confirmación de que la flecha está tomada; sin
+ * eso el jugador no sabe si el dedo enganchó.
  */
 .touch-dir.activo {
-  background: rgba(0, 229, 255, 0.85);
-  border-color: var(--cyan);
+  background: linear-gradient(155deg, #6ff2ff 0%, #00e5ff 55%, #00b8d4 100%);
+  border-color: #9ff8ff;
   color: #04121a;
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.65);
-  transform: scale(0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 0 18px rgba(0, 229, 255, 0.7);
+  transform: scale(0.95);
 }
 
 /* Botón de propulsión: separado del joystick porque es una habilidad con
