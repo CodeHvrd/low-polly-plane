@@ -12,4 +12,4 @@
  *
  * Se incrementa con: node tools/sync-sw.mjs --bump
  */
-export const BUILD = 26;
+export const BUILD = 27;

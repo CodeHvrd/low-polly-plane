@@ -338,6 +338,20 @@ export const FLIGHT_CONTROLS = {
    */
   NOSE_UP_BOOST_EXTRA: 9,
   get NOSE_UP_MAX_VY() { return MODE.id === 'frenetic' ? 13 : 7; },
+
+  /**
+   * Ganancia de velocidad al PICAR (m/s²).
+   *
+   * ── Por qué existe ──
+   * Se pidió que bajar el morro respete la velocidad que trae el avión en vez de
+   * hacerlo caer en el lugar. Una picada real CONVIERTE ALTURA EN VELOCIDAD: el
+   * avión baja más rápido y también avanza más rápido.
+   *
+   * Sin esto, picar sólo repartía la velocidad entre avance y caída y la sensación
+   * era de frenar. Con esto el picado se siente como una maniobra.
+   */
+  DIVE_GAIN: 8,
+
   /** Multiplicador global de los mandos, por modo. */
   get SCALE() { return MODE.motion.controlScale; },
 

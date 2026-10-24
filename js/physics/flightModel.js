@@ -406,7 +406,24 @@ export function integrateSubstep(s, p, h) {
      */
     let cd = p.cd;
     if (p.glideDrag > 0 && p.glideSink > 0 && s.vy < 0) {
-      const ratio = clamp(s.vy / p.glideSink, -GLIDE_DRAG_MAX_RATIO, 0);
+      /*
+       * ── Con el morro abajo, la resistencia de picado se reduce mucho ──
+       *
+       * ── El problema que esto arregla ──
+       * Se reportó que la flecha de bajar "te hace caer en el lugar en vez de
+       * respetar la velocidad que traés". Medido: picando desde 60 m/s el avión
+       * quedaba en ~28 m/s de avance y sólo recorría 44 m en 2 s, contra 108 m de
+       * planeo normal. El culpable era este factor: la resistencia de descenso
+       * multiplica `cd` por hasta 10.4 y se come la velocidad.
+       *
+       * Físicamente una picada ACELERA: la altura se convierte en velocidad. Con
+       * el jugador pidiendo descender, la resistencia inducida no debería dominar.
+       *
+       * Se acota a un tercio del tope normal: sigue habiendo resistencia (picar no
+       * es gratis) pero deja de borrar la velocidad que el avión traía.
+       */
+      const topeRatio = s.nose < 0 ? GLIDE_DRAG_MAX_RATIO / 3 : GLIDE_DRAG_MAX_RATIO;
+      const ratio = clamp(s.vy / p.glideSink, -topeRatio, 0);
       cd *= 1 + p.glideDrag * ratio * ratio;
     }
 
@@ -556,6 +573,25 @@ export function integrateSubstep(s, p, h) {
       s.vx *= k;
       s.vz *= k;
       s.vy = nuevoV;
+
+      /*
+       * ── La picada GANA velocidad ──
+       *
+       * La rotación conserva el módulo, así que picar sólo repartía la velocidad
+       * entre avance y caída: el avance bajaba y la sensación era de frenar.
+       *
+       * La altura que se pierde se convierte en velocidad, que es lo que hace un
+       * avión de verdad al picar. Se aplica SOBRE EL VECTOR y con tope, para que no
+       * rompa el límite de velocidad de la nave.
+       */
+      const rapidez = Math.hypot(s.vx, s.vy, s.vz);
+      const tope = p.maxSpeed > 0 ? p.maxSpeed : Infinity;
+      if (rapidez > 1e-4 && rapidez < tope) {
+        const suma = Math.min(FLIGHT_CONTROLS.DIVE_GAIN * p.control * h, tope - rapidez);
+        s.vx += (s.vx / rapidez) * suma;
+        s.vy += (s.vy / rapidez) * suma;
+        s.vz += (s.vz / rapidez) * suma;
+      }
     } else {
       // Sin rumbo definido (caída vertical): no hay nada que rotar.
       s.vy += s.nose * FLIGHT_CONTROLS.NOSE_DOWN_ACCEL * p.control * h;
@@ -610,7 +646,21 @@ export function integrateSubstep(s, p, h) {
   // morro o propulsar pueden sacar al avión del descenso y el límite deja de
   // aplicarse solo. Y va ANTES de integrar la posición, que es donde tiene que
   // actuar para que el planeo se note en el avance.
-  if (gliding && s.vy < -p.glideSink) s.vy = -p.glideSink;
+  //
+  // ── Por qué el tope NO se aplica con el morro abajo ──
+  //
+  // ── El bug que esto arregla ──
+  // Picar costaba DOS VECES. Primero la rotación del morro abajo convierte avance
+  // en caída: `vx` baja. Y enseguida este tope devolvía la caída a `glideSink`, así
+  // que la velocidad vertical ganada se descartaba. Resultado: el avión perdía
+  // avance y no lo recuperaba en ningún lado, y en vez de picar y acelerar se
+  // quedaba cayendo "en el lugar".
+  //
+  // Con el morro abajo el jugador pide explícitamente descender: el tope de planeo
+  // no tiene nada que hacer ahí. Picar es una DECISIÓN con su costo (perder
+  // altura), no un castigo que además quite velocidad.
+  const picando = s.nose < 0;
+  if (gliding && !picando && s.vy < -p.glideSink) s.vy = -p.glideSink;
 
   /*
    * ── Techo de altura del MODO ──
