@@ -1859,20 +1859,25 @@ body.en-vuelo #mode-bar {
 /* ══════════════════════════════════════════════════════════
 /* ══════════════════════════════════════════════════════════
 /* ══════════════════════════════════════════════════════════
-   D-PAD (mobile) — bloque unificado estilo joystick
+/* ══════════════════════════════════════════════════════════
+   D-PAD (mobile) — cuatro teclas en punta hacia el centro
    ══════════════════════════════════════════════════════════
-   Cuatro piezas cuadradas con una punta triangular que mira al centro. Las separa
-   sólo una X fina, así el conjunto se lee como un solo mando.
+   Cada tecla es un cuadrado con una PUNTA que llega casi al centro del pad. Las
+   cuatro puntas se juntan ahí y la separación entre ellas forma la X.
 
-   ── Por qué rejilla y no posiciones absolutas ──
-   Con `width: 50%` y `left: 25%` cada pieza ocupaba el 50% del pad y se
-   SUPERPONÍAN 50×50 px en el centro: la X no se veía porque no había hueco.
-   Una rejilla 3x3 nunca solapa: cada brazo vive en su celda.
+   ── La X tiene que ser PAREA ──
+   Para que los cuatro brazos de la X midan lo mismo, las diagonales del recorte
+   tienen que estar a 45°. Como cada tecla mide 1/3 de ancho y 1/2 de alto, la punta
+   empieza a los 2/3 de la altura: ahí las diagonales quedan exactamente a 45°.
 
-   ── Cómo se arma la X ──
-   Cada brazo crece hacia el centro con un margen negativo, y el recorte lo deja en
-   punta. Las cuatro puntas se juntan en la celda central SIN tocarse, y el fondo
-   claro del contenedor asoma entre ellas: la X aparece sola, no hay que dibujarla.
+   Si la punta empezara más tarde (por ejemplo al 88%), las diagonales quedan casi
+   verticales, el hueco se abre en abanico y la X se ve despareja y muy abierta.
+
+   ── Por qué posiciones absolutas ──
+   Cada tecla ocupa media cruz: las de arriba y abajo toman el 50% de alto desde su
+   borde, y las de los costados el 50% de ancho. Se cruzan en los cuadrantes, pero
+   el recorte en punta hace que ahí sólo quede el triángulo, así que no se pisan a
+   la vista.
    ══════════════════════════════════════════════════════════ */
 .touch-dpad {
   position: absolute;
@@ -1883,50 +1888,35 @@ body.en-vuelo #mode-bar {
    * 210 más el boost de 84 se pisarían. Así se achica solo donde hace falta.
    */
   --lado: min(210px, 54vw);
+  /* Separación entre teclas: define el grosor de la X. */
   --hueco: 2px;
+  /*
+   * Medio lado menos el hueco: cada tecla llega hasta acá, así las cuatro puntas
+   * quedan a `--hueco` del centro y la X sale pareja.
+   */
+  --media: calc(var(--lado) / 2 - var(--hueco));
   width: var(--lado);
   height: var(--lado);
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: var(--hueco);
   pointer-events: none;
-  /*
-   * ── Sin fondo: los huecos son TRANSPARENTES ──
-   *
-   * Antes el contenedor tenía un color claro como "marco", y con las puntas
-   * recortadas ese color asomaba como una banda gruesa alrededor y en el centro.
-   * Se veía pesado y poco unificado.
-   *
-   * En la referencia los huecos entre botones son transparentes: se ve el fondo.
-   * Así la X del centro la forma el propio juego, y el bloque se lee como una sola
-   * pieza con cuatro flechas.
-   */
-  background: transparent;
-  clip-path: polygon(
-    33.3% 0%, 66.7% 0%, 66.7% 33.3%, 100% 33.3%, 100% 66.7%, 66.7% 66.7%,
-    66.7% 100%, 33.3% 100%, 33.3% 66.7%, 0% 66.7%, 0% 33.3%, 33.3% 33.3%
-  );
 }
 
 @media (max-height: 480px) {
   .touch-dpad { --lado: min(186px, 48vw); }
 }
 
-/* ── Cada brazo: un cuadradado con una punta que mira al centro ── */
+/* ── Base común ── */
 .touch-dir {
   pointer-events: auto;
+  position: absolute;
   display: flex;
-  align-items: center;
-  justify-content: center;
   border: 0;
   margin: 0;
+  padding: 0;
   /* Degradé de arriba-izquierda a abajo-derecha: da volumen sin sombras extra. */
   background: linear-gradient(155deg, #3b414b 0%, #262a31 45%, #12141a 100%);
   color: #a8bccd;
   font-size: 1.3rem;
   line-height: 1;
-  padding: 0;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
@@ -1936,44 +1926,64 @@ body.en-vuelo #mode-bar {
 }
 
 /*
- * Arriba: crece hacia ABAJO (margen negativo) y el recorte lo deja en punta.
+ * ── Arriba ──
  *
- * El `padding-bottom` empuja el ícono hacia afuera, así el triángulo no le queda
- * encima al dibujo de la flecha.
+ * Ocupa el tercio central de ancho y sube desde el borde superior hasta el centro.
+ * El recorte: rectángulo hasta los 2/3 de su alto y de ahí una punta a 45° que
+ * termina en el centro del pad.
  */
 #touch-up {
-  grid-area: 1 / 2;
-  margin-bottom: calc(-1 * (100% / 3 + var(--hueco) * 2) / 2);
-  clip-path: polygon(0% 0%, 100% 0%, 100% 88%, 50% 100%, 0% 88%);
-  padding-bottom: 12%;
+  top: 0;
+  left: 33.333%;
+  width: 33.334%;
+  height: var(--media);
+  clip-path: polygon(0% 0%, 100% 0%, 100% 66.7%, 50% 100%, 0% 66.7%);
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 22%;
 }
 
+/* ── Abajo: espejado ── */
 #touch-down {
-  grid-area: 3 / 2;
-  margin-top: calc(-1 * (100% / 3 + var(--hueco) * 2) / 2);
-  clip-path: polygon(0% 12%, 50% 0%, 100% 12%, 100% 100%, 0% 100%);
-  padding-top: 12%;
+  bottom: 0;
+  left: 33.333%;
+  width: 33.334%;
+  height: var(--media);
+  clip-path: polygon(0% 33.3%, 50% 0%, 100% 33.3%, 100% 100%, 0% 100%);
+  align-items: center;
+  justify-content: center;
+  padding-top: 22%;
 }
 
+/* ── Izquierda ── */
 #touch-left {
-  grid-area: 2 / 1;
-  margin-right: calc(-1 * (100% / 3 + var(--hueco) * 2) / 2);
-  clip-path: polygon(0% 0%, 88% 0%, 100% 50%, 88% 100%, 0% 100%);
-  padding-right: 12%;
+  left: 0;
+  top: 33.333%;
+  height: 33.334%;
+  width: var(--media);
+  clip-path: polygon(0% 0%, 66.7% 0%, 100% 50%, 66.7% 100%, 0% 100%);
+  align-items: center;
+  justify-content: center;
+  padding-right: 22%;
 }
 
+/* ── Derecha: espejada ── */
 #touch-right {
-  grid-area: 2 / 3;
-  margin-left: calc(-1 * (100% / 3 + var(--hueco) * 2) / 2);
-  clip-path: polygon(12% 0%, 100% 0%, 100% 100%, 12% 100%, 0% 50%);
-  padding-left: 12%;
+  right: 0;
+  top: 33.333%;
+  height: 33.334%;
+  width: var(--media);
+  clip-path: polygon(33.3% 0%, 100% 0%, 100% 100%, 33.3% 100%, 0% 50%);
+  align-items: center;
+  justify-content: center;
+  padding-left: 22%;
 }
 
 /*
  * Apretada: celeste pleno, como el botón de boost activo.
  *
- * El cambio de color es la única confirmación de que la flecha está tomada; sin
- * eso el jugador no sabe si el dedo enganchó.
+ * El cambio de color es la única confirmación de que la tecla está tomada; sin eso
+ * el jugador no sabe si el dedo enganchó.
  */
 .touch-dir.activo {
   background: linear-gradient(155deg, #8ff7ff 0%, #00e5ff 55%, #00b8d4 100%);
