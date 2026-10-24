@@ -1874,25 +1874,40 @@ body.en-vuelo #mode-bar {
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   gap: 6px;
-  width: 172px;
-  height: 172px;
+  /*
+   * Subió de 172 a 240 px: se pidió más grande en el teléfono. Con 172 las flechas
+   * quedaban de ~53 px y el pulgar las erraba.
+   */
+  /*
+   * `min()` contra el ancho de pantalla: en un teléfono de 320 px un D-pad fijo de
+   * 240 más el boost de 84 se pisarían. Así se achica solo donde hace falta.
+   */
+  width: min(240px, 58vw);
+  height: min(240px, 58vw);
   pointer-events: none;
 }
 
 @media (max-height: 480px) {
-  .touch-dpad { width: 144px; height: 144px; gap: 5px; }
+  .touch-dpad { width: 198px; height: 198px; gap: 5px; }
 }
 
+/*
+ * ── Las flechas usan el MISMO lenguaje visual que el boost ──
+ *
+ * Se pidió que tengan la transparencia y el celeste claro del botón de propulsión.
+ * Además de ser más legible, así queda claro de un vistazo que todo el bloque de
+ * mandos es lo mismo: cosas que se aprietan para pilotar.
+ */
 .touch-dir {
   pointer-events: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: rgba(10, 14, 26, 0.6);
-  color: #fff;
-  font-size: 1.15rem;
+  border-radius: 16px;
+  border: 1px solid var(--cyan);
+  background: rgba(0, 229, 255, 0.14);
+  color: var(--cyan);
+  font-size: 1.5rem;
   line-height: 1;
   padding: 0;
   cursor: pointer;
@@ -1917,9 +1932,10 @@ body.en-vuelo #mode-bar {
  * la rueda.
  */
 .touch-dir.activo {
-  background: var(--cyan);
+  background: rgba(0, 229, 255, 0.85);
   border-color: var(--cyan);
   color: #04121a;
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.65);
   transform: scale(0.94);
 }
 

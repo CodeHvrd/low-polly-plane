@@ -129,13 +129,28 @@ export class TouchControls {
        * La propulsión se dispara en el FLANCO (al tocar), igual que el Espacio
        * del teclado. Acá además se marca como "sostenida" para que el eje de
        * propulsión acompañe mientras el dedo esté apoyado.
+       *
+       * ── Por qué se llama a `_aplicar()` y no a `setTouchAxes({thrust:true})` ──
+       *
+       * ── El bug que esto arregla ──
+       * `setTouchAxes` hace `nose = ejes.nose ?? 0` y `steer = ejes.steer ?? 0`:
+       * un objeto PARCIAL pone en cero los ejes que no vienen. Al apretar el boost
+       * se enviaba sólo `{ thrust: true }`, así que **se borraban el morro y el
+       * rumbo** de las flechas que el jugador tenía apoyadas.
+       *
+       * Ésa era la razón de que ▲ + boost "no funcionara": la propulsión cancelaba
+       * justo la flecha que se estaba sosteniendo. Con dos dedos, el último en
+       * tocarse ganaba y el otro se perdía.
+       *
+       * `_aplicar()` manda SIEMPRE los tres ejes juntos, así que ninguna entrada
+       * pisa a la otra.
        */
       this.thrustHeld = true;
-      setTouchAxes({ thrust: true });
+      this._aplicar();
       this.onThrust?.();
     }, () => {
       this.thrustHeld = false;
-      setTouchAxes({ thrust: false });
+      this._aplicar();
     });
     cont.appendChild(prop);
 

@@ -448,6 +448,59 @@ await volverAlVuelo();
   check('ocultar los mandos quita el resaltado', r.marcada === false);
 }
 
+
+console.log('\n  ── Boost + flecha a la vez (dos dedos) ──');
+await volverAlVuelo();
+{
+  /*
+   * ── El bug que esto previene ──
+   * El botón de boost enviaba `setTouchAxes({ thrust: true })`, un objeto PARCIAL.
+   * Esa función pone en cero los ejes que no vienen, así que apretar boost borraba
+   * el morro y el rumbo de las flechas apoyadas: ▲ + boost "no funcionaba".
+   *
+   * Se aprieta con dos punteros distintos y se exige que AMBOS ejes sobrevivan.
+   */
+  const r = await ev(async () => {
+    const input = await import('/js/core/input.js');
+    input.releaseTouchAxes();
+    const centro = (id) => {
+      const b = document.getElementById(id).getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    };
+    const arr = document.getElementById('touch-up');
+    const boost = document.getElementById('touch-thrust');
+    const ca = centro('touch-up');
+    const cb = centro('touch-thrust');
+
+    // Dedo 1 en ▲, dedo 2 en el boost.
+    arr.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: ca.x, clientY: ca.y, pointerId: 201, pointerType: 'touch' }));
+    boost.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: cb.x, clientY: cb.y, pointerId: 202, pointerType: 'touch' }));
+    await new Promise((r) => setTimeout(r, 140));
+    const ambos = input.readFlightControls();
+
+    // Al soltar el boost, el morro debe seguir.
+    boost.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: cb.x, clientY: cb.y, pointerId: 202, pointerType: 'touch' }));
+    await new Promise((r) => setTimeout(r, 140));
+    const soloMorro = input.readFlightControls();
+
+    arr.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: ca.x, clientY: ca.y, pointerId: 201, pointerType: 'touch' }));
+    await new Promise((r) => setTimeout(r, 100));
+    const limpio = input.readFlightControls();
+    return { ambos, soloMorro, limpio };
+  });
+  check(
+    'boost NO cancela la flecha ▲',
+    r.ambos.nose === 1 && r.ambos.thrust === true,
+    `nose=${r.ambos.nose} thrust=${r.ambos.thrust}`,
+  );
+  check(
+    'soltar el boost deja el morro apretado',
+    r.soloMorro.nose === 1 && r.soloMorro.thrust === false,
+    `nose=${r.soloMorro.nose} thrust=${r.soloMorro.thrust}`,
+  );
+  check('al soltar todo queda en cero', r.limpio.nose === 0 && r.limpio.thrust === false);
+}
+
 console.log('\n  ── Sin excepciones ──');
 check('no hubo errores de página', errores.length === 0, errores.slice(0, 3).join(' | '));
 
