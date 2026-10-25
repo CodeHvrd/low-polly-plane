@@ -189,7 +189,21 @@ export class RunController {
   canThrust() {
     if (this.phase !== PHASE.FLYING) return false;
     if (this.charges <= 0 || this.thrustCooldown > 0) return false;
-    if (PROPULSION.FUEL_COST > 0 && this.fuel <= 0) return false;
+    /*
+     * ── El combustible NO bloquea una carga ──
+     *
+     * ── El bug que esto arregla ──
+     * El combustible se drena solo, un punto por segundo, desde el lanzamiento. En
+     * un vuelo largo llega a cero, y entonces esta condición bloqueaba la propulsión
+     * aunque el jugador tuviera cargas guardadas.
+     *
+     * Se reportó en crepúsculo: "tenía 3 boosters y no me dejaba activarlo".
+     *
+     * Tener una carga es la única condición para poder usarla. El combustible queda
+     * como un extra que alarga el quemado, nunca como un candado invisible: un
+     * recurso que no se ve y que desactiva la habilidad principal sólo genera
+     * desconcierto.
+     */
     /*
      * No se encadena una propulsión sobre otra que sigue encendida.
      *
@@ -221,6 +235,14 @@ export class RunController {
 
     // El empujón vertical sólo si se está pidiendo subir el morro.
     const climbKick = this.flight.nose > 0 ? cfg.CLIMB_KICK * this.flight.nose : 0;
+
+    /*
+     * Si el combustible se agotó, se le da el mínimo para pagar ESTE uso.
+     *
+     * Sin esto, aunque la condición de arriba ya no bloquee, el cobro de abajo
+     * dejaría el combustible en cero y el quemado se cortaría.
+     */
+    if (cfg.FUEL_COST > 0 && this.fuel < cfg.FUEL_COST) this.fuel = cfg.FUEL_COST;
 
     applyBoost(this.flight, accel, cfg.BURN_TIME, climbKick);
     addGlideBudget(this.flight, cfg.GLIDE_BONUS, cfg.GLIDE_MAX);
