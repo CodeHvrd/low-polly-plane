@@ -469,7 +469,17 @@ export function integrateSubstep(s, p, h) {
       px = 0;
       pz = 1;
     }
-    s.lateralVel += s.steer * FLIGHT_CONTROLS.LATERAL_ACCEL * p.control * (p.lateral ?? 1) * h;
+    /*
+     * ── La mejora sube la RESPUESTA, pero no en forma lineal ──
+     *
+     * Con el multiplicador entero, Alerones nivel 3 ya duplicaba la aceleración
+     * lateral y el avión se iba de golpe: inmanejable a alta velocidad.
+     *
+     * Se aplica el 55% de la mejora sobre la respuesta. Sigue notándose (la
+     * corrección llega antes) sin que el avión salte de carril.
+     */
+    const respuestaLateral = 1 + ((p.lateral ?? 1) - 1) * 0.55;
+    s.lateralVel += s.steer * FLIGHT_CONTROLS.LATERAL_ACCEL * p.control * respuestaLateral * h;
 
     /*
      * ── El tope lateral ESCALA con la velocidad de avance ──
@@ -486,7 +496,23 @@ export function integrateSubstep(s, p, h) {
      * de giro se mantiene constante sin importar lo rápido que vayas. Acotado por
      * arriba para que a velocidades absurdas no se vuelva un teletransporte.
      */
-    const ratio = FLIGHT_CONTROLS.LATERAL_RATIO * (p.lateral ?? 1);
+    /*
+     * ── El tope crece poco, y con techo ──
+     *
+     * ── El problema que esto arregla ──
+     * El tope escalaba LINEAL con la mejora: nivel 1.9x, nivel 3 1.9x, nivel 6
+     * 2.8x. Medido a 70 m/s, el nivel 3 permitía 15.7 m de desvío por cada 10 m de
+     * avance: más de metro y medio de costado por metro avanzado. El avión cruzaba
+     * el corredor de lado y resultaba imposible de manejar.
+     *
+     * Ahora la mejora aporta sólo el 18% de su exceso al tope. Nivel 3 queda en
+     * ~10 m por 10 m (contra 8.3 sin mejora) y nivel 6 en ~11.5: se nota y se
+     * agradece, pero el avión sigue volando hacia adelante.
+     */
+    const ratio = Math.min(
+      1.15,
+      FLIGHT_CONTROLS.LATERAL_RATIO * (1 + ((p.lateral ?? 1) - 1) * 0.22),
+    );
     const topeLateral = Math.min(
       FLIGHT_CONTROLS.LATERAL_MAX_MAX,
       Math.max(FLIGHT_CONTROLS.LATERAL_MAX_MIN, hLen * ratio),

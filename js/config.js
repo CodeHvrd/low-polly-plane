@@ -306,7 +306,13 @@ export const FLIGHT_CONTROLS = {
    * ~2.8x la velocidad, y 90 lo recortaba justo cuando el jugador ya había pagado
    * la mejora completa.
    */
-  LATERAL_MAX_MAX: 150,
+  /**
+   * Techo del tope lateral (m/s).
+   *
+   * Bajó de 150 a 85: con 150 y Alerones alto el avión se desplazaba de costado más
+   * rápido de lo que avanzaba. 85 deja margen de sobra sin volverlo incontrolable.
+   */
+  LATERAL_MAX_MAX: 85,
 
   /** Velocidad lateral máxima (m/s) a la velocidad de referencia. Sólo informativo. */
   get LATERAL_MAX() { return MODE.id === 'frenetic' ? 34 : 19; },
