@@ -15,6 +15,7 @@ const last = {
   distance: null,
   glide: null,
   charges: null,
+      fuel: null,
   stageName: null,
   stageProgress: null,
   altitude: null,
@@ -97,6 +98,34 @@ export const HUD = {
     const bolt = cont.querySelector('.ring-bolt');
     // El rayo se enciende cuando el combo está completo y por gastarse.
     bolt?.classList.toggle('ready', enCombo === 0 && total > 0);
+  },
+
+  /**
+   * Combustible de propulsión.
+   *
+   * ── Por qué se muestra ──
+   * Es el recurso que alarga el quemado. Antes era invisible y al llegar a cero
+   * bloqueaba la propulsión, así que el jugador se quedaba con cargas sin poder
+   * usarlas. Ya no bloquea, pero si existe tiene que verse: un modificador que no
+   * se muestra es peor que no tenerlo.
+   *
+   * @param {number} fuel  unidades restantes
+   * @param {number} max   tope
+   */
+  updateFuel(fuel, max) {
+    if (last.fuel === fuel) return;
+    last.fuel = fuel;
+
+    const relleno = UI.fuelFill;
+    const texto = UI.fuelText;
+    if (!relleno || !texto) return;
+
+    const pct = max > 0 ? Math.max(0, Math.min(1, fuel / max)) : 0;
+    relleno.style.width = (pct * 100).toFixed(0) + '%';
+    // Sin decimales: el número cambia una vez por segundo y alcanza para leerlo.
+    texto.textContent = Math.ceil(fuel) + ' s';
+    // Aviso cuando queda poco: es cuando conviene buscar un booster.
+    relleno.classList.toggle('bajo', pct < 0.25);
   },
 
   updateCharges(charges, max, justGained = false) {

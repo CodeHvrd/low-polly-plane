@@ -85,6 +85,8 @@ function resolve() {
     // Propulsión y tramos
     thrustBadge: must('thrust-badge'),
     thrustCount: must('thrust-count'),
+  fuelFill: optional('fuel-fill'),
+  fuelText: optional('fuel-text'),
     stageBadge: must('stage-badge'),
     stageName: must('stage-name'),
     stageProgress: must('stage-progress'),

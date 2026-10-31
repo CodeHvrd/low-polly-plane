@@ -2501,3 +2501,43 @@ body.modo-diagnostico #diag-overlay {
   display: block;
 }
 
+
+
+/* ── Combustible en el badge de propulsión ──
+ * Barra chica debajo del número de cargas. Avisa cuándo conviene buscar un booster. */
+.fuel-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.fuel-bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+
+#fuel-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--cyan);
+  transition: width 0.2s linear, background 0.2s;
+}
+
+/* Poco combustible: ámbar, el aviso de que hace falta un booster. */
+#fuel-fill.bajo {
+  background: var(--orange);
+}
+
+.fuel-line small {
+  font-size: 0.55rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 24px;
+  text-align: right;
+}

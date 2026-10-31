@@ -369,7 +369,24 @@ export function generateCourse(rango = {}) {
    * altura para remontar. No colisionan: se detectan aparte, en el vuelo.
    */
   {
-    for (let x = desde; x < hasta; x += PICKUPS.UPDRAFT.SPACING) {
+    /*
+     * ── Los vendavales van en posiciones ABSOLUTAS ──
+     *
+     * ── El bug que esto arregla ──
+     * El bucle arrancaba en `desde`, que es el inicio de la ventana y NO siempre es
+     * múltiplo de la separación: la primera ventana empieza en -466 y las
+     * siguientes en múltiplos de 500.
+     *
+     * Resultado: las columnas quedaban en fase distinta según la ventana, y al
+     * deslizarse la ventana SALTABAN 34 m de lugar. Eso es el "warp" que se veía:
+     * el primer vendaval aparecía corrido y arrastraba lo que tuviera al lado.
+     *
+     * Alineando el arranque a un múltiplo de la separación, la columna de una
+     * posición existe siempre en el mismo x, sin importar qué ventana la generó.
+     */
+    const paso = PICKUPS.UPDRAFT.SPACING;
+    const primero = Math.ceil(desde / paso) * paso;
+    for (let x = primero; x < hasta; x += paso) {
       const tramo = Math.floor(x / STAGES.SEGMENT_LENGTH);
       if (nivelDeCircuito(tramo) !== 'rasante') continue;
       const g = terrainHeightAt(x, 0);

@@ -259,6 +259,19 @@
       <span class="thrust-text">
         <strong id="thrust-count" data-required>0</strong>
         <em>PROPULSIÓN · <kbd>Espacio</kbd></em>
+        <!--
+          Combustible: recurso que alarga el quemado de cada propulsión.
+
+          ── Por qué ahora se muestra ──
+          Antes era invisible y además BLOQUEABA la propulsión al llegar a cero, así
+          que el jugador se quedaba con cargas sin poder usarlas y sin saber por qué.
+          Ya no bloquea, pero si existe como recurso tiene que verse: un modificador
+          silencioso es peor que no tenerlo.
+        -->
+        <span class="fuel-line">
+          <span class="fuel-bar"><span id="fuel-fill" data-required></span></span>
+          <small id="fuel-text" data-required>—</small>
+        </span>
       </span>
     </div>
 

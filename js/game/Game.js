@@ -1643,6 +1643,13 @@ export class Game {
         HUD.update(payload);
         HUD.updateGlide(payload.state.glideBudget, PROPULSION.GLIDE_MAX);
         HUD.updateCharges(payload.charges ?? 0, PROPULSION.MAX_CHARGES);
+        /*
+         * Combustible: es el recurso que alarga el quemado.
+         *
+         * Se pinta junto con las cargas porque se gastan en la misma acción: si hay
+         * cargas pero no combustible, conviene verlo antes de apretar y no después.
+         */
+        HUD.updateFuel(payload.fuel ?? 0, PROPULSION.FUEL_MAX);
         this.syncStage(payload.stage ?? 0, payload.state.x);
         break;
 
