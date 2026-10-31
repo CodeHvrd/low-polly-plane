@@ -329,33 +329,44 @@ export function generateCourse(rango = {}) {
   // (colisiones, recolectables, HUD) lo asumen.
   list.sort((a, b) => a.x - b.x);
   /*
-   * ── Aros: se despeja su interior ──
+   * ── Aros: se despeja su CILINDRO INTERIOR ──
    *
    * ── El bug que esto arregla ──
-   * Los aros no colisionan (ver `findCollision`), pero NADA impedía que un árbol
-   * o una roca apareciera DENTRO del agujero. El jugador apuntaba al aro, cruzaba
-   * limpio y chocaba contra lo que había adentro: se reportó a los 5000 m.
+   * Los aros no colisionan (ver `findCollision`), pero NADA impedía que una roca
+   * o un árbol apareciera DENTRO del agujero: se apuntaba al aro, se cruzaba y se
+   * chocaba contra lo de adentro.
    *
-   * Se recorre al final y se descartan los sólidos que se solapen con el volumen
-   * de un aro. Es un post-proceso para no depender del orden de generación.
+   * ── Por qué no alcanzaba con la distancia al centro ──
+   * La versión anterior medía la distancia entre el CENTRO del obstáculo y el del
+   * aro. Una roca alta tiene su centro varios metros más abajo que el centro del
+   * aro, así que quedaba lejos en el cálculo aunque su punta asomara justo por el
+   * agujero. Se reportó con una roca de techo 15.9 contra un avión a 16.5: pasaba
+   * 0.6 m por encima y moría igual.
+   *
+   * ── El test correcto ──
+   * El agujero es un CILINDRO vertical: radio interior del aro, centrado en el aro
+   * y con su misma altura. Se descarta cualquier sólido cuya caja se cruce con ese
+   * cilindro, sin importar dónde tenga el centro.
    */
   {
     const aros = list.filter((o) => o.type === 'ring');
     if (aros.length) {
-      const MARGEN = 3;
+      /** Aire extra alrededor del agujero, en metros. */
+      const MARGEN = 2.5;
       for (let k = list.length - 1; k >= 0; k--) {
         const o = list[k];
         if (o.type === 'ring') continue;
-        const choca = aros.some((a) => {
-          const ra = a.params?.radius ?? 6;
-          const ac = a.params?.centerY ?? a.aabb.minY;
-          /*
-           * Distancia al CENTRO del aro en 3D, con el radio del aro más un margen.
-           * Se usa el centro y no la AABB porque el aro es un anillo: su caja es
-           * un cuadrado que no representa el agujero.
-           */
-          const d = Math.hypot(o.x - a.x, (o.aabb.minY + o.aabb.maxY) / 2 - ac, o.z - a.z);
-          return d < ra + MARGEN;
+        const a = o.aabb;
+        const choca = aros.some((aro) => {
+          const ri = aro.params?.innerRadius ?? aro.params?.radius ?? 6;
+          const cy = aro.params?.centerY ?? aro.aabb.minY;
+          const radio = ri + MARGEN;
+          // Distancia horizontal al EJE del aro (no al centro en 3D).
+          const dx = Math.max(a.minX - aro.x, 0, aro.x - a.maxX);
+          const dz = Math.max(a.minZ - aro.z, 0, aro.z - a.maxZ);
+          if (Math.hypot(dx, dz) > radio) return false;
+          // Y la altura tiene que cruzarse con la del agujero.
+          return a.maxY > cy - radio && a.minY < cy + radio;
         });
         if (choca) list.splice(k, 1);
       }
