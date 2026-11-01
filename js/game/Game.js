@@ -35,6 +35,7 @@ import { getSpec, AIRCRAFT_LIST } from '../physics/specs.js';
 import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, TRAJECTORY, WORLD } from '../config.js';
 import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted } from '../core/audio.js';
+import { setPointerFollow, setPointerPosition, isPointerFollowOn, isTouchDevice } from '../core/input.js';
 
 import {
   STATE,
@@ -1331,6 +1332,38 @@ export class Game {
       }, 250);
     });
 
+    /*
+     * ══════════════════════════════════════════════════════════
+     * VUELO CON EL CURSOR (experimento de escritorio)
+     * ══════════════════════════════════════════════════════════
+     *
+     * ── La idea ──
+     * En vez de A/D/W/S, el avión vuela hacia donde está el puntero. El centro de la
+     * pantalla es neutro, el borde derecho gira a la derecha y el borde superior
+     * sube el morro.
+     *
+     * ── Por qué el eje del teclado sigue sumando ──
+     * El cursor no tiene posición "soltada": si el jugador deja el mouse en un
+     * borde, el avión seguiría girando. La vigencia de 900 ms en `input.js` corta
+     * eso, y el teclado queda como corrección fina cuando hace falta.
+     */
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch') return;
+      setPointerPosition(e.clientX, e.clientY);
+    });
+
+    /*
+     * La RUEDA del mouse dispara la propulsión.
+     *
+     * `passive: false` es necesario para poder llamar a `preventDefault` y evitar
+     * que el navegador haga scroll de la página al girar la rueda.
+     */
+    window.addEventListener('wheel', (e) => {
+      if (!isPointerFollowOn()) return;
+      e.preventDefault();
+      this.controller.useThrust();
+    }, { passive: false });
+
     /* Botones de la pantalla de derrota. */
     document.getElementById('btn-result-menu')?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1608,6 +1641,20 @@ export class Game {
     // Al lanzar, las flechas desaparecen: ya no hay dirección que indicar.
     hideDirectionArrows();
 
+    /*
+     * ── Vuelo con seguimiento del cursor (escritorio) ──
+     *
+     * Se activa al lanzar y se apaga al terminar el vuelo. El eje del teclado sigue
+     * sumando, así que A/D y W/S funcionan como corrección fina.
+     */
+    /*
+     * Se activa SIEMPRE: en el teléfono no hay mouse, así que no llega ningún
+     * movimiento de puntero y el seguimiento queda inerte sin necesidad de una
+     * condición extra. Con un detector de dispositivo, en cambio, alcanza con que
+     * falle la detección para que la función no ande.
+     */
+    setPointerFollow(true);
+
     this.aiming.refresh();
     if (this.cameraRig.mode !== CameraMode.LAUNCH) {
       this.enterLaunchMode({ silent: true });
@@ -1626,6 +1673,9 @@ export class Game {
           this.overlays.set(Screen.PLAYING);
           this.trail.clear();
         } else if (payload.phase === PHASE.IDLE) {
+          // Al terminar el vuelo se suelta el cursor: si no, el avión del próximo
+          // lanzamiento ya saldría girando hacia donde quedó el mouse.
+          setPointerFollow(false);
           // El controlador volvió a reposo (gesto cancelado, reinicio). Si
           // veníamos de volar, se vuelve a la primera etapa; si no, se respeta
           // la etapa actual (por ejemplo, seguir en modo lanzamiento).

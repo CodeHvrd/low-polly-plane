@@ -255,11 +255,93 @@ export function readFlightControls() {
   if (isKeyHeld('KeyW') || isKeyHeld('ArrowUp')) nose += 1;
   if (isKeyHeld('KeyS') || isKeyHeld('ArrowDown')) nose -= 1;
 
+  /*
+   * ── Seguimiento del mouse (experimento de escritorio) ──
+   *
+   * Cuando está activo, el avión vuela hacia donde está el cursor. El teclado sigue
+   * sumando, así que se puede corregir con A/D aunque el mouse esté quieto.
+   *
+   * Se aplica sólo si hubo movimiento reciente: si el jugador dejó el mouse
+   * quieto en un borde, el avión no debe quedarse girando para siempre por eso.
+   */
+  let seguirSteer = 0;
+  let seguirNose = 0;
+  if (pointerFollow.activo && performance.now() - pointerFollow.at < SEGUIR_VIGENCIA) {
+    seguirSteer = pointerFollow.steer;
+    seguirNose = pointerFollow.nose;
+  }
+
   return {
-    steer: clampUnit(steer + touchAxes.steer),
-    nose: clampUnit(nose + touchAxes.nose),
+    steer: clampUnit(steer + touchAxes.steer + seguirSteer),
+    nose: clampUnit(nose + touchAxes.nose + seguirNose),
     thrust: isKeyHeld('Space') || touchAxes.thrust,
   };
+}
+
+/**
+ * Estado del seguimiento del mouse.
+ *
+ * `activo` lo prende el juego cuando el vuelo arrancó con el mouse; `at` guarda
+ * cuándo se movió por última vez, para que un cursor quieto en el borde no siga
+ * girando el avión indefinidamente.
+ */
+const pointerFollow = { activo: false, steer: 0, nose: 0, at: 0 };
+
+/** Cuánto dura el mando del cursor después del último movimiento (ms). */
+const SEGUIR_VIGENCIA = 900;
+
+/**
+ * Activa o desactiva el seguimiento del cursor.
+ *
+ * @param {boolean} activo
+ */
+export function setPointerFollow(activo) {
+  pointerFollow.activo = Boolean(activo);
+  if (!activo) {
+    pointerFollow.steer = 0;
+    pointerFollow.nose = 0;
+  }
+}
+
+/** Indica si el seguimiento está activo. */
+export const isPointerFollowOn = () => pointerFollow.activo;
+
+/**
+ * Informa dónde está el cursor.
+ *
+ * La posición llega en píxeles de pantalla y se convierte a ejes centrados:
+ * el centro de la pantalla es neutro, el borde derecho gira a la derecha y el
+ * borde superior sube el morro. Es el mapeo más directo para "el avión va hacia
+ * el cursor".
+ *
+ * @param {number} clientX @param {number} clientY
+ */
+export function setPointerPosition(clientX, clientY) {
+  if (typeof window === 'undefined') return;
+  const ancho = window.innerWidth || 1;
+  const alto = window.innerHeight || 1;
+
+  // -1 en el borde izquierdo, 0 al centro, +1 en el derecho.
+  const nx = ((clientX / ancho) * 2 - 1);
+  // La Y de pantalla crece hacia abajo y el morro hacia arriba: signo invertido.
+  const ny = -((clientY / alto) * 2 - 1);
+
+  /*
+   * Zona muerta central: sin ella el avión se mueve con cualquier temblor de la
+   * mano y es imposible volar derecho.
+   */
+  const ZONA = 0.12;
+  const aplicar = (v) => {
+    const mag = Math.abs(v);
+    if (mag <= ZONA) return 0;
+    // Se reescala para que salir de la zona muerta arranque desde cero.
+    const t = Math.min(1, (mag - ZONA) / (1 - ZONA));
+    return Math.sign(v) * t;
+  };
+
+  pointerFollow.steer = aplicar(nx);
+  pointerFollow.nose = aplicar(ny);
+  pointerFollow.at = performance.now();
 }
 
 /** Recorta a [-1, 1]. */
