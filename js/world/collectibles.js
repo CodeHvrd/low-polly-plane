@@ -335,22 +335,49 @@ function placeY(x, lift, z) {
 function findBoosterSpot(x, route, rng, obstacles) {
   const cfg = PICKUPS.BOOSTERS;
 
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const px = x + rng.range(-10, 10);
-    // Se insiste cerca del carril del camino: el booster tiene que estar donde
-    // el jugador ya está volando, no en otro lado.
+  /*
+   * ── Nunca se descarta el hueco ──
+   *
+   * ── El bug que esto arregla ──
+   * Había 8 intentos y, si ninguno lograba el margen, se devolvía null y el
+   * booster NO se creaba. Como el margen subió de 7 a 14 m, en los tramos de mucha
+   * densidad no quedaba hueco y los boosters desaparecían del corredor: se
+   * reportó "a partir de los 6500 m no aparecían más".
+   *
+   * Ahora se guarda el MEJOR candidato y, si ninguno llega al margen, se devuelve
+   * ése. Un booster algo pegado a una roca es mejor que quedarse sin la habilidad
+   * principal del juego.
+   */
+  let mejor = null;
+  let mejorDist = -Infinity;
+
+  for (let attempt = 0; attempt < 16; attempt++) {
+    /*
+     * La búsqueda se ensancha con los intentos: los primeros prueban cerca del
+     * carril (donde el jugador ya vuela) y los últimos abren el abanico para
+     * encontrar aire en los tramos saturados.
+     */
+    const ancho = 10 + attempt * 2;
+    const px = x + rng.range(-ancho, ancho);
     const pz = route.lane + rng.range(-4, 4);
 
-    const clash = obstacles.some((o) => {
+    // Distancia libre al obstáculo más cercano.
+    let libre = Infinity;
+    for (const o of obstacles) {
       const a = o.aabb;
       const dx = px < a.minX ? a.minX - px : px > a.maxX ? px - a.maxX : 0;
       const dz = pz < a.minZ ? a.minZ - pz : pz > a.maxZ ? pz - a.maxZ : 0;
-      return Math.hypot(dx, dz) < cfg.CLEAR_OF_OBSTACLE;
-    });
+      const d = Math.hypot(dx, dz);
+      if (d < libre) libre = d;
+    }
 
-    if (!clash) return { x: px, z: pz };
+    if (libre >= cfg.CLEAR_OF_OBSTACLE) return { x: px, z: pz };
+    if (libre > mejorDist) {
+      mejorDist = libre;
+      mejor = { x: px, z: pz };
+    }
   }
-  return null;
+  return mejor;
 }
 
 /**

@@ -274,7 +274,12 @@ export const PROPULSION = {
  */
 export const FLIGHT_CONTROLS = {
   /**
-   * Aceleración lateral (m/s²). Es lo que define cuánto TARDA en responder.
+   * Aceleración lateral (m/s²).
+   *
+   * Subió de 90 a 190. Medido: tardaba 225 ms en llegar al 90% del tope lateral, y
+   * eso se sentía como un retraso entre mover el control y ver la respuesta.
+   * Con 190 baja a ~110 ms, que se percibe inmediato. El tope lo sigue poniendo
+   * `LATERAL_RATIO`, así que no se vuelve incontrolable. Es lo que define cuánto TARDA en responder.
    *
    * ── Por qué subió de 15 a 90 ──
    * Medido, con 15 el avión tardaba 0.56 s en llegar al 90% de su velocidad
@@ -285,7 +290,7 @@ export const FLIGHT_CONTROLS = {
    * Con 90 el tope se alcanza en ~0.15 s. Sigue habiendo rampa —no es un
    * teletransporte— pero deja de sentirse como un retardo.
    */
-  LATERAL_ACCEL: 90,
+  LATERAL_ACCEL: 190,
   /**
    * ── Tope lateral PROPORCIONAL a la velocidad ──
    *
