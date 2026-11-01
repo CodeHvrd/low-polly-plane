@@ -173,6 +173,14 @@ export const STATE = {
   aircraft: DEFAULT_AIRCRAFT,
   muted: false,
 
+  /**
+   * Vuelo siguiendo el cursor del mouse (escritorio).
+   *
+   * Se guarda porque es una preferencia de control: quien elige teclado no debería
+   * tener que desactivarlo en cada sesión.
+   */
+  cursorFollow: true,
+
   /*
    * ── Estadísticas acumuladas de la vida del jugador ──
    *
@@ -244,6 +252,8 @@ export function hydrate(save) {
   STATE.runs = save.runs;
   STATE.aircraft = save.aircraft;
   STATE.muted = save.muted;
+  // Si el guardado no trae el campo (versión anterior), queda activado.
+  STATE.cursorFollow = save.cursorFollow !== false;
   /*
    * Las mejoras guardadas pueden venir en el formato VIEJO (global) o en el nuevo
    * (por nave). Se migran al cargar, asignando las compradas a la nave que el
@@ -398,5 +408,6 @@ export function toSaveObject() {
     runs: STATE.runs,
     aircraft: STATE.aircraft,
     muted: STATE.muted,
+    cursorFollow: STATE.cursorFollow,
   };
 }

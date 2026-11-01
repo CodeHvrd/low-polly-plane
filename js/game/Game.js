@@ -1288,6 +1288,25 @@ export class Game {
      * Esto es la salida de emergencia: desregistra el service worker, vacía todos
      * los cachés y recarga con un parámetro que saltea el caché del navegador.
      */
+    /*
+     * ── Interruptor del vuelo con cursor ──
+     *
+     * Guarda la preferencia y la aplica en el acto: si se apaga en pleno vuelo, el
+     * avión deja de seguir el mouse inmediatamente y queda sólo el teclado.
+     */
+    const btnCursor = document.getElementById('btn-options-cursor');
+    if (btnCursor) {
+      btnCursor.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
+      btnCursor.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.click();
+        STATE.cursorFollow = !STATE.cursorFollow;
+        btnCursor.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
+        setPointerFollow(STATE.cursorFollow && this.controller.phase === PHASE.FLYING);
+        this.persist();
+      });
+    }
+
     document.getElementById('btn-options-update')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       const btn = e.currentTarget;
@@ -1713,7 +1732,7 @@ export class Game {
      * condición extra. Con un detector de dispositivo, en cambio, alcanza con que
      * falle la detección para que la función no ande.
      */
-    setPointerFollow(true);
+    setPointerFollow(STATE.cursorFollow);
     /*
      * Log de diagnóstico.
      *
@@ -1722,7 +1741,7 @@ export class Game {
      * cursor quede estable.
      */
     console.info(
-      '[papercrash] vuelo con cursor ACTIVO · build ' + BUILD +
+      '[papercrash] vuelo con cursor ' + (STATE.cursorFollow ? 'ACTIVO' : 'APAGADO') + ' · build ' + BUILD +
       ' · eventos recibidos hasta ahora: ' + pointerFollowInfo().eventos,
     );
 
@@ -1743,7 +1762,13 @@ export class Game {
            * camino que inicie un vuelo (un reinicio, una repetición, un salto de
            * pantalla) y no depende de haber pasado por un método puntual.
            */
-          setPointerFollow(true);
+          /*
+           * Se respeta la PREFERENCIA del jugador.
+           *
+           * Acá estaba fijo en `true`, así que apagar el interruptor no servía:
+           * al entrar en vuelo se volvía a encender igual.
+           */
+          setPointerFollow(STATE.cursorFollow);
           // Al empezar el vuelo se vuelve al tramo 1: el avión sale de la
           // resortera, no de donde terminó el vuelo anterior.
           this.currentStage = -1;
@@ -1752,6 +1777,7 @@ export class Game {
         } else if (payload.phase === PHASE.IDLE) {
           // Al terminar el vuelo se suelta el cursor: si no, el avión del próximo
           // lanzamiento ya saldría girando hacia donde quedó el mouse.
+          // Se apaga durante el reposo y se vuelve a aplicar al lanzar.
           setPointerFollow(false);
           // El controlador volvió a reposo (gesto cancelado, reinicio). Si
           // veníamos de volar, se vuelve a la primera etapa; si no, se respeta
