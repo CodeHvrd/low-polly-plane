@@ -35,7 +35,8 @@ import { getSpec, AIRCRAFT_LIST } from '../physics/specs.js';
 import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, TRAJECTORY, WORLD } from '../config.js';
 import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted } from '../core/audio.js';
-import { setPointerFollow, setPointerPosition, isPointerFollowOn, pointerFollowInfo } from '../core/input.js';
+import { setPointerFollow, setPointerPosition, pointerFollowInfo } from '../core/input.js';
+import { BUILD } from '../core/version.js';
 
 import {
   STATE,
@@ -1713,6 +1714,17 @@ export class Game {
      * falle la detección para que la función no ande.
      */
     setPointerFollow(true);
+    /*
+     * Log de diagnóstico.
+     *
+     * Sirve para distinguir de un vistazo si el problema es de la versión que está
+     * corriendo o de los eventos que no llegan. Se puede borrar cuando el vuelo con
+     * cursor quede estable.
+     */
+    console.info(
+      '[papercrash] vuelo con cursor ACTIVO · build ' + BUILD +
+      ' · eventos recibidos hasta ahora: ' + pointerFollowInfo().eventos,
+    );
 
     this.aiming.refresh();
     if (this.cameraRig.mode !== CameraMode.LAUNCH) {
