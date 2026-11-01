@@ -35,7 +35,7 @@ import { getSpec, AIRCRAFT_LIST } from '../physics/specs.js';
 import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, TRAJECTORY, WORLD } from '../config.js';
 import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted } from '../core/audio.js';
-import { setPointerFollow, setPointerPosition, isPointerFollowOn, isTouchDevice } from '../core/input.js';
+import { setPointerFollow, setPointerPosition, isPointerFollowOn, pointerFollowInfo } from '../core/input.js';
 
 import {
   STATE,
@@ -909,10 +909,12 @@ export class Game {
       `${k}: ${v.meshes}${v.visible ? '' : ' [OCULTO]'}${v.enEscena ? '' : ' [FUERA]'}`);
     const datos = `datos: obst ${g.datos.obstaculos} · rec ${g.datos.recolectables} · ${g.datos.fase}/${g.datos.pantalla}`;
     const rebuild = 'última regeneración: ' + (this._lastRebuild ?? '—') + ' ms';
+    const pf = pointerFollowInfo();
+    const cursor = 'cursor: activo=' + pf.activo + ' eventos=' + pf.eventos + ' steer=' + pf.steer + ' nose=' + pf.nose;
 
     const d = this.controller.impactDebug;
     if (!d) {
-      el.textContent = ['DIAGNÓSTICO · todavía no chocaste', '', ...lineasEscena, datos].join('\n');
+      el.textContent = ['DIAGNÓSTICO · todavía no chocaste', cursor, '', ...lineasEscena, datos].join('\n');
       return;
     }
     el.textContent = [
@@ -920,6 +922,7 @@ export class Game {
       `obstáculo: ${d.type ?? '—'}`,
       d.oy !== null ? `obst. x${d.ox} y${d.oy} z${d.oz} · techo ${d.topY}` : '',
       `avión  x${d.px} y${d.py} z${d.pz}`,
+      cursor,
     ].filter(Boolean).join('\n');
   }
 
@@ -1358,10 +1361,26 @@ export class Game {
      * La captura corre de arriba hacia abajo ANTES del resto, así que el juego se
      * entera del movimiento pase lo que pase después.
      */
+    /*
+     * ── Se escuchan DOS eventos para el mismo dato ──
+     *
+     * ── Por qué los dos ──
+     * `pointermove` puede no llegar cuando el gesto de apuntado dejó una CAPTURA DE
+     * PUNTERO activa sobre el canvas: en ese caso el evento se redirige al elemento
+     * que capturó y el seguimiento se queda sin datos sin dar ningún error.
+     *
+     * `mousemove` es un evento aparte que la captura de puntero no intercepta, así
+     * que sirve como red de seguridad. Si los dos llegan, el segundo sólo reescribe
+     * la misma posición.
+     */
+    const seguirCursor = (e) => {
+      setPointerPosition(e.clientX, e.clientY);
+    };
     window.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'touch') return;
-      setPointerPosition(e.clientX, e.clientY);
+      seguirCursor(e);
     }, { capture: true });
+    window.addEventListener('mousemove', seguirCursor, { capture: true });
 
     /*
      * La RUEDA del mouse dispara la propulsión.
@@ -1707,6 +1726,12 @@ export class Game {
     switch (name) {
       case 'phase':
         if (payload.phase === PHASE.FLYING) {
+          /*
+           * Se activa acá y no sólo en `launch()`: así queda cubierto cualquier
+           * camino que inicie un vuelo (un reinicio, una repetición, un salto de
+           * pantalla) y no depende de haber pasado por un método puntual.
+           */
+          setPointerFollow(true);
           // Al empezar el vuelo se vuelve al tramo 1: el avión sale de la
           // resortera, no de donde terminó el vuelo anterior.
           this.currentStage = -1;

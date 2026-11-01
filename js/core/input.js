@@ -285,7 +285,7 @@ export function readFlightControls() {
  * cuándo se movió por última vez, para que un cursor quieto en el borde no siga
  * girando el avión indefinidamente.
  */
-const pointerFollow = { activo: false, steer: 0, nose: 0, at: 0 };
+const pointerFollow = { activo: false, steer: 0, nose: 0, at: 0, eventos: 0 };
 
 /** Cuánto dura el mando del cursor después del último movimiento (ms). */
 const SEGUIR_VIGENCIA = 900;
@@ -305,6 +305,19 @@ export function setPointerFollow(activo) {
 
 /** Indica si el seguimiento está activo. */
 export const isPointerFollowOn = () => pointerFollow.activo;
+
+/**
+ * Diagnóstico del seguimiento: estado y cantidad de movimientos recibidos.
+ *
+ * Si el contador se queda en cero mientras el jugador mueve el mouse, el problema
+ * está en la llegada del evento, no en el mapeo.
+ */
+export const pointerFollowInfo = () => ({
+  activo: pointerFollow.activo,
+  eventos: pointerFollow.eventos,
+  steer: Math.round(pointerFollow.steer * 100) / 100,
+  nose: Math.round(pointerFollow.nose * 100) / 100,
+});
 
 /**
  * Informa dónde está el cursor.
@@ -356,6 +369,8 @@ export function setPointerPosition(clientX, clientY) {
   pointerFollow.steer = aplicar(nx);
   pointerFollow.nose = aplicar(ny);
   pointerFollow.at = performance.now();
+  // Cuántos movimientos llegaron: sirve para saber si el evento siquiera arriba.
+  pointerFollow.eventos += 1;
 }
 
 /** Recorta a [-1, 1]. */
