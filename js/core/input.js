@@ -331,11 +331,25 @@ export function setPointerPosition(clientX, clientY) {
    * mano y es imposible volar derecho.
    */
   const ZONA = 0.12;
+  /*
+   * ── El mando llega al máximo ANTES del borde ──
+   *
+   * ── El problema que esto arregla ──
+   * Con el mapeo lineal, la autoridad plena recién aparecía pegando el cursor al
+   * borde de la pantalla, y en el uso normal el avión respondía mucho más lento que
+   * con A/D —que dan 1.0 al instante—. Se reportó como "la velocidad de seguimiento
+   * es baja en proporción a WASD".
+   *
+   * Con `RECORRIDO` el cursor alcanza el mando pleno al 55% del camino al borde, y
+   * el resto de la pantalla queda como margen. Es el mismo criterio que se usó para
+   * el pulgar en el mando táctil.
+   */
+  const RECORRIDO = 0.55;
   const aplicar = (v) => {
     const mag = Math.abs(v);
     if (mag <= ZONA) return 0;
     // Se reescala para que salir de la zona muerta arranque desde cero.
-    const t = Math.min(1, (mag - ZONA) / (1 - ZONA));
+    const t = Math.min(1, (mag - ZONA) / (1 - ZONA) / RECORRIDO);
     return Math.sign(v) * t;
   };
 

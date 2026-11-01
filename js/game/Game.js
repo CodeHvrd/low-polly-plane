@@ -1358,8 +1358,16 @@ export class Game {
      * `passive: false` es necesario para poder llamar a `preventDefault` y evitar
      * que el navegador haga scroll de la página al girar la rueda.
      */
+    /*
+     * ── La rueda NO depende del seguimiento del cursor ──
+     *
+     * Antes salía temprano si el seguimiento estaba apagado, y eso la hacía fallar
+     * sin motivo: la propulsión con rueda sirve también volando con teclado.
+     *
+     * Ahora la única condición es estar volando.
+     */
     window.addEventListener('wheel', (e) => {
-      if (!isPointerFollowOn()) return;
+      if (this.controller.phase !== PHASE.FLYING) return;
       e.preventDefault();
       this.controller.useThrust();
     }, { passive: false });
