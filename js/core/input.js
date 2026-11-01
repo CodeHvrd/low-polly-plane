@@ -264,12 +264,18 @@ export function readFlightControls() {
    * Se aplica sólo si hubo movimiento reciente: si el jugador dejó el mouse
    * quieto en un borde, el avión no debe quedarse girando para siempre por eso.
    */
-  let seguirSteer = 0;
-  let seguirNose = 0;
-  if (pointerFollow.activo && performance.now() - pointerFollow.at < SEGUIR_VIGENCIA) {
-    seguirSteer = pointerFollow.steer;
-    seguirNose = pointerFollow.nose;
-  }
+  /*
+   * ── La posición del cursor PERSISTE ──
+   *
+   * Antes el mando caducaba a los 900 ms sin movimiento, así que el avión dejaba
+   * de girar aunque el cursor siguiera a un costado. Se pidió lo contrario: que
+   * alcance con tener el mouse en pantalla, sin moverlo ni apretar nada.
+   *
+   * Ahora el cursor funciona como la posición de un joystick: se mantiene hasta
+   * que se mueva a otro lado.
+   */
+  const seguirSteer = pointerFollow.activo ? pointerFollow.steer : 0;
+  const seguirNose = pointerFollow.activo ? pointerFollow.nose : 0;
 
   return {
     steer: clampUnit(steer + touchAxes.steer + seguirSteer),
@@ -287,8 +293,13 @@ export function readFlightControls() {
  */
 const pointerFollow = { activo: false, steer: 0, nose: 0, at: 0, eventos: 0 };
 
-/** Cuánto dura el mando del cursor después del último movimiento (ms). */
-const SEGUIR_VIGENCIA = 900;
+/*
+ * Ya no hay caducidad.
+ *
+ * El mando del cursor se mantiene hasta que se mueve a otro lado, igual que la
+ * posición de un joystick. Antes caducaba a los 900 ms y el avión dejaba de girar
+ * aunque el cursor siguiera a un costado.
+ */
 
 /**
  * Activa o desactiva el seguimiento del cursor.
@@ -297,10 +308,16 @@ const SEGUIR_VIGENCIA = 900;
  */
 export function setPointerFollow(activo) {
   pointerFollow.activo = Boolean(activo);
-  if (!activo) {
-    pointerFollow.steer = 0;
-    pointerFollow.nose = 0;
-  }
+  /*
+   * Al activar también se pone en neutro.
+   *
+   * ── Por qué ──
+   * Si no, el avión sale del lanzador ya torcido hacia donde quedó el cursor del
+   * arrastre anterior. Con el neutro inicial, la posición empieza a mandar recién
+   * cuando el jugador mueve el mouse por primera vez y se ve la intención.
+   */
+  pointerFollow.steer = 0;
+  pointerFollow.nose = 0;
 }
 
 /** Indica si el seguimiento está activo. */
