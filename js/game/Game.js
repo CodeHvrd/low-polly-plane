@@ -1347,10 +1347,21 @@ export class Game {
      * borde, el avión seguiría girando. La vigencia de 900 ms en `input.js` corta
      * eso, y el teclado queda como corrección fina cuando hace falta.
      */
+    /*
+     * ── En fase de CAPTURA ──
+     *
+     * ── Por qué ──
+     * Con el escucha normal (burbuja), cualquier manejador intermedio que llame a
+     * `stopPropagation` deja el evento sin llegar a `window` y el avión deja de
+     * seguir el cursor sin ningún error visible.
+     *
+     * La captura corre de arriba hacia abajo ANTES del resto, así que el juego se
+     * entera del movimiento pase lo que pase después.
+     */
     window.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'touch') return;
       setPointerPosition(e.clientX, e.clientY);
-    });
+    }, { capture: true });
 
     /*
      * La RUEDA del mouse dispara la propulsión.
@@ -1366,11 +1377,32 @@ export class Game {
      *
      * Ahora la única condición es estar volando.
      */
-    window.addEventListener('wheel', (e) => {
+    /*
+     * ── Clic central = propulsión ──
+     *
+     * Se pidió que sea al PRESIONAR la rueda y no al girarla: girar obliga a soltar
+     * el mouse para moverlo, mientras que el clic central deja la mano en su lugar.
+     *
+     * `button === 1` es el botón central. Se usa `pointerdown` y no `click` porque
+     * el clic central no dispara `click` en todos los navegadores.
+     */
+    window.addEventListener('pointerdown', (e) => {
+      if (e.button !== 1) return;
       if (this.controller.phase !== PHASE.FLYING) return;
+      // Evita el autoscroll del navegador al apretar el botón central.
       e.preventDefault();
       this.controller.useThrust();
-    }, { passive: false });
+    }, { capture: true });
+
+    /*
+     * Se bloquea el autoscroll que dispara el clic central.
+     *
+     * Sin esto, el navegador entra en modo desplazamiento y el mouse deja de mover
+     * el avión: parece que el juego "se soltó".
+     */
+    window.addEventListener('auxclick', (e) => {
+      if (e.button === 1) e.preventDefault();
+    }, { capture: true });
 
     /* Botones de la pantalla de derrota. */
     document.getElementById('btn-result-menu')?.addEventListener('click', (e) => {
