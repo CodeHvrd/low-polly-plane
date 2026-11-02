@@ -53,8 +53,8 @@ export const PISTAS = [
     raiz: 57, // A3
     escala: ESCALAS.pentatonicaMenor,
     progresion: [0, 0, 3, 4],
-    bpmMin: 68,
-    bpmMax: 112,
+    bpmMin: 124,
+    bpmMax: 146,
     /** Onda del pad: seno = cálido, diente de sierra = brillante. */
     padOnda: 'sine',
     padCorte: 1400,
@@ -67,8 +67,8 @@ export const PISTAS = [
     raiz: 60, // C4
     escala: ESCALAS.dorico,
     progresion: [0, 3, 4, 2],
-    bpmMin: 78,
-    bpmMax: 128,
+    bpmMin: 130,
+    bpmMax: 152,
     padOnda: 'triangle',
     padCorte: 1700,
     arpOnda: 'sawtooth',
@@ -80,8 +80,8 @@ export const PISTAS = [
     raiz: 54, // F#3
     escala: ESCALAS.frigio,
     progresion: [0, 1, 0, 4],
-    bpmMin: 88,
-    bpmMax: 148,
+    bpmMin: 136,
+    bpmMax: 158,
     padOnda: 'sawtooth',
     padCorte: 2100,
     arpOnda: 'square',
@@ -318,26 +318,49 @@ export class MusicEngine {
       }
     }
 
-    // ── BAJO: en cada tiempo, con más presencia si hay intensidad ──
-    if (paso % 4 === 0) {
+    /*
+     * ── BAJO RODANTE de psy trance ──
+     *
+     * Suena en las SEMICORCHEAS (los 16 pasos del compás), no en los tiempos. Ese
+     * pulso continuo es la firma del género y además es lo que evita que haya
+     * silencios: la música está viva desde el primer segundo, sin depender de la
+     * velocidad.
+     *
+     * La velocidad sólo lo hace más presente, no lo enciende.
+     */
+    {
       const grado = p.progresion[compas % p.progresion.length];
       const nota = p.raiz - 24 + p.escala[grado % p.escala.length];
-      this._nota(hz(nota), cuando, 0.28, p.bajoOnda, 0.14 + 0.06 * i);
+      // Acento en los tiempos (más fuerte) y nota más corta en los contratiempos.
+      const enTiempo = paso % 4 === 0;
+      this._nota(
+        hz(nota + (enTiempo ? 0 : 12)),
+        cuando,
+        enTiempo ? 0.16 : 0.09,
+        p.bajoOnda,
+        (enTiempo ? 0.16 : 0.10) + 0.04 * i,
+      );
     }
 
     // ── ARPEGIO: aparece con la velocidad ──
-    if (i > 0.08 && paso % 2 === 0) {
+    if (paso % 2 === 0) {
       const orden = [0, 2, 4, 3, 1, 3, 5, 4];
       const grado = orden[(paso / 2) % orden.length] % p.escala.length;
       const nota = p.raiz + 12 + p.escala[grado];
-      this._nota(hz(nota), cuando, 0.14, p.arpOnda, 0.02 + 0.05 * i);
+      this._nota(hz(nota), cuando, 0.12, p.arpOnda, 0.035 + 0.05 * i);
     }
 
     // ── PERCUSIÓN: bombo en los tiempos, aro en los contratiempos ──
-    if (i > 0.15) {
-      if (paso % 4 === 0) this._golpe(cuando, 0.35 * i);
-      if (i > 0.45 && paso % 4 === 2) this._golpe(cuando, 0.18 * i);
-    }
+    /*
+     * ── PERCUSIÓN 4x4 ──
+     *
+     * El bombo en cada tiempo es el pulso del psy trance: no se apaga nunca. La
+     * velocidad agrega el golpe del contratiempo y los hats, que dan la sensación de
+     * urgencia sin dejar huecos.
+     */
+    if (paso % 4 === 0) this._golpe(cuando, 0.4);
+    if (i > 0.3 && paso % 4 === 2) this._golpe(cuando, 0.22 + 0.12 * i);
+    if (paso % 2 === 1) this._hat(cuando, 0.03 + 0.05 * i);
   }
 
   /**
@@ -362,6 +385,38 @@ export class MusicEngine {
     g.connect(this.filtro);
     osc.start(cuando);
     osc.stop(cuando + dur + 0.05);
+  }
+
+  /**
+   * Charles: ruido muy corto y agudo.
+   *
+   * Es lo que le da el aire "tech" al ritmo. Se sintetiza con ruido filtrado en
+   * vez de un sample, así no hay archivos que cargar.
+   *
+   * @param {number} cuando @param {number} vol
+   */
+  _hat(cuando, vol) {
+    const ctx = this.ctx;
+    const largo = Math.floor(ctx.sampleRate * 0.05);
+    const buffer = ctx.createBuffer(1, largo, ctx.sampleRate);
+    const datos = buffer.getChannelData(0);
+    for (let i = 0; i < largo; i++) {
+      datos[i] = (Math.random() * 2 - 1) * (1 - i / largo) ** 3;
+    }
+    const fuente = ctx.createBufferSource();
+    fuente.buffer = buffer;
+
+    const pasoAlto = ctx.createBiquadFilter();
+    pasoAlto.type = 'highpass';
+    pasoAlto.frequency.value = 7000;
+
+    const g = ctx.createGain();
+    g.gain.value = vol;
+
+    fuente.connect(pasoAlto);
+    pasoAlto.connect(g);
+    g.connect(this.salida);
+    fuente.start(cuando);
   }
 
   /**

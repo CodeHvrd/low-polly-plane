@@ -1284,6 +1284,15 @@ export class Game {
       e.stopPropagation();
       sfx.click();
       mostrarPanel(null);
+      /*
+       * Si las opciones se abrieron desde la pausa, se vuelve a la pausa: el menú se
+       * oculta de nuevo y el vuelo sigue congelado (nunca se despausó).
+       */
+      if (this._opcionesDesdePausa) {
+        this._opcionesDesdePausa = false;
+        hide(UI.idleOverlay);
+        document.getElementById('pause-overlay')?.classList.remove('hidden');
+      }
     });
 
     document.getElementById('btn-options-mute')?.addEventListener('click', (e) => {
@@ -1360,6 +1369,20 @@ export class Game {
        * Se destapa la pausa para poder ver el panel de opciones, pero la partida
        * NO se reanuda: `paused` sigue en true y el vuelo queda congelado.
        */
+      /*
+       * ── El panel de opciones vive en #idle-overlay ──
+       *
+       * ── El bug que esto arregla ──
+       * El panel estaba dentro de la capa del menú, que en pleno vuelo está OCULTA.
+       * Al pulsar OPCIONES desde la pausa sólo se destapaba la pausa, pero el panel
+       * seguía invisible: quedaba último en el orden del documento y sin capa que lo
+       * mostrara. Recién aparecía al pulsar SALIR, porque ahí el menú sí se abre.
+       *
+       * Ahora se muestra la capa del menú mientras las opciones están abiertas, y se
+       * vuelve a ocultar al salir de ellas.
+       */
+      this._opcionesDesdePausa = true;
+      show(UI.idleOverlay);
       document.getElementById('pause-overlay')?.classList.add('hidden');
       const btnMute = document.getElementById('btn-options-mute');
       if (btnMute) btnMute.textContent = isMuted() ? 'OFF' : 'ON';
