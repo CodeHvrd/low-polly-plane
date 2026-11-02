@@ -927,6 +927,47 @@ export class Game {
     ].filter(Boolean).join('\n');
   }
 
+  /**
+   * Pausa o reanuda la partida.
+   *
+   * ── Qué congela ──
+   * El bucle de `frame` deja de avanzar la lógica: física, efectos y ventana del
+   * corredor quedan quietos. El render sigue, así que la escena se ve congelada en
+   * vez de quedar en negro.
+   *
+   * ── Por qué no se reinicia nada ──
+   * Es una PAUSA, no una salida: al reanudar el vuelo continúa con la misma
+   * velocidad, altura, cargas y combustible. Por eso no se toca el controlador ni
+   * el estado, sólo la bandera.
+   *
+   * @param {boolean} valor
+   */
+  setPaused(valor) {
+    const nuevo = Boolean(valor);
+    if (this.paused === nuevo) return;
+    this.paused = nuevo;
+
+    const cartel = document.getElementById('pause-overlay');
+    if (cartel) cartel.classList.toggle('hidden', !nuevo);
+
+    if (nuevo) {
+      /*
+       * Al pausar se suelta el cursor: si el jugador tenía una dirección tomada,
+       * al reanudar no debe seguir aplicándose sola.
+       */
+      setPointerFollow(false);
+    } else {
+      /*
+       * Se descarta el tiempo transcurrido en pausa.
+       *
+       * Sin esto, el primer frame al reanudar recibiría un dt enorme y la física
+       * daría un salto.
+       */
+      this.lastTime = performance.now();
+      setPointerFollow(STATE.cursorFollow);
+    }
+  }
+
   toggleMute() {
     const muted = toggleMuted();
     STATE.muted = muted;
@@ -1603,8 +1644,21 @@ export class Game {
 
       // Esc: volver a la primera etapa (vista lateral con tienda y título).
       if (e.code === 'Escape') {
+        e.preventDefault();
+        /*
+         * ── Esc durante el vuelo = PAUSA ──
+         *
+         * Congela la partida y la deja retomable: no se pierde el vuelo ni las
+         * cargas. Volver a apretar Esc reanuda exactamente donde estaba.
+         *
+         * Se distingue del Esc de la etapa de apuntado, que sí aborta el lanzamiento
+         * (ahí todavía no hay nada que conservar).
+         */
+        if (this.controller.phase === PHASE.FLYING) {
+          this.setPaused(!this.paused);
+          return;
+        }
         if (this.controller.canAimEditable && this.overlays.current === Screen.AIM) {
-          e.preventDefault();
           this.exitLaunchMode();
         }
         return;

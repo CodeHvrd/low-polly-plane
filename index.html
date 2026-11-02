@@ -386,6 +386,19 @@
   -->
   <div id="build-version" aria-hidden="true">v. …</div>
 
+  <!--
+    Cartel de PAUSA.
+
+    Se activa con Esc durante el vuelo y deja retomar donde estaba. Va fuera de
+    los overlays de pantalla para no tocar el estado de la partida.
+  -->
+  <div id="pause-overlay" class="hidden" aria-hidden="true">
+    <div class="pause-box">
+      <h2>PAUSA</h2>
+      <p>Esc para seguir volando</p>
+    </div>
+  </div>
+
   <!-- ── CAPAS EFÍMERAS ── -->
   <div id="crash-flash" data-required aria-hidden="true"></div>
   <div id="fader" data-required aria-hidden="true"></div>
