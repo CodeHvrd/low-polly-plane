@@ -58,9 +58,18 @@ export class AircraftView {
      * Ahora cada tipo declara su modelo. El que no tiene uno usa la geometría
      * procedural de siempre, que sigue siendo el respaldo si el archivo no carga.
      */
-    const MODELOS = {
-      jet: 'assets/models/plane_chrome.glb',
-    };
+    /*
+     * ── VACÍO A PROPÓSITO: la integración está revertida ──
+     *
+     * Al cargar el .glb del jet, el avión DEJÓ DE VERSE en el lanzador — ni el modelo
+     * nuevo ni el procedural. Todavía no encontré la causa y una nave invisible hace
+     * el juego injugable, así que primero se restaura el estado que funcionaba.
+     *
+     * El cargador (`js/world/glbLoader.js`) y la tubería de carga quedan listos: para
+     * reactivar un modelo alcanza con agregar su ruta acá, una vez resuelto el
+     * problema de visibilidad.
+     */
+    const MODELOS = {};
     const rutaModelo = MODELOS[type];
     if (!rutaModelo) return;
 
