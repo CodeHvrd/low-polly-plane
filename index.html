@@ -393,9 +393,20 @@
     los overlays de pantalla para no tocar el estado de la partida.
   -->
   <div id="pause-overlay" class="hidden" aria-hidden="true">
-    <div class="pause-box">
+    <div class="pause-box" data-ui-interactive>
       <h2>PAUSA</h2>
       <p>Esc para seguir volando</p>
+      <!--
+        Continuar / Opciones / Salir.
+
+        Continuar va primero y destacado: es lo que se hace casi siempre. Salir queda
+        al final y en rojo para que no se toque por accidente a mitad de vuelo.
+      -->
+      <div class="pause-actions">
+        <button type="button" id="btn-pause-resume" class="menu-btn primary">CONTINUAR</button>
+        <button type="button" id="btn-pause-options" class="menu-btn">OPCIONES</button>
+        <button type="button" id="btn-pause-quit" class="menu-btn danger">SALIR</button>
+      </div>
     </div>
   </div>
 

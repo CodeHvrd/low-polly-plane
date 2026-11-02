@@ -2557,11 +2557,11 @@ body.modo-diagnostico #diag-overlay {
   justify-content: center;
   background: rgba(4, 8, 14, 0.55);
   backdrop-filter: blur(2px);
+  /*
+   * `pointer-events: none` en el fondo pero `auto` en la caja: así el escenario de
+   * atrás no recibe toques (no se puede apuntar en pausa) pero los botones sí.
+   */
   pointer-events: none;
-}
-
-#pause-overlay.hidden {
-  display: none;
 }
 
 .pause-box {
@@ -2570,6 +2570,34 @@ body.modo-diagnostico #diag-overlay {
   border-radius: 18px;
   border: 1px solid var(--border);
   background: rgba(8, 12, 22, 0.82);
+  /*
+   * Los botones de adentro reciben toques; el fondo del overlay no.
+   * Así no se puede apuntar ni volar en pausa, pero sí usar los botones.
+   */
+  pointer-events: auto;
+}
+
+.pause-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  width: min(260px, 70vw);
+}
+
+.pause-actions .menu-btn {
+  font-size: 0.92rem;
+  padding: 11px 16px;
+}
+
+/* Salir en rojo: se toca por error mucho más fácil de lo que parece. */
+.menu-btn.danger {
+  border-color: #7a2b2b;
+  color: #ff8a8a;
+}
+
+#pause-overlay.hidden {
+  display: none;
 }
 
 .pause-box h2 {

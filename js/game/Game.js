@@ -1330,6 +1330,43 @@ export class Game {
      * los cachés y recarga con un parámetro que saltea el caché del navegador.
      */
     /*
+     * ── Botones de la pausa ──
+     *
+     * Continuar reanuda el mismo vuelo. Opciones abre el panel sin perder la
+     * partida (la pausa sigue activa detrás). Salir abandona el vuelo y vuelve al
+     * menú, que es lo único que descarta la partida en curso.
+     */
+    document.getElementById('btn-pause-resume')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      this.setPaused(false);
+    });
+
+    document.getElementById('btn-pause-options')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      /*
+       * Se destapa la pausa para poder ver el panel de opciones, pero la partida
+       * NO se reanuda: `paused` sigue en true y el vuelo queda congelado.
+       */
+      document.getElementById('pause-overlay')?.classList.add('hidden');
+      const btnMute = document.getElementById('btn-options-mute');
+      if (btnMute) btnMute.textContent = isMuted() ? 'OFF' : 'ON';
+      const btnCur = document.getElementById('btn-options-cursor');
+      if (btnCur) btnCur.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
+      mostrarPanel(optionsPanel);
+    });
+
+    document.getElementById('btn-pause-quit')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      // Salir SÍ descarta el vuelo: se vuelve al menú principal.
+      this.setPaused(false);
+      this.controller.forceIdle();
+      this.overlays.set(Screen.STANDBY);
+    });
+
+    /*
      * ── Interruptor del vuelo con cursor ──
      *
      * Guarda la preferencia y la aplica en el acto: si se apaga en pleno vuelo, el
