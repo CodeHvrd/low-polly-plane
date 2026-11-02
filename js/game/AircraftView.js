@@ -49,17 +49,23 @@ export class AircraftView {
     scene.add(this.root);
 
     /*
-     * ── Modelo de Meshy, si existe ──
+     * ── Modelos de Meshy, por tipo de nave ──
      *
-     * La geometría procedural de arriba queda como RESPALDO. Si el .glb carga, se
-     * oculta y se muestra el modelo real; si falla (sin conexión, archivo movido,
-     * formato inesperado) el juego sigue funcionando con lo de siempre.
+     * ── El error que esto arregla ──
+     * Al principio se cargaba SIEMPRE el mismo .glb, sin mirar el tipo. Resultado:
+     * las cuatro naves se veían iguales en el lanzador.
      *
-     * Esto importa: hoy el juego arranca sin dependencias externas y no puede
-     * quedarse con una pantalla vacía por un archivo que no llegó.
+     * Ahora cada tipo declara su modelo. El que no tiene uno usa la geometría
+     * procedural de siempre, que sigue siendo el respaldo si el archivo no carga.
      */
+    const MODELOS = {
+      jet: 'assets/models/plane_chrome.glb',
+    };
+    const rutaModelo = MODELOS[type];
+    if (!rutaModelo) return;
+
     const tipoPedido = type;
-    cargarGLB('assets/models/plane_chrome.glb').then((resultado) => {
+    cargarGLB(rutaModelo).then((resultado) => {
       // Si mientras tanto se cambió de nave, este resultado ya no sirve.
       if (!resultado || tipoPedido !== this.tipoActual) return;
       const { geometria } = resultado;
