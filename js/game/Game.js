@@ -35,6 +35,7 @@ import { getSpec, AIRCRAFT_LIST } from '../physics/specs.js';
 import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, TRAJECTORY, WORLD } from '../config.js';
 import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted } from '../core/audio.js';
+import { music, pistaParaTramo } from '../core/music.js';
 import { setPointerFollow, setPointerPosition, pointerFollowInfo } from '../core/input.js';
 import { BUILD } from '../core/version.js';
 
@@ -965,6 +966,15 @@ export class Game {
        */
       this.lastTime = performance.now();
       setPointerFollow(STATE.cursorFollow);
+
+    /*
+     * ── Música ──
+     *
+     * Arranca al lanzar, con el clima que corresponde al tramo. El `unlock()` de
+     * audio ya desbloqueó el contexto con el gesto del lanzamiento.
+     */
+    music.setMudo(STATE.musicOff === true);
+    music.start(pistaParaTramo(Math.max(0, this.currentStage)));
     }
   }
 
@@ -1296,6 +1306,7 @@ export class Game {
         e.stopPropagation();
         sfx.click();
         STATE.musicOff = !STATE.musicOff;
+        music.setMudo(STATE.musicOff);
         e.currentTarget.textContent = STATE.musicOff ? 'OFF' : 'ON';
         this.persist();
       });
@@ -1870,6 +1881,8 @@ export class Game {
           // lanzamiento ya saldría girando hacia donde quedó el mouse.
           // Se apaga durante el reposo y se vuelve a aplicar al lanzar.
           setPointerFollow(false);
+          // La música es del VUELO: en el resultado o el menú no corresponde.
+          music.stop();
           // El controlador volvió a reposo (gesto cancelado, reinicio). Si
           // veníamos de volar, se vuelve a la primera etapa; si no, se respeta
           // la etapa actual (por ejemplo, seguir en modo lanzamiento).
@@ -1894,6 +1907,19 @@ export class Game {
          * cargas pero no combustible, conviene verlo antes de apretar y no después.
          */
         HUD.updateFuel(payload.fuel ?? 0, PROPULSION.FUEL_MAX);
+
+        /*
+         * ── La música responde a la velocidad ──
+         *
+         * 0.35 de la velocidad es "tranquilo" y el tope del modo es "a fondo". Con
+         * eso el tempo sube, el filtro se cierra y la reverberación crece: la misma
+         * pista se vuelve más rápida y más oscura a medida que el avión acelera.
+         */
+        {
+          const vel = Math.hypot(payload.state?.vx ?? 0, payload.state?.vy ?? 0, payload.state?.vz ?? 0);
+          const tope = PROPULSION.MAX_SPEED > 0 ? PROPULSION.MAX_SPEED : 90;
+          music.setIntensidad((vel / tope - 0.28) / 0.72);
+        }
         this.syncStage(payload.stage ?? 0, payload.state.x);
         break;
 
@@ -1905,6 +1931,13 @@ export class Game {
        */
       case 'ring': {
         HUD.setRingCharge(payload.total ?? 0, PICKUPS.BOOSTERS.RING_COMBO.EVERY);
+        /*
+         * Cada aro suma una nota de bajo.
+         *
+         * Es la semilla de la idea: que el bajista del tema sea el circuito y cada
+         * aro atravesado aporte su nota.
+         */
+        music.ringPing(payload.total ?? 0);
         sfx.ring();
         break;
       }
