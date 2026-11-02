@@ -973,8 +973,11 @@ export class Game {
      * Arranca al lanzar, con el clima que corresponde al tramo. El `unlock()` de
      * audio ya desbloqueó el contexto con el gesto del lanzamiento.
      */
+    /*
+     * La música ya viene sonando desde la intro; acá sólo se asegura que el clima
+     * corresponda al tramo y que no esté silenciada.
+     */
     music.setMudo(STATE.musicOff === true);
-    music.start(pistaParaTramo(Math.max(0, this.currentStage)));
     }
   }
 
@@ -1469,6 +1472,30 @@ export class Game {
 
     /*
      * ══════════════════════════════════════════════════════════
+     * LA MÚSICA ARRANCA EN LA INTRO
+     * ══════════════════════════════════════════════════════════
+     *
+     * ── Por qué en el primer gesto y no al cargar ──
+     * Los navegadores crean el audio SUSPENDIDO hasta que el usuario interactúa. Si
+     * se arranca al cargar, no suena nada hasta el siguiente clic — y el jugador
+     * percibe que "la música empieza recién cuando toco pausa".
+     *
+     * Se engancha una sola vez al primer clic o tecla: ahí la música entra desde el
+     * menú y acompaña toda la sesión, no sólo el vuelo.
+     */
+    const arrancarMusica = () => {
+      if (music.sonando) return;
+      music.asegurarContexto();
+      music.setMudo(STATE.musicOff === true);
+      music.start(0);
+      // En el menú suena tranquila pero presente.
+      music.setIntensidad(0.15);
+    };
+    window.addEventListener('pointerdown', arrancarMusica, { once: true, capture: true });
+    window.addEventListener('keydown', arrancarMusica, { once: true, capture: true });
+
+    /*
+     * ══════════════════════════════════════════════════════════
      * VUELO CON EL CURSOR (experimento de escritorio)
      * ══════════════════════════════════════════════════════════
      *
@@ -1894,6 +1921,11 @@ export class Game {
            * al entrar en vuelo se volvía a encender igual.
            */
           setPointerFollow(STATE.cursorFollow);
+          /*
+           * Al entrar en el lanzador la música se acentúa: es el momento de máxima
+           * tensión antes del disparo.
+           */
+          music.setIntensidad(0.4);
           // Al empezar el vuelo se vuelve al tramo 1: el avión sale de la
           // resortera, no de donde terminó el vuelo anterior.
           this.currentStage = -1;
@@ -1904,8 +1936,11 @@ export class Game {
           // lanzamiento ya saldría girando hacia donde quedó el mouse.
           // Se apaga durante el reposo y se vuelve a aplicar al lanzar.
           setPointerFollow(false);
-          // La música es del VUELO: en el resultado o el menú no corresponde.
-          music.stop();
+          /*
+           * La música NO se corta al terminar: sigue sonando en el resultado y en el
+           * menú. Es la banda sonora de la sesión, no del vuelo.
+           */
+          music.setIntensidad(0.2);
           // El controlador volvió a reposo (gesto cancelado, reinicio). Si
           // veníamos de volar, se vuelve a la primera etapa; si no, se respeta
           // la etapa actual (por ejemplo, seguir en modo lanzamiento).
@@ -1939,9 +1974,40 @@ export class Game {
          * pista se vuelve más rápida y más oscura a medida que el avión acelera.
          */
         {
-          const vel = Math.hypot(payload.state?.vx ?? 0, payload.state?.vy ?? 0, payload.state?.vz ?? 0);
+          const st = payload.state ?? {};
+          const x = st.x ?? 0;
+          const vel = Math.hypot(st.vx ?? 0, st.vy ?? 0, st.vz ?? 0);
           const tope = PROPULSION.MAX_SPEED > 0 ? PROPULSION.MAX_SPEED : 90;
-          music.setIntensidad((vel / tope - 0.28) / 0.72);
+
+          /*
+           * ── Crescendo por DISTANCIA ──
+           *
+           * Cada 2500 m sube un escalón de intensidad, hasta saturar a los 12.500 m.
+           * Es el eje principal de la progresión: la música se va oscureciendo y
+           * acelerando a medida que el corredor avanza, sin importar cuánto vuele el
+           * jugador con cuidado.
+           */
+          const escalon = Math.min(1, x / 12500);
+
+          /*
+           * ── Y un extra por VELOCIDAD ──
+           *
+           * La velocidad aporta, pero no es indispensable: sin ella la música ya
+           * progresó por distancia. Antes dependía SÓLO de la velocidad, así que
+           * volar despacio dejaba el tema plano.
+           */
+          const porVelocidad = Math.max(0, (vel / tope - 0.28) / 0.72);
+
+          music.setIntensidad(Math.min(1, escalon * 0.85 + porVelocidad * 0.35));
+
+          /*
+           * ── Clima cada 2500 m ──
+           *
+           * Cambia de pista al cruzar cada tramo de 2500 m, SIN cortar el sonido: la
+           * siguiente nota ya pertenece al clima nuevo. Así la progresión armónica
+           * acompaña a la del tempo y la oscuridad.
+           */
+          music.setPista(Math.min(2, Math.floor(x / 2500)));
         }
         this.syncStage(payload.stage ?? 0, payload.state.x);
         break;

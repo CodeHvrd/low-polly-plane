@@ -57,7 +57,7 @@ export const PISTAS = [
     bpmMax: 146,
     /** Onda del pad: seno = cálido, diente de sierra = brillante. */
     padOnda: 'sine',
-    padCorte: 1400,
+    padCorte: 1500,
     arpOnda: 'triangle',
     bajoOnda: 'sine',
   },
@@ -70,7 +70,7 @@ export const PISTAS = [
     bpmMin: 130,
     bpmMax: 152,
     padOnda: 'triangle',
-    padCorte: 1700,
+    padCorte: 1200,
     arpOnda: 'sawtooth',
     bajoOnda: 'triangle',
   },
@@ -83,7 +83,7 @@ export const PISTAS = [
     bpmMin: 136,
     bpmMax: 158,
     padOnda: 'sawtooth',
-    padCorte: 2100,
+    padCorte: 950,
     arpOnda: 'square',
     bajoOnda: 'sawtooth',
   },
@@ -135,12 +135,7 @@ export class MusicEngine {
    */
   start(indice = 0) {
     if (this.activo) return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-
-    if (!this.ctx) this.ctx = new AudioCtx();
-    // El navegador deja el contexto suspendido hasta un gesto del usuario.
-    if (this.ctx.state === 'suspended') this.ctx.resume?.();
+    if (!this.asegurarContexto()) return;
 
     this.pista = PISTAS[Math.max(0, Math.min(PISTAS.length - 1, indice))];
     this._construirCadena();
@@ -212,6 +207,48 @@ export class MusicEngine {
       }
     }
     return buffer;
+  }
+
+  /**
+   * Cambia la pista SIN cortar el sonido.
+   *
+   * ── Por qué no se reinicia ──
+   * Reiniciar cortaría la música cada 2500 m, justo lo contrario de un crescendo.
+   * Acá sólo se cambia el material armónico: el planificador sigue encolando notas y
+   * la siguiente ya pertenece al clima nuevo.
+   *
+   * @param {number} indice
+   */
+  setPista(indice) {
+    if (!this.ctx) return;
+    const nueva = PISTAS[Math.max(0, Math.min(PISTAS.length - 1, indice))];
+    if (this.pista && this.pista.id === nueva.id) return;
+    this.pista = nueva;
+    /*
+     * El BPM no se toca: ya lo gobierna la intensidad. Cambiar la base del filtro sí,
+     * porque cada clima tiene su brillo propio.
+     */
+    const ahora = this.ctx.currentTime;
+    const corte = nueva.padCorte * (1 - 0.55 * this.intensidad);
+    this.filtro.frequency.setTargetAtTime(Math.max(220, corte), ahora, 0.6);
+  }
+
+  /**
+   * Asegura que haya un contexto de audio vivo.
+   *
+   * ── El bug que esto arregla ──
+   * El navegador crea el AudioContext en estado "suspendido" hasta que hay un gesto
+   * del usuario. Si se llamaba a `start()` sin desbloquearlo, no sonaba nada hasta
+   * el siguiente clic — se reportó como "la música empieza recién cuando pongo pausa".
+   *
+   * @returns {boolean} si quedó listo
+   */
+  asegurarContexto() {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return false;
+    if (!this.ctx) this.ctx = new AudioCtx();
+    if (this.ctx.state === 'suspended') this.ctx.resume?.();
+    return true;
   }
 
   /**
