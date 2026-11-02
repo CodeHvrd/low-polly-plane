@@ -13,6 +13,7 @@ import { scene } from '../core/engine.js';
 import { buildAircraftModel, disposeAircraftModel } from '../aircraft/index.js';
 import { damp, clamp } from '../core/math.js';
 import { CAMERA } from '../config.js';
+import { cargarGLB } from '../world/glbLoader.js';
 
 export class AircraftView {
   constructor() {
@@ -29,6 +30,12 @@ export class AircraftView {
    * @param {string} type id de la ficha en physics/specs.js
    */
   setType(type) {
+    /*
+     * Se guarda el tipo pedido: la carga del .glb es asíncrona y puede terminar
+     * después de que el jugador cambie de nave. Comparando contra este valor se
+     * descarta el resultado viejo en vez de superponer dos modelos.
+     */
+    this.tipoActual = type;
     this.dispose();
     this.root = new THREE.Group();
     this.root.name = 'aircraft';
@@ -40,6 +47,38 @@ export class AircraftView {
     this.rotors = model.userData.rotors ?? [];
 
     scene.add(this.root);
+
+    /*
+     * ── Modelo de Meshy, si existe ──
+     *
+     * La geometría procedural de arriba queda como RESPALDO. Si el .glb carga, se
+     * oculta y se muestra el modelo real; si falla (sin conexión, archivo movido,
+     * formato inesperado) el juego sigue funcionando con lo de siempre.
+     *
+     * Esto importa: hoy el juego arranca sin dependencias externas y no puede
+     * quedarse con una pantalla vacía por un archivo que no llegó.
+     */
+    const tipoPedido = type;
+    cargarGLB('assets/models/plane_chrome.glb').then((resultado) => {
+      // Si mientras tanto se cambió de nave, este resultado ya no sirve.
+      if (!resultado || tipoPedido !== this.tipoActual) return;
+      const { geometria } = resultado;
+      /*
+       * Sin `flatShading`: MeshLambertMaterial no lo soporta y tira un aviso por
+       * consola en cada carga. El modelo ya viene facetado de origen, así que las
+       * normales duras se ven igual.
+       */
+      const material = new THREE.MeshLambertMaterial({ color: 0x2b3340 });
+      const malla = new THREE.Mesh(geometria, material);
+      /*
+       * El modelo de Meshy mide 1.9 m de envergadura y el juego espera ~3 m.
+       * Se escala por constante para no tocar el resto de las medidas.
+       */
+      malla.scale.setScalar(1.55);
+      malla.name = 'aircraft-glb';
+      model.visible = false;
+      this.root.add(malla);
+    });
   }
 
   /** ¿Hay modelo construido? */

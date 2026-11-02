@@ -22,7 +22,7 @@
  */
 
 /** Subir esto en cada despliegue que cambie archivos. */
-const VERSION = 'papercrash-alpha-1.1.64';
+const VERSION = 'papercrash-alpha-1.1.65';
 
 /** Archivos del juego. Si falta uno, la instalación falla entera. */
 const NUCLEO = [
@@ -89,6 +89,7 @@ const MODULOS = [
   './js/world/collectibles.js',
   './js/world/directionArrows.js',
   './js/world/environment.js',
+  './js/world/glbLoader.js',
   './js/world/launchpad.js',
   './js/world/obstacleMeshes.js',
   './js/world/obstacles.js',
