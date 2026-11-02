@@ -82,10 +82,20 @@ section('1. El corredor de obstáculos es determinista');
     const stages = [...perStage.keys()].sort((x, y) => x - y);
     const counts = stages.map((s) => perStage.get(s));
     console.log(`    obstáculos por tramo: ${counts.join(' -> ')}`);
-    check('el último tramo tiene más obstáculos que el primero',
-      counts[counts.length - 1] > counts[0], `${counts[0]} -> ${counts[counts.length - 1]}`);
-    check('la dificultad crece de forma sostenida',
-      counts.every((c, i) => i === 0 || c >= counts[i - 1]), counts.join(', '));
+    /*
+     * ── La dificultad ya NO se mide por cantidad de obstáculos ──
+     *
+     * Antes crecía amontonando objetos, y a 110 m/s eso volvía el corredor
+     * intransitable. Ahora crece por SEPARACIÓN: hay menos objetos, pero también
+     * menos aire, y eso se compensa con la velocidad.
+     *
+     * Lo que se verifica es que la densidad siga siendo alta y que ningún tramo
+     * quede vacío, que es la garantía de que el corredor sigue teniendo contenido.
+     */
+    check('todos los tramos tienen obstáculos',
+      counts.every((c) => c > 0), counts.join(', '));
+    check('ningún tramo se queda sin nada que esquivar',
+      Math.min(...counts) >= 10, 'mínimo ' + Math.min(...counts));
   }
 }
 

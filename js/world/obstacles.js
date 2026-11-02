@@ -311,7 +311,20 @@ export function generateCourse(rango = {}) {
        * con el control lateral a fondo.
        */
       const gap = rngTramo.range(OBSTACLES.MIN_SPACING, OBSTACLES.MAX_SPACING) / pressure;
-      x += Math.max(11, gap);
+      /*
+       * ── El piso de separación CRECE con la distancia ──
+       *
+       * ── El problema que esto arregla ──
+       * El piso estaba fijo en 11 m. A partir de los 100 m/s el avión recorre esa
+       * distancia en una décima de segundo, así que dos obstáculos seguidos eran una
+       * colisión segura: no había tiempo ni para elegir la ruta.
+       *
+       * La separación mínima ahora acompaña a la velocidad esperada del tramo: a más
+       * avance, más aire entre obstáculos. Sigue habiendo dificultad —los obstáculos
+       * están más juntos que al principio— pero deja de ser imposible.
+       */
+      const piso = 11 + Math.min(stage, STAGES.MAX_DENSITY_STAGE) * 4.5;
+      x += Math.max(piso, gap);
     }
   }
 
@@ -324,6 +337,56 @@ export function generateCourse(rango = {}) {
   addTrees(list, null, () => id++, desde, hasta);
   addRocks(list, null, () => id++, desde, hasta);
   addLogs(list, null, () => id++, desde, hasta);
+
+  /*
+   * ── SEPARACIÓN MÍNIMA ENTRE SÓLIDOS ──
+   *
+   * ── El problema que esto arregla ──
+   * Los árboles, rocas y troncos se agregan DESPUÉS del bucle principal, así que
+   * caían pegados a las agujas y mesas: medido, quedaban separaciones de 0.1 m entre
+   * sólidos. A 110 m/s eso son 1 ms de reacción, o sea una colisión segura.
+   *
+   * ── Cómo se resuelve ──
+   * Se recorren los sólidos por prioridad (primero los que definen el corredor) y se
+   * descarta el que no respete la separación mínima del tramo. El decorado se va
+   * antes que la estructura.
+   *
+   * La separación mínima crece con la distancia porque la velocidad también: a más
+   * avance, más aire hace falta para poder elegir la ruta.
+   */
+  {
+    /** Menor es más importante: se conserva antes. */
+    const prioridad = { spire: 0, mesa: 1, rock: 2, tree: 3, log: 4 };
+    /*
+     * Los TRONCOS quedan afuera del filtro.
+     *
+     * Son obstáculos bajos y alargados: a alta velocidad se pasa por encima, así que
+     * no compiten por el hueco de la ruta. Filtrarlos sólo servía para que
+     * desaparecieran del corredor.
+     */
+    const solidos = list
+      .filter((o) => o.type !== 'ring' && o.type !== 'updraft' && o.type !== 'log')
+      .sort((a, b) => (prioridad[a.type] ?? 5) - (prioridad[b.type] ?? 5) || a.x - b.x);
+
+    const aceptados = [];
+    const descartar = new Set();
+    for (const o of solidos) {
+      const tramo = Math.floor(o.x / STAGES.SEGMENT_LENGTH);
+      const piso = 11 + Math.min(tramo, STAGES.MAX_DENSITY_STAGE) * 4.5;
+      // Sólo importan los vecinos dentro del piso, no todo el corredor.
+      let choca = false;
+      for (const a of aceptados) {
+        if (Math.abs(a.x - o.x) >= piso) continue;
+        if (Math.abs(a.x - o.x) < piso) { choca = true; break; }
+      }
+      if (choca) descartar.add(o.id);
+      else aceptados.push(o);
+    }
+
+    for (let k = list.length - 1; k >= 0; k--) {
+      if (descartar.has(list[k].id)) list.splice(k, 1);
+    }
+  }
 
   // El corredor tiene que quedar ordenado por x: varias partes del código
   // (colisiones, recolectables, HUD) lo asumen.
