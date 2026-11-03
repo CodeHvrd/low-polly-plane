@@ -843,7 +843,21 @@ function buildObstacle(type, id, x, z, progress, rng) {
       },
       // Zona de paso: estar dentro de este cilindro y cruzar el plano del
       // aro cuenta como atravesarlo (y da monedas).
-      passZone: { y: centerY, radius: innerRadius - 0.25, halfDepth: halfDepth + 1.2 },
+      /*
+ * ── Área de acierto del aro ──
+ *
+ * Bajó de `innerRadius - 0.25` a `innerRadius - 0.75`.
+ *
+ * ── Por qué ──
+ * Se reportó que contaba como atravesado apuntando al MEDIO DEL BORDE del aro: el
+ * área era demasiado generosa y premiaba pasar rozando la banda en vez de cruzar
+ * el hueco.
+ *
+ * El agujero DIBUJADO usa exactamente este mismo valor (ver buildRing en
+ * obstacleMeshes.js), así que achicar acá y allá a la vez mantiene la regla: lo que
+ * se ve como hueco es lo que cuenta.
+ */
+passZone: { y: centerY, radius: innerRadius - 0.75, halfDepth: halfDepth + 1.2 },
       params: { innerRadius, tube, centerY, rotationY: rng.range(-0.25, 0.25) },
     };
   }

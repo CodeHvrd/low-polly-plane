@@ -310,7 +310,12 @@ function buildRing(ob) {
      * Ahora el hueco dibujado mide exactamente lo que la lógica considera "por
      * dentro". Lo que se ve es lo que cuenta.
      */
-    const radioAgujero = Math.max(0.5, innerRadius - 0.25);
+    /*
+     * Tiene que ser el MISMO valor que `passZone.radius` en obstacles.js.
+     * Se bajó junto con el área de acierto para que el hueco visible no quede más
+     * grande que el que realmente cuenta.
+     */
+    const radioAgujero = Math.max(0.5, innerRadius - 0.75);
     const escala = radioAgujero / RING_MODEL_HOLE;
     ring = new THREE.Mesh(modeloAro.geometria, mat);
     ring.scale.setScalar(escala);
