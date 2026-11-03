@@ -1485,6 +1485,7 @@ export class Game {
       'assets/models/ring_chrome.glb',
       'assets/models/spire_chrome.glb',
       'assets/models/mesa_chrome.glb',
+      'assets/models/updraft_chrome.glb',
     ]).then(() => {
       /*
        * Las mallas del corredor se armaron al arrancar, cuando los modelos todavía

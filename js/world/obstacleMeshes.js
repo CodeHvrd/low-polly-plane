@@ -17,6 +17,10 @@ const ROCK_GLB = 'assets/models/rock_chrome.glb';
 const RING_GLB = 'assets/models/ring_chrome.glb';
 const SPIRE_GLB = 'assets/models/spire_chrome.glb';
 const MESA_GLB = 'assets/models/mesa_chrome.glb';
+const UPDRAFT_GLB = 'assets/models/updraft_chrome.glb';
+
+/** Medidas del modelo de vendaval, en sus unidades. */
+const UPDRAFT_MODEL = { ancho: 1.35, alto: 1.90, largo: 1.09 };
 
 /*
  * Medidas de los modelos de Meshy, en sus propias unidades.
@@ -392,7 +396,20 @@ function buildRing(ob) {
   ring.castShadow = true;
   pieces.push(ring);
 
-  // Halo tenue para que el aro se lea a distancia contra el cielo oscuro.
+  /*
+   * ── El halo SOLO va con el aro procedural ──
+   *
+   * ── El artefacto que esto arregla ──
+   * El halo es un toro translúcido de radio `innerRadius`. Como el agujero del
+   * modelo mide `innerRadius - 0.75`, ese radio caía justo EN EL MEDIO DE LA BANDA
+   * del modelo: se veía un borde celeste flotando sobre el aro, como un marco
+   * fantasma.
+   *
+   * El modelo de Meshy ya tiene cuerpo propio y se lee solo, así que el halo no
+   * hace falta. Con la geometría procedural sí, porque un toro liso se pierde
+   * contra el cielo oscuro.
+   */
+  if (!modeloAro) {
   const haloGeo = new THREE.TorusGeometry(innerRadius, tube * 1.9, 6, 20);
   const haloMat = new THREE.MeshBasicMaterial({
     color: 0x00e5ff,
@@ -404,6 +421,7 @@ function buildRing(ob) {
   halo.position.copy(ring.position);
   halo.rotation.copy(ring.rotation);
   pieces.push(halo);
+  }
 
   const g = new THREE.Group();
   for (const p of pieces) g.add(p);
@@ -549,8 +567,29 @@ export function buildObstacleMeshes(obstacles) {
     const radio = u.params?.radius ?? 7;
     const alto = u.params?.height ?? 40;
     const base = u.params?.baseY ?? 0;
-    const malla = new THREE.Mesh(geometriaVendaval, materialVendaval);
-    malla.scale.set(radio, alto, radio);
+    /*
+     * ── Modelo de Meshy, si ya está descargado ──
+     *
+     * Escala por eje: el modelo mide 1.35 × 1.90 × 1.09 y el vendaval del juego pide
+     * 14 m de diámetro y 40 de alto. Escalando un solo factor, la columna quedaría
+     * mucho más ancha o más baja que la zona que realmente levanta.
+     *
+     * El material es el mismo translúcido de la versión procedural: la columna
+     * tiene que dejar ver el corredor de atrás.
+     */
+    const modelo = glbCacheado(UPDRAFT_GLB);
+    let malla;
+    if (modelo) {
+      malla = new THREE.Mesh(modelo.geometria, materialVendaval);
+      malla.scale.set(
+        (radio * 2) / UPDRAFT_MODEL.ancho,
+        alto / UPDRAFT_MODEL.alto,
+        (radio * 2) / UPDRAFT_MODEL.largo,
+      );
+    } else {
+      malla = new THREE.Mesh(geometriaVendaval, materialVendaval);
+      malla.scale.set(radio, alto, radio);
+    }
     malla.position.set(u.x, base + alto / 2, u.z);
     malla.renderOrder = 2;
     // Geometría y material compartidos: NO se encolan para liberar por malla.
