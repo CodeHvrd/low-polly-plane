@@ -69,7 +69,9 @@ export class AircraftView {
      * reactivar un modelo alcanza con agregar su ruta acá, una vez resuelto el
      * problema de visibilidad.
      */
-    const MODELOS = {};
+    const MODELOS = {
+      jet: 'assets/models/plane_chrome.glb',
+    };
     const rutaModelo = MODELOS[type];
     if (!rutaModelo) return;
 
@@ -86,13 +88,20 @@ export class AircraftView {
       const material = new THREE.MeshLambertMaterial({ color: 0x2b3340 });
       const malla = new THREE.Mesh(geometria, material);
       /*
-       * El modelo de Meshy mide 1.9 m de envergadura y el juego espera ~3 m.
-       * Se escala por constante para no tocar el resto de las medidas.
+       * ── Escala del modelo de Meshy ──
+       *
+       * El .glb mide 1.9 m de envergadura y los aviones procedurales del juego son
+       * MUCHO más grandes: comparando en pantalla, el modelo entraba 3.6 veces más
+       * chico. De ahí 5.5 en vez de 1.55.
+       *
+       * Es un valor medido a ojo contra la nave procedural, no una medida real: si el
+       * avión se ve chico o gigante, se ajusta este número.
        */
-      malla.scale.setScalar(1.55);
+      malla.scale.setScalar(5.5);
       malla.name = 'aircraft-glb';
       model.visible = false;
       this.root.add(malla);
+
     });
   }
 
