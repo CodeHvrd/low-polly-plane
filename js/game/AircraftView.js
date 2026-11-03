@@ -102,6 +102,14 @@ export class AircraftView {
        * o gigante, se ajusta este número.
        */
       malla.scale.setScalar(5.5);
+      /*
+       * ── Orientación ──
+       *
+       * El modelo de Meshy viene con el morro hacia -Z, y la cámara del juego mira
+       * desde atrás: el avión aparecía de frente. Media vuelta en Y lo deja mirando
+       * hacia donde vuela.
+       */
+      malla.rotation.y = Math.PI;
       malla.name = 'aircraft-glb';
       model.visible = false;
       this.root.add(malla);
