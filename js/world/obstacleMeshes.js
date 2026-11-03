@@ -14,6 +14,15 @@ import { glbCacheado } from './glbLoader.js';
 
 /** Ruta del modelo de roca. Se usa si ya está en caché. */
 const ROCK_GLB = 'assets/models/rock_chrome.glb';
+const RING_GLB = 'assets/models/ring_chrome.glb';
+
+/**
+ * Radio del AGUJERO del modelo de aro, en sus propias unidades.
+ *
+ * El modelo mide 1.90 de diámetro total y 0.44 de grosor, así que el agujero queda
+ * en (1.90 - 2·0.22) / 2 = 0.73.
+ */
+const RING_MODEL_HOLE = 0.73;
 
 /** @type {Array<{geometry?:object, material?:object}>} */
 const disposables = [];
@@ -268,7 +277,6 @@ function buildRing(ob) {
   const { innerRadius, tube, centerY, rotationY } = ob.params;
   const pieces = [];
 
-  const geo = new THREE.TorusGeometry(innerRadius, tube, 8, 24);
   const mat = new THREE.MeshStandardMaterial({
     color: 0x00e5ff,
     emissive: 0x0088aa,
@@ -276,10 +284,48 @@ function buildRing(ob) {
     metalness: 0.6,
     flatShading: true,
   });
-  const ring = new THREE.Mesh(geo, mat);
+
+  const modeloAro = glbCacheado(RING_GLB);
+  let ring;
+  if (modeloAro) {
+    /*
+     * ── El modelo de Meshy, escalado para que su AGUJERO coincida ──
+     *
+     * ── Por qué importa tanto ──
+     * La detección de aros atravesados usa el radio MATEMÁTICO del aro, no el
+     * modelo. Si el agujero visible no coincide con ese radio, el jugador ve que
+     * pasa por el hueco y el juego no se lo cuenta — o al revés.
+     *
+     * Por eso la escala se calcula POR INSTANCIA: el agujero del modelo tiene que
+     * medir exactamente lo mismo que el agujero lógico del aro.
+     */
+    /*
+     * ── El agujero visible tiene que medir lo mismo que el LÓGICO ──
+     *
+     * La detección de aros atravesados usa `passZone.radius = innerRadius - 0.25`
+     * (ver obstacles.js). Al principio acá se usaba `innerRadius - tube`, que da un
+     * agujero ~0.45 m más chico: el jugador pasaba por el borde visible del aro y el
+     * juego no se lo contaba.
+     *
+     * Ahora el hueco dibujado mide exactamente lo que la lógica considera "por
+     * dentro". Lo que se ve es lo que cuenta.
+     */
+    const radioAgujero = Math.max(0.5, innerRadius - 0.25);
+    const escala = radioAgujero / RING_MODEL_HOLE;
+    ring = new THREE.Mesh(modeloAro.geometria, mat);
+    ring.scale.setScalar(escala);
+    /*
+     * Orientación: el modelo es plano con el eje del agujero en Y. Girando 90° en Z
+     * ese eje pasa a X, que es por donde entra el avión.
+     */
+    ring.rotation.set(0, rotationY, Math.PI / 2);
+  } else {
+    const geo = new THREE.TorusGeometry(innerRadius, tube, 8, 24);
+    ring = new THREE.Mesh(geo, mat);
+    // El aro mira a lo largo de +X para que el avión lo atraviese de frente.
+    ring.rotation.y = Math.PI / 2 + rotationY;
+  }
   ring.position.set(ob.x, centerY, ob.z);
-  // El aro mira a lo largo de +X para que el avión lo atraviese de frente.
-  ring.rotation.y = Math.PI / 2 + rotationY;
   ring.castShadow = true;
   pieces.push(ring);
 

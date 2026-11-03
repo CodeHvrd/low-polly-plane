@@ -181,10 +181,16 @@ export function glbCacheado(url) {
  * @param {string[]} urls
  */
 export function precargarGLB(urls) {
-  for (const url of urls) {
-    if (cache.has(url)) continue;
-    cargarGLB(url).catch(() => {});
-  }
+  /*
+   * Devuelve una promesa que resuelve cuando TERMINARON todas las descargas.
+   *
+   * Hace falta para poder reconstruir las mallas de obstáculos en cuanto los
+   * modelos están disponibles: si no, las que ya se construyeron siguen usando la
+   * geometría procedural hasta el próximo cambio de tramo.
+   */
+  return Promise.all(
+    urls.map((url) => (cache.has(url) ? null : cargarGLB(url).catch(() => null))),
+  );
 }
 
 /**
