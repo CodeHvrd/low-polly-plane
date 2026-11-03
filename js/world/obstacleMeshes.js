@@ -457,7 +457,7 @@ export function precalentarVendaval() {
     materialVendaval = new THREE.MeshBasicMaterial({
       color: 0x8ef2ff,
       transparent: true,
-      opacity: 0.16,
+      opacity: 0.34,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
@@ -553,7 +553,7 @@ export function buildObstacleMeshes(obstacles) {
     materialVendaval = new THREE.MeshBasicMaterial({
       color: 0x8ef2ff,
       transparent: true,
-      opacity: 0.16,
+      opacity: 0.34,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
