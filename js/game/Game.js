@@ -1483,6 +1483,8 @@ export class Game {
       'assets/models/plane_chrome.glb',
       'assets/models/rock_chrome.glb',
       'assets/models/ring_chrome.glb',
+      'assets/models/spire_chrome.glb',
+      'assets/models/mesa_chrome.glb',
     ]).then(() => {
       /*
        * Las mallas del corredor se armaron al arrancar, cuando los modelos todavía

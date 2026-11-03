@@ -15,6 +15,19 @@ import { glbCacheado } from './glbLoader.js';
 /** Ruta del modelo de roca. Se usa si ya está en caché. */
 const ROCK_GLB = 'assets/models/rock_chrome.glb';
 const RING_GLB = 'assets/models/ring_chrome.glb';
+const SPIRE_GLB = 'assets/models/spire_chrome.glb';
+const MESA_GLB = 'assets/models/mesa_chrome.glb';
+
+/*
+ * Medidas de los modelos de Meshy, en sus propias unidades.
+ *
+ * Meshy NORMALIZA todos los modelos a una caja de ~1.9, así que no sirven tal cual:
+ * hay que escalarlos a la medida que pide el juego para cada obstáculo.
+ *
+ * Se guardan acá para no repetir los números en cada función.
+ */
+const SPIRE_MODEL = { ancho: 0.42, alto: 1.90, largo: 0.41 };
+const MESA_MODEL = { ancho: 1.78, alto: 1.00, largo: 1.90 };
 
 /**
  * Radio del AGUJERO del modelo de aro, en sus propias unidades.
@@ -61,9 +74,37 @@ function applyVerticalGradient(geo, baseColor, height) {
 
 function buildSpire(ob, rng, materials) {
   const { height, sides, rotation } = ob.params;
+  const mat = materials[rng.int(0, materials.length - 1)];
+
+  const modelo = glbCacheado(SPIRE_GLB);
+  if (modelo) {
+    /*
+     * ── Escala NO uniforme ──
+     *
+     * El modelo mide 0.42 × 1.90 × 0.41 y el juego pide una aguja de `height` de
+     * alto con su propio ancho y fondo. Los tres ejes se escalan por separado para
+     * que la silueta coincida con la caja de colisión que ya existía: si sólo se
+     * escalara el alto, la aguja se vería más ancha o más angosta de lo que choca.
+     */
+    const mesh = new THREE.Mesh(modelo.geometria, mat);
+    mesh.scale.set(
+      (ob.params.halfX * 2) / SPIRE_MODEL.ancho,
+      height / SPIRE_MODEL.alto,
+      (ob.params.halfZ * 2) / SPIRE_MODEL.largo,
+    );
+    /*
+     * El modelo viene CENTRADO: el piso está en -alto/2. Para apoyarlo en el terreno
+     * hay que subir el centro a groundY + height/2.
+     */
+    mesh.position.set(ob.x, ob.groundY + height / 2, ob.z);
+    mesh.rotation.y = rotation;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
   const radius = Math.max(ob.params.halfX, ob.params.halfZ) * rng.range(0.85, 1.1);
   const geo = new THREE.CylinderGeometry(radius * rng.range(0.35, 0.6), radius, height, sides, 1);
-  const mat = materials[rng.int(0, materials.length - 1)];
   applyVerticalGradient(geo, mat.color.getHex(), height);
   const mesh = new THREE.Mesh(geo, mat);
   // El cilindro está centrado: se apoya sobre el suelo.
@@ -76,9 +117,26 @@ function buildSpire(ob, rng, materials) {
 
 function buildMesa(ob, rng, materials) {
   const { height, halfX, halfZ, sides, rotation } = ob.params;
+  const mat = materials[rng.int(0, materials.length - 1)];
+
+  const modelo = glbCacheado(MESA_GLB);
+  if (modelo) {
+    // Mismo criterio que la aguja: escala por eje para coincidir con la caja.
+    const mesh = new THREE.Mesh(modelo.geometria, mat);
+    mesh.scale.set(
+      (halfX * 2) / MESA_MODEL.ancho,
+      height / MESA_MODEL.alto,
+      (halfZ * 2) / MESA_MODEL.largo,
+    );
+    mesh.position.set(ob.x, ob.groundY + height / 2, ob.z);
+    mesh.rotation.y = rotation;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
   // Tronco de cono invertido: base ancha, cima más angosta = meseta.
   const geo = new THREE.CylinderGeometry(Math.min(halfX, halfZ) * 0.72, Math.max(halfX, halfZ), height, sides, 1);
-  const mat = materials[rng.int(0, materials.length - 1)];
   applyVerticalGradient(geo, mat.color.getHex(), height);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(ob.x, ob.groundY + height / 2, ob.z);
