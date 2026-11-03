@@ -10,6 +10,10 @@
  */
 import { scene } from '../core/engine.js';
 import { createRng } from '../core/math.js';
+import { glbCacheado } from './glbLoader.js';
+
+/** Ruta del modelo de roca. Se usa si ya está en caché. */
+const ROCK_GLB = 'assets/models/rock_chrome.glb';
 
 /** @type {Array<{geometry?:object, material?:object}>} */
 const disposables = [];
@@ -146,9 +150,31 @@ function buildTree(ob, rng, materials) {
  */
 function buildRock(ob, rng, materials) {
   const { radius, height, sides, rotation } = ob.params;
-  const geo = new THREE.DodecahedronGeometry(radius, 0);
-  // Aplastado y estirado: silueta de piedra, no de pelota.
-  geo.scale(1, height / (radius * 2), rng.range(0.8, 1.1));
+  /*
+   * ── Modelo de Meshy, si ya está descargado ──
+   *
+   * ── Por qué se consulta la caché y no se carga acá ──
+   * Esta función es SÍNCRONA y se llama cada vez que se mueve la ventana del
+   * corredor, en pleno vuelo. No se puede esperar una descarga acá dentro.
+   *
+   * La precarga de `Game` deja el modelo listo desde el arranque, así que en la
+   * práctica siempre está. Si por lo que sea no llegó, la roca cae en su geometría
+   * procedural sin que el jugador note nada.
+   */
+  const modelo = glbCacheado(ROCK_GLB);
+  let geo;
+  if (modelo) {
+    /*
+     * La geometría es COMPARTIDA entre todas las rocas: cientos de mallas con la
+     * misma, cada una con su transformación. Clonarla multiplicaría la memoria sin
+     * ninguna ventaja.
+     */
+    geo = modelo.geometria;
+  } else {
+    geo = new THREE.DodecahedronGeometry(radius, 0);
+    // Aplastado y estirado: silueta de piedra, no de pelota.
+    geo.scale(1, height / (radius * 2), rng.range(0.8, 1.1));
+  }
   const mat = materials[rng.int(0, materials.length - 1)];
   applyVerticalGradient(geo, mat.color.getHex(), height);
   const mesh = new THREE.Mesh(geo, mat);

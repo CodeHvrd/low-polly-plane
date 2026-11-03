@@ -1479,7 +1479,10 @@ export class Game {
      *
      * Si falla, no pasa nada: cada nave cae en su geometría procedural.
      */
-    precargarGLB(['assets/models/plane_chrome.glb']);
+    precargarGLB([
+      'assets/models/plane_chrome.glb',
+      'assets/models/rock_chrome.glb',
+    ]);
 
     /*
      * ══════════════════════════════════════════════════════════
