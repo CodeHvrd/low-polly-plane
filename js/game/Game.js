@@ -19,7 +19,7 @@ import { initEnvironment, setStagePalette, stageName } from '../world/environmen
 import { buildLaunchPad } from '../world/launchpad.js';
 import { buildLauncher } from '../aircraft/launcher.js';
 import { generateCourse, setCourseAltitudeProvider } from '../world/obstacles.js';
-import { buildObstacleMeshes, setObstacleMeshesVisible, disposeObstacleMeshes } from '../world/obstacleMeshes.js';
+import { buildObstacleMeshes, setObstacleMeshesVisible, disposeObstacleMeshes, precalentarVendaval } from '../world/obstacleMeshes.js';
 import { generatePickups, setAltitudeProvider } from '../world/collectibles.js';
 import { setTerrainAmplitudeProvider, terrainHeightAt } from '../world/terrainField.js';
 import { updateTerrainWindow } from '../world/terrainMesh.js';

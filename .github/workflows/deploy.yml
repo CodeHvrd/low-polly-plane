@@ -46,7 +46,9 @@ jobs:
         run: |
           mkdir -p _sitio
           # Sólo lo que el juego necesita para correr.
-          cp -r index.html style.css manifest.webmanifest sw.js icons js fonts _sitio/
+          # `assets` son los modelos 3D (.glb). Si falta aca, el juego los pide y
+          # recibe 404 en produccion aunque esten commiteados en el repo.
+          cp -r index.html style.css manifest.webmanifest sw.js icons js fonts assets _sitio/
           # Sin Jekyll: sirve los archivos tal cual.
           touch _sitio/.nojekyll
 
