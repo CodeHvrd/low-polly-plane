@@ -36,6 +36,7 @@ import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, 
 import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted } from '../core/audio.js';
 import { music, pistaParaTramo } from '../core/music.js';
+import { precargarGLB } from '../world/glbLoader.js';
 import { setPointerFollow, setPointerPosition, pointerFollowInfo } from '../core/input.js';
 import { BUILD } from '../core/version.js';
 
@@ -1469,6 +1470,16 @@ export class Game {
         }
       }, 250);
     });
+
+    /*
+     * ── Precarga de modelos 3D ──
+     *
+     * Se bajan al arrancar, no al equipar la nave. Así el modelo ya está en caché
+     * cuando el jugador lo elige y NO aparece primero el procedural.
+     *
+     * Si falla, no pasa nada: cada nave cae en su geometría procedural.
+     */
+    precargarGLB(['assets/models/plane_chrome.glb']);
 
     /*
      * ══════════════════════════════════════════════════════════

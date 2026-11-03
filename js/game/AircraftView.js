@@ -13,7 +13,7 @@ import { scene } from '../core/engine.js';
 import { buildAircraftModel, disposeAircraftModel } from '../aircraft/index.js';
 import { damp, clamp } from '../core/math.js';
 import { CAMERA } from '../config.js';
-import { cargarGLB } from '../world/glbLoader.js';
+import { cargarGLB, glbCacheado } from '../world/glbLoader.js';
 
 export class AircraftView {
   constructor() {
@@ -76,32 +76,67 @@ export class AircraftView {
     if (!rutaModelo) return;
 
     const tipoPedido = type;
-    cargarGLB(rutaModelo).then((resultado) => {
+
+    /**
+     * Aplica el modelo ya descargado.
+     *
+     * @param {{geometria: THREE.BufferGeometry}} resultado
+     */
+    const aplicar = (resultado) => {
       // Si mientras tanto se cambió de nave, este resultado ya no sirve.
-      if (!resultado || tipoPedido !== this.tipoActual) return;
-      const { geometria } = resultado;
+      if (tipoPedido !== this.tipoActual) return;
       /*
        * Sin `flatShading`: MeshLambertMaterial no lo soporta y tira un aviso por
-       * consola en cada carga. El modelo ya viene facetado de origen, así que las
-       * normales duras se ven igual.
+       * consola en cada carga. El modelo ya viene facetado de origen.
        */
       const material = new THREE.MeshLambertMaterial({ color: 0x2b3340 });
-      const malla = new THREE.Mesh(geometria, material);
+      const malla = new THREE.Mesh(resultado.geometria, material);
       /*
        * ── Escala del modelo de Meshy ──
        *
        * El .glb mide 1.9 m de envergadura y los aviones procedurales del juego son
        * MUCHO más grandes: comparando en pantalla, el modelo entraba 3.6 veces más
-       * chico. De ahí 5.5 en vez de 1.55.
+       * chico. De ahí 5.5.
        *
-       * Es un valor medido a ojo contra la nave procedural, no una medida real: si el
-       * avión se ve chico o gigante, se ajusta este número.
+       * Es un valor medido a ojo contra la nave procedural. Si el avión se ve chico
+       * o gigante, se ajusta este número.
        */
       malla.scale.setScalar(5.5);
       malla.name = 'aircraft-glb';
       model.visible = false;
       this.root.add(malla);
+    };
 
+    /*
+     * ── Se aplica SÍNCRONO si ya está en caché ──
+     *
+     * ── El problema que esto arregla ──
+     * Al equipar la nave se veía PRIMERO el modelo procedural y recién después el de
+     * Meshy, porque el .glb se descargaba en ese momento. Con la precarga y esta
+     * rama sincrónica, el modelo correcto aparece en el mismo frame: no hay cambiazo
+     * ni un solo cuadro con la nave vieja.
+     */
+    const yaEsta = glbCacheado(rutaModelo);
+    if (yaEsta) {
+      aplicar(yaEsta);
+      return;
+    }
+
+    /*
+     * Si todavía no está, se oculta el procedural YA.
+     *
+     * Se prefiere un instante sin nave a un instante con la nave equivocada: la
+     * primera se lee como carga, la segunda como error. Si la descarga falla, el
+     * procedural vuelve.
+     */
+    model.visible = false;
+    cargarGLB(rutaModelo).then((resultado) => {
+      if (!resultado) {
+        // Falló: se devuelve la geometría procedural.
+        if (tipoPedido === this.tipoActual) model.visible = true;
+        return;
+      }
+      aplicar(resultado);
     });
   }
 

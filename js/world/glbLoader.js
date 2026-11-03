@@ -146,6 +146,48 @@ export function parseGLB(buffer) {
 }
 
 /**
+ * Geometrías ya cargadas, por ruta.
+ *
+ * ── Por qué hace falta ──
+ * Sin caché, cada vez que se equipa una nave se vuelve a descargar y parsear el
+ * archivo. Mientras eso pasa se ve el modelo PROCESAL anterior, y el jugador nota
+ * el cambiazo.
+ *
+ * Con la caché, la segunda vez es instantánea; y con `precargarGLB` la primera
+ * también, porque el archivo se baja antes de que el jugador llegue a elegir la nave.
+ *
+ * @type {Map<string, {geometria: THREE.BufferGeometry, cantidadTriangulos: number}>}
+ */
+const cache = new Map();
+
+/**
+ * Geometría ya cacheada, o null.
+ *
+ * Sirve para armar el modelo de forma SÍNCRONA cuando ya se descargó: así no hay
+ * ni un frame con el modelo viejo.
+ *
+ * @param {string} url
+ */
+export function glbCacheado(url) {
+  return cache.get(url) ?? null;
+}
+
+/**
+ * Baja modelos de antemano, sin bloquear.
+ *
+ * Se llama al arrancar el juego. Los errores se ignoran: si un modelo no está, la
+ * nave usa su geometría procedural.
+ *
+ * @param {string[]} urls
+ */
+export function precargarGLB(urls) {
+  for (const url of urls) {
+    if (cache.has(url)) continue;
+    cargarGLB(url).catch(() => {});
+  }
+}
+
+/**
  * Descarga y parsea un GLB.
  *
  * Devuelve `null` en vez de tirar si algo falla: quien llama decide el respaldo.
@@ -154,10 +196,16 @@ export function parseGLB(buffer) {
  * @returns {Promise<{geometria: THREE.BufferGeometry, cantidadTriangulos: number}|null>}
  */
 export async function cargarGLB(url) {
+  // Si ya se bajó, se devuelve al instante.
+  const guardado = cache.get(url);
+  if (guardado) return guardado;
+
   try {
     const respuesta = await fetch(url);
     if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
-    return parseGLB(await respuesta.arrayBuffer());
+    const resultado = parseGLB(await respuesta.arrayBuffer());
+    cache.set(url, resultado);
+    return resultado;
   } catch (err) {
     console.warn('[papercrash] no se pudo cargar el modelo ' + url + ':', err.message);
     return null;
