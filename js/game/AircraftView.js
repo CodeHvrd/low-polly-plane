@@ -57,19 +57,19 @@ export class AircraftView {
     const MODELOS = {
       paper: {
         ruta: 'assets/models/paper_chrome.glb',
-        escala: 2.6,
+        escala: 1.3,
         rotY: Math.PI / 2,
         color: 0xd0e8ff,
       },
       passenger: {
         ruta: 'assets/models/airliner_chrome.glb',
-        escala: 3.4,
+        escala: 13.6,
         rotY: Math.PI,
         color: 0xdce4ee,
       },
       jet: {
         ruta: 'assets/models/plane_chrome.glb',
-        escala: 5.5,
+        escala: 2.75,
         rotY: Math.PI,
         color: 0x2b3340,
       },

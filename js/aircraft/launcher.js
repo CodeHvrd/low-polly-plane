@@ -15,8 +15,8 @@ const LAUNCHER_GLB = 'assets/models/launcher_chrome.glb';
 
 /** Puntos de anclaje de la banda, en coordenadas de mundo. */
 export const PRONGS = {
-  left: new THREE.Vector3(0, 3.85, 1.3),
-  right: new THREE.Vector3(0, 3.85, -1.3),
+  left: new THREE.Vector3(0, 6.2, 4.8),
+  right: new THREE.Vector3(0, 6.2, -4.8),
 };
 
 let group = null;
@@ -34,28 +34,28 @@ export function buildLauncher() {
   procedural.name = 'launcher-procedural';
 
   // Poste principal
-  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 2.8, 6), wood);
-  post.position.set(0, 1.4, 0);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.45, 4.4, 6), wood);
+  post.position.set(0, 2.2, 0);
   post.castShadow = true;
   procedural.add(post);
 
   // Horquillas (a lo largo de Z, para que el avión salga hacia +X)
-  const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 1.6, 6), wood);
-  leftArm.position.set(0, 3.2, 0.9);
-  leftArm.rotation.x = Math.PI / 6;
+  const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 3.8, 6), wood);
+  leftArm.position.set(0, 5.0, 2.8);
+  leftArm.rotation.x = Math.PI / 4;
   leftArm.castShadow = true;
   procedural.add(leftArm);
 
-  const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 1.6, 6), wood);
-  rightArm.position.set(0, 3.2, -0.9);
-  rightArm.rotation.x = -Math.PI / 6;
+  const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 3.8, 6), wood);
+  rightArm.position.set(0, 5.0, -2.8);
+  rightArm.rotation.x = -Math.PI / 4;
   rightArm.castShadow = true;
   procedural.add(rightArm);
 
   group.add(procedural);
 
   // Pernos metálicos en las puntas (siempre visibles donde se ata la banda)
-  const pinGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.3, 6);
+  const pinGeo = new THREE.CylinderGeometry(0.10, 0.10, 0.5, 6);
   const leftPin = new THREE.Mesh(pinGeo, metal);
   leftPin.position.copy(PRONGS.left);
   leftPin.rotation.z = Math.PI / 2;
@@ -72,13 +72,13 @@ export function buildLauncher() {
     const mesh = new THREE.Mesh(res.geometria, matGLB);
     /*
      * El modelo mide 1.53 (X, horquilla) × 1.90 (Y, alto) × 0.81 (Z).
-     * Se rota 90° en Y para que la horquilla abra sobre Z (de -1.3 a +1.3) y el
+     * Se rota 90° en Y para que la horquilla abra sobre Z (de -4.8 a +4.8) y el
      * avión salga por el centro hacia +X, y se escala para que las puntas
-     * coincidan con PRONGS (y=3.85, z=±1.3).
+     * coincidan con PRONGS (y=6.2, z=±4.8).
      */
     mesh.rotation.y = Math.PI / 2;
-    mesh.scale.set(2.1, 4.05 / 1.9, (1.35 * 2) / 1.53);
-    mesh.position.set(0, 4.05 / 2, 0);
+    mesh.scale.set(4.2, 6.6 / 1.9, (4.9 * 2) / 1.53);
+    mesh.position.set(0, 6.6 / 2, 0);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.name = 'launcher-glb';

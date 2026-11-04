@@ -191,6 +191,7 @@ export function buildPickupMeshes(pickups) {
       if (geo.userData?.sharedGLB) {
         // El modelo de moneda mira hacia +Z: media vuelta de cuarto en Y lo enfrenta a +X.
         mesh.rotation.y = Math.PI / 2;
+        mesh.scale.setScalar(1.3);
       }
       mesh.position.set(p.x, p.y, p.z);
       mesh.name = `coin-${p.id}`;
@@ -213,30 +214,51 @@ export function buildPickupMeshes(pickups) {
 
     const kind = p.boosterKind ?? 'booster';
     const half = p.halfSpan ?? 0;
-    const beads = half > 0 ? Math.max(2, Math.round(p.halfSpan / 2.2)) : 1;
     const geoBooster = getBoosterGeometry();
-    // El modelo GLB mide ~1.90 de diámetro; se escala al mismo radio visual del octaedro.
-    const escalaBase = geoBooster.userData?.sharedGLB
-      ? (PICKUPS.BOOSTERS.VISUAL_RADIUS * 2) / 1.9
-      : 1;
-    for (let i = 0; i < beads; i++) {
-      const t = beads === 1 ? 0.5 : i / (beads - 1);
-      const bead = new THREE.Mesh(geoBooster, getBoosterMaterial(kind));
-      bead.position.y = -half + t * half * 2;
-      // Los extremos más chicos: la columna se lee como un pasillo, no como un muro.
-      const edge = (1 - Math.abs(t - 0.5) * 0.7) * escalaBase;
-      bead.scale.setScalar(edge);
-      stack.add(bead);
-    }
+    const usaGLBBooster = Boolean(geoBooster.userData?.sharedGLB);
 
-    /*
-     * La letra va en el CENTRO de la columna, no en cada esfera: repetida en
-     * todas se leería como ruido, y el jugador necesita saber qué tipo es, no
-     * cuántas esferas tiene.
-     */
-    const letter = makeLetterSprite(kind);
-    letter.position.y = 0;
-    stack.add(letter);
+    if (usaGLBBooster) {
+      /*
+       * Con el modelo 3D de Meshy (que ya trae forma de cristal y la "B" en relieve)
+       * se dibuja un cristal grande central orientado hacia el jugador (+X) y
+       * dos cristales satélite en los extremos de la columna. Sin el sprite 2D
+       * encima, que antes tapaba el modelo entero.
+       */
+      const principal = new THREE.Mesh(geoBooster, getBoosterMaterial(kind));
+      principal.rotation.y = Math.PI / 2;
+      principal.scale.setScalar(2.6);
+      stack.add(principal);
+
+      if (half > 0) {
+        for (const signo of [-1, 1]) {
+          const sat = new THREE.Mesh(geoBooster, getBoosterMaterial(kind));
+          sat.rotation.y = Math.PI / 2;
+          sat.position.y = signo * half * 0.78;
+          sat.scale.setScalar(1.25);
+          stack.add(sat);
+        }
+      }
+    } else {
+      const beads = half > 0 ? Math.max(2, Math.round(p.halfSpan / 2.2)) : 1;
+      for (let i = 0; i < beads; i++) {
+        const t = beads === 1 ? 0.5 : i / (beads - 1);
+        const bead = new THREE.Mesh(geoBooster, getBoosterMaterial(kind));
+        bead.position.y = -half + t * half * 2;
+        // Los extremos más chicos: la columna se lee como un pasillo, no como un muro.
+        const edge = 1 - Math.abs(t - 0.5) * 0.7;
+        bead.scale.setScalar(edge);
+        stack.add(bead);
+      }
+
+      /*
+       * La letra va en el CENTRO de la columna, no en cada esfera: repetida en
+       * todas se leería como ruido, y el jugador necesita saber qué tipo es, no
+       * cuántas esferas tiene.
+       */
+      const letter = makeLetterSprite(kind);
+      letter.position.y = 0;
+      stack.add(letter);
+    }
 
     group.add(stack);
     meshes.set(p.id, stack);
@@ -296,9 +318,13 @@ export function disposePickupMeshes() {
   meshes.clear();
   group = null;
 
-  coinGeometry?.dispose();
+  if (coinGeometry && !coinGeometry.userData?.sharedGLB) {
+    coinGeometry.dispose();
+  }
   coinGeometry = null;
-  boosterGeometry?.dispose();
+  if (boosterGeometry && !boosterGeometry.userData?.sharedGLB) {
+    boosterGeometry.dispose();
+  }
   boosterGeometry = null;
   for (const mat of coinMaterials.values()) mat.dispose();
   coinMaterials.clear();
