@@ -226,7 +226,7 @@ export function buildPickupMeshes(pickups) {
        */
       const principal = new THREE.Mesh(geoBooster, getBoosterMaterial(kind));
       principal.rotation.y = Math.PI / 2;
-      principal.scale.setScalar(2.6);
+      principal.scale.setScalar(1.2);
       stack.add(principal);
 
       if (half > 0) {
@@ -234,7 +234,7 @@ export function buildPickupMeshes(pickups) {
           const sat = new THREE.Mesh(geoBooster, getBoosterMaterial(kind));
           sat.rotation.y = Math.PI / 2;
           sat.position.y = signo * half * 0.78;
-          sat.scale.setScalar(1.25);
+          sat.scale.setScalar(0.65);
           stack.add(sat);
         }
       }

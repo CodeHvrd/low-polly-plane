@@ -13,10 +13,10 @@ import { cargarGLB, glbCacheado } from '../world/glbLoader.js';
 
 const LAUNCHER_GLB = 'assets/models/launcher_chrome.glb';
 
-/** Puntos de anclaje de la banda, en coordenadas de mundo. */
+/** Puntos de anclaje de la banda, en coordenadas de mundo (centro de los ganchos del GLB). */
 export const PRONGS = {
-  left: new THREE.Vector3(0, 4.9, 3.6),
-  right: new THREE.Vector3(0, 4.9, -3.6),
+  left: new THREE.Vector3(0, 4.82, 2.97),
+  right: new THREE.Vector3(0, 4.82, -2.97),
 };
 
 let group = null;
@@ -54,17 +54,17 @@ export function buildLauncher() {
 
   group.add(procedural);
 
-  // Pernos metálicos en las puntas (siempre visibles donde se ata la banda)
+  // Pernos metálicos en las puntas (solo para el modelo procedural; el GLB ya trae sus ganchos)
   const pinGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.4, 6);
   const leftPin = new THREE.Mesh(pinGeo, metal);
   leftPin.position.copy(PRONGS.left);
   leftPin.rotation.z = Math.PI / 2;
-  group.add(leftPin);
+  procedural.add(leftPin);
 
   const rightPin = new THREE.Mesh(pinGeo, metal);
   rightPin.position.copy(PRONGS.right);
   rightPin.rotation.z = Math.PI / 2;
-  group.add(rightPin);
+  procedural.add(rightPin);
 
   const aplicarGLB = (res) => {
     if (!res || !group) return;
