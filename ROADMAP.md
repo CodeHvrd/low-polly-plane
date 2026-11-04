@@ -26,11 +26,11 @@ Modelos GLB de Meshy con respaldo procedural (`assets/models/`).
 | Avión de papel (`paper_chrome.glb`) | [x] conectado |
 | Avión de pasajeros (`airliner_chrome.glb`) | [x] conectado |
 | Helicóptero (`heli_chrome.glb` + rotores) | [x] conectado |
-| Árboles | [ ] falta modelo |
-| Troncos caídos | [ ] falta modelo |
-| Boosters (violeta / azul / ámbar) | [ ] falta modelo |
-| Monedas (5 / 10 / 50) | [ ] falta modelo |
-| Lanzador / resortera / launchpad | [ ] revisar |
+| Árboles (`tree_chrome.glb`) | [x] conectado |
+| Troncos caídos (`log_chrome.glb`) | [x] conectado |
+| Boosters (`booster_chrome.glb`) | [x] conectado |
+| Monedas (`coin_chrome.glb`) | [x] conectado |
+| Lanzador / resortera (`launcher_chrome.glb`) | [x] conectado |
 | Terreno, cielo, paletas por tramo | [ ] pulido estético |
 
 Reglas: hitbox según silueta real, geometría compartida, precarga/caché, respaldo procedural si el GLB falla, peso razonable para móvil.

@@ -17,6 +17,10 @@
  */
 import { scene } from '../core/engine.js';
 import { PICKUPS } from '../config.js';
+import { glbCacheado } from './glbLoader.js';
+
+const COIN_GLB = 'assets/models/coin_chrome.glb';
+const BOOSTER_GLB = 'assets/models/booster_chrome.glb';
 
 /** Color por valor de moneda. */
 const COIN_COLORS = {
@@ -44,6 +48,8 @@ const meshes = new Map();
  * no la forma, así que no hay razón para tener tres geometrías.
  */
 function getBoosterGeometry() {
+  const modelo = glbCacheado(BOOSTER_GLB);
+  if (modelo) return modelo.geometria;
   if (!boosterGeometry) {
     boosterGeometry = new THREE.OctahedronGeometry(PICKUPS.BOOSTERS.VISUAL_RADIUS, 0);
   }
@@ -51,6 +57,8 @@ function getBoosterGeometry() {
 }
 
 function getCoinGeometry() {
+  const modelo = glbCacheado(COIN_GLB);
+  if (modelo) return modelo.geometria;
   if (!coinGeometry) {
     // Cilindro achatado y facetado: lee como moneda y mantiene el look low poly.
     coinGeometry = new THREE.CylinderGeometry(0.9, 0.9, 0.18, 8);
@@ -178,7 +186,12 @@ export function buildPickupMeshes(pickups) {
 
   for (const p of pickups) {
     if (p.kind === 'coin') {
-      const mesh = new THREE.Mesh(getCoinGeometry(), getCoinMaterial(p.value));
+      const geo = getCoinGeometry();
+      const mesh = new THREE.Mesh(geo, getCoinMaterial(p.value));
+      if (geo.userData?.sharedGLB) {
+        // El modelo de moneda mira hacia +Z: media vuelta de cuarto en Y lo enfrenta a +X.
+        mesh.rotation.y = Math.PI / 2;
+      }
       mesh.position.set(p.x, p.y, p.z);
       mesh.name = `coin-${p.id}`;
       group.add(mesh);
@@ -201,12 +214,17 @@ export function buildPickupMeshes(pickups) {
     const kind = p.boosterKind ?? 'booster';
     const half = p.halfSpan ?? 0;
     const beads = half > 0 ? Math.max(2, Math.round(p.halfSpan / 2.2)) : 1;
+    const geoBooster = getBoosterGeometry();
+    // El modelo GLB mide ~1.90 de diámetro; se escala al mismo radio visual del octaedro.
+    const escalaBase = geoBooster.userData?.sharedGLB
+      ? (PICKUPS.BOOSTERS.VISUAL_RADIUS * 2) / 1.9
+      : 1;
     for (let i = 0; i < beads; i++) {
       const t = beads === 1 ? 0.5 : i / (beads - 1);
-      const bead = new THREE.Mesh(getBoosterGeometry(), getBoosterMaterial(kind));
+      const bead = new THREE.Mesh(geoBooster, getBoosterMaterial(kind));
       bead.position.y = -half + t * half * 2;
       // Los extremos más chicos: la columna se lee como un pasillo, no como un muro.
-      const edge = 1 - Math.abs(t - 0.5) * 0.7;
+      const edge = (1 - Math.abs(t - 0.5) * 0.7) * escalaBase;
       bead.scale.setScalar(edge);
       stack.add(bead);
     }
@@ -258,8 +276,8 @@ export function updatePickupMeshes(pickups, dt, time = 0) {
     if (!shouldShow) continue;
 
     if (p.kind === 'coin') {
-      // Giro sobre su eje + un flotado suave, para que se lea como recogible.
-      mesh.rotation.z += dt * 2.6;
+      // Giro sobre su eje vertical + un flotado suave, para que se lea como recogible.
+      mesh.rotation.y += dt * 2.6;
       mesh.position.y = p.y + Math.sin(time * 2.2 + p.x * 0.35) * 0.22;
     } else {
       // La columna gira entera y late, para que se vea desde lejos.

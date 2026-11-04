@@ -1491,15 +1491,25 @@ export class Game {
       'assets/models/spire_chrome.glb',
       'assets/models/mesa_chrome.glb',
       'assets/models/updraft_chrome.glb',
+      'assets/models/tree_chrome.glb',
+      'assets/models/log_chrome.glb',
+      'assets/models/booster_chrome.glb',
+      'assets/models/coin_chrome.glb',
+      'assets/models/launcher_chrome.glb',
     ]).then(() => {
       /*
        * Las mallas del corredor se armaron al arrancar, cuando los modelos todavía
-       * no estaban. Se reconstruyen una vez para que rocas y aros usen ya su
-       * geometría real.
+       * no estaban. Se reconstruyen una vez para que obstáculos y recolectables
+       * usen ya su geometría real.
        */
-      if (!this.obstacles?.length) return;
-      disposeObstacleMeshes();
-      buildObstacleMeshes(this.obstacles);
+      if (this.obstacles?.length) {
+        disposeObstacleMeshes();
+        buildObstacleMeshes(this.obstacles);
+      }
+      if (this.pickups?.length) {
+        disposePickupMeshes();
+        buildPickupMeshes(this.pickups);
+      }
     });
 
     /*

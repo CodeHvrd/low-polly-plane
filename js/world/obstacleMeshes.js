@@ -18,9 +18,13 @@ const RING_GLB = 'assets/models/ring_chrome.glb';
 const SPIRE_GLB = 'assets/models/spire_chrome.glb';
 const MESA_GLB = 'assets/models/mesa_chrome.glb';
 const UPDRAFT_GLB = 'assets/models/updraft_chrome.glb';
+const TREE_GLB = 'assets/models/tree_chrome.glb';
+const LOG_GLB = 'assets/models/log_chrome.glb';
 
 /** Medidas del modelo de vendaval, en sus unidades. */
 const UPDRAFT_MODEL = { ancho: 1.35, alto: 1.90, largo: 1.09 };
+const TREE_MODEL = { ancho: 0.59, alto: 1.90, largo: 0.58 };
+const LOG_MODEL = { ancho: 0.60, alto: 0.77, largo: 1.90 };
 
 /*
  * Medidas de los modelos de Meshy, en sus propias unidades.
@@ -52,6 +56,23 @@ function rockMaterials() {
     new THREE.MeshLambertMaterial({ color: 0x554c40, flatShading: true }),
     new THREE.MeshLambertMaterial({ color: 0x33383c, flatShading: true }),
   ];
+}
+
+let treeMatGLB = null;
+let logMatGLB = null;
+
+function getTreeMatGLB() {
+  if (!treeMatGLB) {
+    treeMatGLB = new THREE.MeshLambertMaterial({ color: 0x2f5a2a });
+  }
+  return treeMatGLB;
+}
+
+function getLogMatGLB() {
+  if (!logMatGLB) {
+    logMatGLB = new THREE.MeshLambertMaterial({ color: 0x4a3524 });
+  }
+  return logMatGLB;
 }
 
 function track(obj) {
@@ -163,7 +184,23 @@ function buildMesa(ob, rng, materials) {
  * pasa raspando.
  */
 function buildTree(ob, rng, materials) {
-  const { height, halfX, halfZ, sides } = ob.params;
+  const { height, halfX, halfZ, sides, rotation } = ob.params;
+
+  const modelo = glbCacheado(TREE_GLB);
+  if (modelo) {
+    const mesh = new THREE.Mesh(modelo.geometria, getTreeMatGLB());
+    mesh.scale.set(
+      (halfX * 2) / TREE_MODEL.ancho,
+      height / TREE_MODEL.alto,
+      (halfZ * 2) / TREE_MODEL.largo,
+    );
+    mesh.position.set(ob.x, ob.groundY + height / 2, ob.z);
+    mesh.rotation.y = rotation ?? rng.range(0, Math.PI * 2);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
   const pieces = [];
 
   // Tronco: del suelo a un tercio de la altura.
@@ -233,6 +270,7 @@ function buildRock(ob, rng, materials) {
    * procedural sin que el jugador note nada.
    */
   const modelo = glbCacheado(ROCK_GLB);
+  const mat = materials[rng.int(0, materials.length - 1)];
   let geo;
   if (modelo) {
     /*
@@ -245,10 +283,12 @@ function buildRock(ob, rng, materials) {
     geo = new THREE.DodecahedronGeometry(radius, 0);
     // Aplastado y estirado: silueta de piedra, no de pelota.
     geo.scale(1, height / (radius * 2), rng.range(0.8, 1.1));
+    applyVerticalGradient(geo, mat.color.getHex(), height);
   }
-  const mat = materials[rng.int(0, materials.length - 1)];
-  applyVerticalGradient(geo, mat.color.getHex(), height);
   const mesh = new THREE.Mesh(geo, mat);
+  if (modelo) {
+    mesh.scale.set(radius, height / 1.9, radius * rng.range(0.85, 1.1));
+  }
   // Las rocas se hunden un poco: apoyadas de plano se verían flotando.
   mesh.position.set(ob.x, ob.groundY + height * 0.35, ob.z);
   mesh.rotation.set(rng.range(-0.2, 0.2), rotation, rng.range(-0.2, 0.2));
@@ -267,6 +307,27 @@ function buildRock(ob, rng, materials) {
  */
 function buildLog(ob, rng, materials) {
   const { radio, largo, inclinacion } = ob.params;
+
+  const modelo = glbCacheado(LOG_GLB);
+  if (modelo) {
+    /*
+     * El modelo de Meshy ya viene acostado sobre Z y con un extremo levantado
+     * (alto 0.77, largo 1.90). Se escala por eje para cubrir la caja de colisión
+     * del tronco caído (2*radio en X, alto inclinado en Y, largo en Z).
+     */
+    const alto = Math.max(radio * 2, Math.sin(inclinacion) * largo + radio);
+    const mesh = new THREE.Mesh(modelo.geometria, getLogMatGLB());
+    mesh.scale.set(
+      (radio * 2) / LOG_MODEL.ancho,
+      alto / LOG_MODEL.alto,
+      largo / LOG_MODEL.largo,
+    );
+    mesh.position.set(ob.x, ob.groundY + alto * 0.42, ob.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
   const piezas = [];
 
   const geo = new THREE.CylinderGeometry(radio, radio * 1.15, largo, 7, 1);
@@ -639,12 +700,20 @@ export function disposeObstacleMeshes() {
     if (seen.has(item)) continue;
     seen.add(item);
     item.traverse?.((child) => {
-      child.geometry?.dispose?.();
+      if (!child.geometry?.userData?.sharedGLB) {
+        child.geometry?.dispose?.();
+      }
     });
-    item.geometry?.dispose?.();
-    if (item.isMaterial) item.dispose();
-    else if (Array.isArray(item.material)) item.material.forEach((m) => m.dispose?.());
-    else item.material?.dispose?.();
+    if (!item.geometry?.userData?.sharedGLB) {
+      item.geometry?.dispose?.();
+    }
+    if (item.isMaterial && item !== treeMatGLB && item !== logMatGLB && item !== materialVendaval) {
+      item.dispose();
+    } else if (Array.isArray(item.material)) {
+      item.material.forEach((m) => m.dispose?.());
+    } else if (item.material && item.material !== treeMatGLB && item.material !== logMatGLB && item.material !== materialVendaval) {
+      item.material?.dispose?.();
+    }
     if (item.parent) item.parent.remove(item);
   }
   disposables.length = 0;
