@@ -63,7 +63,7 @@ export class AircraftView {
       },
       passenger: {
         ruta: 'assets/models/airliner_chrome.glb',
-        escala: 13.6,
+        escala: 7.0,
         rotY: Math.PI,
         color: 0xdce4ee,
       },

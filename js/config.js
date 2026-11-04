@@ -406,7 +406,7 @@ export const FLIGHT_CONTROLS = {
 };
 
 /** Posición del avión sobre la resortera (también es el origen de la física). */
-export const LAUNCH_POS = { x: 0, y: 3.0, z: 0 };
+export const LAUNCH_POS = { x: 0, y: 4.5, z: 0 };
 
 /**
  * Origen del sistema de coordenadas de la FÍSICA.
@@ -631,8 +631,8 @@ export const CAMERA = {
    * Vista STANDBY: tres cuartos sobre la resortera, mirando en diagonal.
    * Es la que se ve al llegar, con el título, la tienda y las instrucciones.
    */
-  STANDBY_POS: { x: -10.5, y: 5.0, z: 7.0 },
-  STANDBY_TARGET: { x: 1.0, y: 3.2, z: 0 },
+  STANDBY_POS: { x: -11.5, y: 6.2, z: 7.5 },
+  STANDBY_TARGET: { x: 1.0, y: 4.4, z: 0 },
 
   /**
    * Vista LAUNCH: detrás del lanzador, mirando recto hacia el corredor.
