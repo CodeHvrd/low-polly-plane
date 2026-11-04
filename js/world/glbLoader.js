@@ -140,6 +140,7 @@ export function parseGLB(buffer) {
 
   geometria.computeBoundingBox();
   geometria.computeBoundingSphere();
+  geometria.userData.sharedGLB = true;
 
   const cantidadTriangulos = (indices ? indices.length : posiciones.length / 3) / 3;
   return { geometria, cantidadTriangulos };

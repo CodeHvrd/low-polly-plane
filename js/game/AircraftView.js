@@ -51,29 +51,54 @@ export class AircraftView {
     /*
      * ── Modelos de Meshy, por tipo de nave ──
      *
-     * ── El error que esto arregla ──
-     * Al principio se cargaba SIEMPRE el mismo .glb, sin mirar el tipo. Resultado:
-     * las cuatro naves se veían iguales en el lanzador.
-     *
-     * Ahora cada tipo declara su modelo. El que no tiene uno usa la geometría
-     * procedural de siempre, que sigue siendo el respaldo si el archivo no carga.
-     */
-    /*
-     * ── VACÍO A PROPÓSITO: la integración está revertida ──
-     *
-     * Al cargar el .glb del jet, el avión DEJÓ DE VERSE en el lanzador — ni el modelo
-     * nuevo ni el procedural. Todavía no encontré la causa y una nave invisible hace
-     * el juego injugable, así que primero se restaura el estado que funcionaba.
-     *
-     * El cargador (`js/world/glbLoader.js`) y la tubería de carga quedan listos: para
-     * reactivar un modelo alcanza con agregar su ruta acá, una vez resuelto el
-     * problema de visibilidad.
+     * Cada tipo declara su modelo, escala, orientación hacia el frente (+X) y color.
+     * El que no tiene uno o falla la carga usa la geometría procedural de respaldo.
      */
     const MODELOS = {
-      jet: 'assets/models/plane_chrome.glb',
+      paper: {
+        ruta: 'assets/models/paper_chrome.glb',
+        escala: 2.6,
+        rotY: Math.PI / 2,
+        color: 0xd0e8ff,
+      },
+      passenger: {
+        ruta: 'assets/models/airliner_chrome.glb',
+        escala: 3.4,
+        rotY: Math.PI,
+        color: 0xdce4ee,
+      },
+      jet: {
+        ruta: 'assets/models/plane_chrome.glb',
+        escala: 5.5,
+        rotY: Math.PI,
+        color: 0x2b3340,
+      },
+      heli: {
+        ruta: 'assets/models/heli_chrome.glb',
+        escala: 3.6,
+        rotY: Math.PI,
+        color: 0x3d4f3b,
+        rotores: [
+          {
+            ruta: 'assets/models/heli_main_rotor_chrome.glb',
+            pos: [-0.36, 0.42, 0],
+            escala: 1.5,
+            axis: 'y',
+            speed: 32,
+          },
+          {
+            ruta: 'assets/models/heli_tail_rotor_chrome.glb',
+            pos: [0.92, 0.05, 0.08],
+            escala: 0.45,
+            axis: 'z',
+            speed: 36,
+          },
+        ],
+      },
     };
-    const rutaModelo = MODELOS[type];
-    if (!rutaModelo) return;
+    const cfgModelo = MODELOS[type];
+    if (!cfgModelo) return;
+    const rutaModelo = cfgModelo.ruta;
 
     const tipoPedido = type;
 
@@ -89,30 +114,40 @@ export class AircraftView {
        * Sin `flatShading`: MeshLambertMaterial no lo soporta y tira un aviso por
        * consola en cada carga. El modelo ya viene facetado de origen.
        */
-      const material = new THREE.MeshLambertMaterial({ color: 0x2b3340 });
+      const material = new THREE.MeshLambertMaterial({ color: cfgModelo.color });
+      const contenedor = new THREE.Group();
+      contenedor.name = 'aircraft-glb';
+      contenedor.scale.setScalar(cfgModelo.escala);
+      contenedor.rotation.y = cfgModelo.rotY;
+
       const malla = new THREE.Mesh(resultado.geometria, material);
-      /*
-       * ── Escala del modelo de Meshy ──
-       *
-       * El .glb mide 1.9 m de envergadura y los aviones procedurales del juego son
-       * MUCHO más grandes: comparando en pantalla, el modelo entraba 3.6 veces más
-       * chico. De ahí 5.5.
-       *
-       * Es un valor medido a ojo contra la nave procedural. Si el avión se ve chico
-       * o gigante, se ajusta este número.
-       */
-      malla.scale.setScalar(5.5);
-      /*
-       * ── Orientación ──
-       *
-       * El modelo de Meshy viene con el morro hacia -Z, y la cámara del juego mira
-       * desde atrás: el avión aparecía de frente. Media vuelta en Y lo deja mirando
-       * hacia donde vuela.
-       */
-      malla.rotation.y = Math.PI;
-      malla.name = 'aircraft-glb';
+      contenedor.add(malla);
+
+      // Rotores separados (helicóptero): se montan sobre el contenedor y reemplazan los procedurales.
+      if (cfgModelo.rotores) {
+        const matRotor = new THREE.MeshLambertMaterial({ color: 0x1a1e1a });
+        const nuevosRotores = [];
+        for (const rCfg of cfgModelo.rotores) {
+          const pivote = new THREE.Group();
+          pivote.position.set(rCfg.pos[0], rCfg.pos[1], rCfg.pos[2]);
+          contenedor.add(pivote);
+          nuevosRotores.push({ object: pivote, axis: rCfg.axis, speed: rCfg.speed });
+
+          const poblarRotor = (resRotor) => {
+            if (!resRotor || tipoPedido !== this.tipoActual) return;
+            const mRotor = new THREE.Mesh(resRotor.geometria, matRotor);
+            mRotor.scale.setScalar(rCfg.escala);
+            pivote.add(mRotor);
+          };
+          const cacheRotor = glbCacheado(rCfg.ruta);
+          if (cacheRotor) poblarRotor(cacheRotor);
+          else cargarGLB(rCfg.ruta).then(poblarRotor);
+        }
+        this.rotors = nuevosRotores;
+      }
+
       model.visible = false;
-      this.root.add(malla);
+      this.root.add(contenedor);
     };
 
     /*

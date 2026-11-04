@@ -40,7 +40,9 @@ export function buildAircraftModel(type) {
  */
 export function disposeAircraftModel(root) {
   root.traverse((child) => {
-    child.geometry?.dispose?.();
+    if (!child.geometry?.userData?.sharedGLB) {
+      child.geometry?.dispose?.();
+    }
     const m = child.material;
     if (Array.isArray(m)) m.forEach((mm) => mm.dispose?.());
     else m?.dispose?.();

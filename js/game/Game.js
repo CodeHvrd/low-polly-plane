@@ -1480,7 +1480,12 @@ export class Game {
      * Si falla, no pasa nada: cada nave cae en su geometría procedural.
      */
     precargarGLB([
+      'assets/models/paper_chrome.glb',
+      'assets/models/airliner_chrome.glb',
       'assets/models/plane_chrome.glb',
+      'assets/models/heli_chrome.glb',
+      'assets/models/heli_main_rotor_chrome.glb',
+      'assets/models/heli_tail_rotor_chrome.glb',
       'assets/models/rock_chrome.glb',
       'assets/models/ring_chrome.glb',
       'assets/models/spire_chrome.glb',
