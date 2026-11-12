@@ -80,6 +80,7 @@ export const DEFAULT_SAVE = {
   runs: 0,
   aircraft: 'paper',
   muted: false,
+  orientation: 'auto',
 };
 
 /**
@@ -100,6 +101,9 @@ export function sanitizeSave(raw, upgradeIds, aircraftIds) {
   out.bestDistance = num(raw.bestDistance, 0, 0);
   out.runs = Math.floor(num(raw.runs, 0, 0));
   out.muted = typeof raw.muted === 'boolean' ? raw.muted : false;
+  out.orientation = typeof raw.orientation === 'string' && ['auto', 'portrait', 'landscape'].includes(raw.orientation)
+    ? raw.orientation
+    : DEFAULT_SAVE.orientation;
   out.aircraft = typeof raw.aircraft === 'string' && aircraftIds.includes(raw.aircraft)
     ? raw.aircraft
     : DEFAULT_SAVE.aircraft;
@@ -133,6 +137,7 @@ export function persistSave(state) {
     runs: state.runs,
     aircraft: state.aircraft,
     muted: state.muted,
+    orientation: state.orientationPref ?? 'auto',
   });
 }
 

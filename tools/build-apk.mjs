@@ -32,6 +32,7 @@ const ENTRAR = [
   'icons',
   'js',      // incluye js/vendor/three.min.js
   'fonts',   // fuentes locales: sin ellas el APK queda sin tipografía
+  'assets',  // modelos 3D (assets/models/*.glb)
 ];
 
 /**

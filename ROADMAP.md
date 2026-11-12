@@ -60,13 +60,13 @@ Hoy: audio procedural WebAudio (`js/core/audio.js`), solo sube una capa.
 
 ## Fase 4 — Mobile: vertical y horizontal
 
-Hoy el juego es vertical-only (manifest en portrait).
+Soporte completo y fluido en ambas orientaciones con selector de preferencia en Opciones.
 
-- [ ] Habilitar rotación de pantalla (manifest `orientation: any`, APK en `native/AndroidManifest.xml`).
-- [ ] Layout horizontal: HUD, rueda táctica, botón de boost, tienda, resultado.
-- [ ] Cámara/FOV según aspecto (hoy 82° y x1.35 en vertical; definir el horizontal).
-- [ ] Opción en Opciones: Auto / Vertical / Horizontal. Persistida.
-- [ ] Verificar con `node tools/check-mobile.mjs` y `node tools/check-touch.mjs`.
+- [x] Habilitar rotación de pantalla (manifest `orientation: any`, APK en `native/AndroidManifest.xml`).
+- [x] Layout horizontal: HUD, controles D-pad, botón de boost, tienda, resultado y menús adaptados sin solapamientos.
+- [x] Cámara/FOV según aspecto dinámico (factor de escala automático en vertical/horizontal para ver el corredor completo).
+- [x] Opción en Opciones: Auto / Vertical / Horizontal. Persistida en almacenamiento local.
+- [x] Verificado con `node tools/check-mobile.mjs` y `node tools/check-touch.mjs`.
 
 ## Fase 5 — Modo Historia
 

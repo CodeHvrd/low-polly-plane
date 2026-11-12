@@ -172,6 +172,7 @@ export class Game {
     initUpgradeLevels();
     setMuted(STATE.muted ?? false);
     this.syncMuteButton();
+    this.applyOrientation(STATE.orientationPref ?? 'auto', false);
 
     this.selector.build();
     this.selector.sync();
@@ -998,6 +999,53 @@ export class Game {
     btn.setAttribute('aria-label', muted ? 'Activar sonido' : 'Silenciar');
   }
 
+  syncOptionsPanel() {
+    const btnMute = document.getElementById('btn-options-mute');
+    if (btnMute) btnMute.textContent = isMuted() ? 'OFF' : 'ON';
+
+    const btnMusic = document.getElementById('btn-options-music');
+    if (btnMusic) btnMusic.textContent = STATE.musicOff ? 'OFF' : 'ON';
+
+    const btnCur = document.getElementById('btn-options-cursor');
+    if (btnCur) btnCur.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
+
+    const btnOri = document.getElementById('btn-options-orientation');
+    if (btnOri) {
+      const labels = { auto: 'AUTO', portrait: 'VERTICAL', landscape: 'HORIZONTAL' };
+      btnOri.textContent = labels[STATE.orientationPref] ?? 'AUTO';
+    }
+  }
+
+  applyOrientation(pref, shouldPersist = true) {
+    const valid = ['auto', 'portrait', 'landscape'].includes(pref) ? pref : 'auto';
+    STATE.orientationPref = valid;
+    this.syncOptionsPanel();
+
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.dataset.orientacion = valid;
+    }
+
+    try {
+      if (typeof screen !== 'undefined' && screen?.orientation) {
+        if (valid === 'portrait') {
+          screen.orientation.lock('portrait').catch(() => {});
+        } else if (valid === 'landscape') {
+          screen.orientation.lock('landscape').catch(() => {});
+        } else {
+          screen.orientation.unlock();
+        }
+      }
+    } catch (_) {
+      // Ignorar si el navegador no permite bloqueo fuera de fullscreen
+    }
+
+    this.cameraRig?.applyAspect();
+
+    if (shouldPersist) {
+      this.persist();
+    }
+  }
+
   wireUiButtons() {
     UI.btnAgain?.addEventListener('click', (e) => {
       // Evitar que el clic se propague al gestor de arrastre.
@@ -1273,8 +1321,7 @@ export class Game {
     document.getElementById('btn-options')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      const btn = document.getElementById('btn-options-mute');
-      if (btn) btn.textContent = isMuted() ? 'OFF' : 'ON';
+      this.syncOptionsPanel();
       mostrarPanel(optionsPanel);
     });
 
@@ -1388,10 +1435,7 @@ export class Game {
       this._opcionesDesdePausa = true;
       show(UI.idleOverlay);
       document.getElementById('pause-overlay')?.classList.add('hidden');
-      const btnMute = document.getElementById('btn-options-mute');
-      if (btnMute) btnMute.textContent = isMuted() ? 'OFF' : 'ON';
-      const btnCur = document.getElementById('btn-options-cursor');
-      if (btnCur) btnCur.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
+      this.syncOptionsPanel();
       mostrarPanel(optionsPanel);
     });
 
@@ -1420,6 +1464,17 @@ export class Game {
         btnCursor.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
         setPointerFollow(STATE.cursorFollow && this.controller.phase === PHASE.FLYING);
         this.persist();
+      });
+    }
+
+    const btnOrientation = document.getElementById('btn-options-orientation');
+    if (btnOrientation) {
+      const ciclo = { auto: 'portrait', portrait: 'landscape', landscape: 'auto' };
+      btnOrientation.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.click();
+        const prox = ciclo[STATE.orientationPref] || 'auto';
+        this.applyOrientation(prox, true);
       });
     }
 
@@ -1638,8 +1693,7 @@ export class Game {
       hide(UI.resultScreen);
       this.controller.forceIdle();
       this.overlays.set(Screen.STANDBY);
-      const btn = document.getElementById('btn-options-mute');
-      if (btn) btn.textContent = isMuted() ? 'OFF' : 'ON';
+      this.syncOptionsPanel();
       mostrarPanel(optionsPanel);
     });
 

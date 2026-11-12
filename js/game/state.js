@@ -172,6 +172,7 @@ export const STATE = {
   runs: 0,
   aircraft: DEFAULT_AIRCRAFT,
   muted: false,
+  orientationPref: 'auto',
 
   /**
    * Vuelo siguiendo el cursor del mouse (escritorio). APAGADO por defecto.
@@ -252,6 +253,7 @@ export function hydrate(save) {
   STATE.runs = save.runs;
   STATE.aircraft = save.aircraft;
   STATE.muted = save.muted;
+  STATE.orientationPref = save.orientation || 'auto';
   /*
    * Apagado por defecto.
    *
@@ -414,5 +416,6 @@ export function toSaveObject() {
     aircraft: STATE.aircraft,
     muted: STATE.muted,
     cursorFollow: STATE.cursorFollow,
+    orientationPref: STATE.orientationPref,
   };
 }

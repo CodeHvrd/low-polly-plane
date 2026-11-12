@@ -85,6 +85,24 @@ export class CameraRig {
   applyAspect() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    if (this.blend < 1 || this.mode === CameraMode.STANDBY || this.mode === CameraMode.LAUNCH) {
+      this._applyBlend();
+    }
+  }
+
+  /**
+   * Posición de lanzamiento adaptada al aspecto de pantalla.
+   * En pantallas verticales la cámara se aleja y sube para abarcar todo el corredor.
+   */
+  _getLaunchCamPos() {
+    const aspecto = camera.aspect || 1;
+    const vertical = aspecto < 1 ? Math.max(0.6, aspecto) : 1;
+    const factor = 1 + (1 - vertical) * 1.3;
+    return {
+      x: CAMERA.LAUNCH_POS.x * factor,
+      y: CAMERA.LAUNCH_POS.y * (1 + (factor - 1) * 0.35),
+      z: CAMERA.LAUNCH_POS.z,
+    };
   }
 
   // ── Transición entre vistas ───────────────────────────────
@@ -135,27 +153,8 @@ export class CameraRig {
     this.blend = 1;
     this.targetBlend = 1;
     this.onTransitionEnd = null;
-    /*
-     * ── En vertical la cámara de apuntado se aleja y sube ──
-     *
-     * ── Por qué ──
-     * El campo horizontal en un teléfono vertical es de ~44° con el FOV tope, o
-     * sea unos 40 m de ancho a 50 m de distancia. El corredor mide 140: desde la
-     * posición de lanzamiento se veía sólo la franja central y el resto de los
-     * obstáculos, monedas y boosters quedaba FUERA DE CUADRO.
-     *
-     * Eso se leía como "antes de lanzar no aparece nada". Aléjandose entra más
-     * corredor y la vista de apuntado muestra el recorrido.
-     */
-    const aspecto = camera.aspect || 1;
-    const vertical = aspecto < 1 ? Math.max(0.6, aspecto) : 1;
-    const factor = 1 + (1 - vertical) * 1.3;
-
-    this.position.set(
-      CAMERA.LAUNCH_POS.x * factor,
-      CAMERA.LAUNCH_POS.y * (1 + (factor - 1) * 0.35),
-      CAMERA.LAUNCH_POS.z,
-    );
+    const launchPos = this._getLaunchCamPos();
+    this.position.set(launchPos.x, launchPos.y, launchPos.z);
     this.target.set(CAMERA.LAUNCH_TARGET.x, CAMERA.LAUNCH_TARGET.y, CAMERA.LAUNCH_TARGET.z);
     camera.position.copy(this.position);
     camera.lookAt(this.target);
@@ -164,10 +163,11 @@ export class CameraRig {
   /** Aplica la interpolación de `blend` a posición y objetivo. */
   _applyBlend() {
     const e = smoothstep(this.blend);
+    const launchPos = this._getLaunchCamPos();
     this.position.set(
-      CAMERA.STANDBY_POS.x + (CAMERA.LAUNCH_POS.x - CAMERA.STANDBY_POS.x) * e,
-      CAMERA.STANDBY_POS.y + (CAMERA.LAUNCH_POS.y - CAMERA.STANDBY_POS.y) * e,
-      CAMERA.STANDBY_POS.z + (CAMERA.LAUNCH_POS.z - CAMERA.STANDBY_POS.z) * e,
+      CAMERA.STANDBY_POS.x + (launchPos.x - CAMERA.STANDBY_POS.x) * e,
+      CAMERA.STANDBY_POS.y + (launchPos.y - CAMERA.STANDBY_POS.y) * e,
+      CAMERA.STANDBY_POS.z + (launchPos.z - CAMERA.STANDBY_POS.z) * e,
     );
     this.target.set(
       CAMERA.STANDBY_TARGET.x + (CAMERA.LAUNCH_TARGET.x - CAMERA.STANDBY_TARGET.x) * e,
