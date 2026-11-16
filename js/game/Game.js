@@ -71,7 +71,7 @@ import { ResultScreen } from '../ui/resultScreen.js';
 import { Shop } from '../ui/shop.js';
 import { AircraftSelector } from '../ui/aircraftSelector.js';
 import { TouchControls } from '../ui/touchControls.js';
-import { evaluateMissions, advanceCompletedMission } from './missions.js';
+import { evaluateMissions, advanceCompletedMission, recordFlightProgress } from './missions.js';
 
 export class Game {
   constructor() {
@@ -354,8 +354,19 @@ export class Game {
     st.coinsCollected += result.coinsCollected ?? 0;
     st.nearMisses = (st.nearMisses ?? 0) + (result.nearMisses ?? 0);
     st.ringCombos = (st.ringCombos ?? 0) + (result.ringCombos ?? 0);
+    st.totalDistance = (st.totalDistance ?? 0) + (result.distance ?? 0);
+    st.thrustsUsed = (st.thrustsUsed ?? 0) + (result.thrustsUsed ?? 0);
     st.playMs += Math.round((result.time ?? 0) * 1000);
     if (result.distance > st.bestDistance) st.bestDistance = result.distance;
+
+    // Acumular progreso en misiones acumulativas
+    if (STATE.missions?.active) {
+      STATE.missions.progress = recordFlightProgress(
+        STATE.missions.active,
+        result,
+        STATE.missions.progress,
+      );
+    }
     /*
      * ── Ranking local ──
      *
@@ -639,10 +650,10 @@ export class Game {
 
   // ── Misiones y Notificaciones Flotantes ───────────────────
   /**
-   * Muestra un toast emergente flotante en pantalla (misión cumplida, near miss, etc.).
+   * Muestra un toast emergente flotante en pantalla (misión cumplida, info, etc.).
    * @param {string} title
    * @param {string} subtitle
-   * @param {'mission'|'near-miss'|'info'} [type='mission']
+   * @param {'mission'|'info'} [type='mission']
    */
   showToast(title, subtitle, type = 'mission') {
     const layer = UI.toastLayer || document.getElementById('toast-layer');
@@ -662,13 +673,45 @@ export class Game {
     toast.append(tTitle, tSub);
     layer.appendChild(toast);
 
-    const duration = type === 'near-miss' ? 1800 : 2800;
     setTimeout(() => {
       toast.classList.add('toast-leaving');
       setTimeout(() => {
         toast.remove();
       }, 350);
-    }, duration);
+    }, 2800);
+  }
+
+  /**
+   * Muestra un texto emergente directamente cerca del objeto rozado (Near Miss).
+   * @param {number} x
+   * @param {number} y
+   * @param {number} z
+   * @param {number} [bonusCoins=15]
+   */
+  showNearMissPop(x, y, z, bonusCoins = 15) {
+    const container = UI.worldPopups || document.getElementById('world-popups');
+    if (!container || typeof THREE === 'undefined' || !camera) return;
+
+    const v = new THREE.Vector3(x, y + 1.2, z);
+    v.project(camera);
+
+    // Si queda detrás del plano de la cámara, descartar
+    if (v.z > 1) return;
+
+    const sx = ((v.x + 1) * 0.5) * window.innerWidth;
+    const sy = ((-v.y + 1) * 0.5) * window.innerHeight;
+
+    const pop = document.createElement('div');
+    pop.className = 'near-miss-pop';
+    pop.innerHTML = `<span class="nm-tag">¡ROZADO!</span> <span class="nm-coins">+${bonusCoins} 🪙</span>`;
+    pop.style.left = `${Math.round(sx)}px`;
+    pop.style.top = `${Math.round(sy)}px`;
+
+    container.appendChild(pop);
+
+    setTimeout(() => {
+      pop.remove();
+    }, 1100);
   }
 
   /**
@@ -741,7 +784,7 @@ export class Game {
       time: runStats?.time ?? 0,
     };
 
-    const evalList = evaluateMissions(STATE.missions.active, flightStats, STATE.stats);
+    const evalList = evaluateMissions(STATE.missions.active, flightStats, STATE.missions.progress);
     let changed = false;
     for (const m of evalList) {
       if (m.isCompleted && !this._completedThisFlight.has(m.id)) {
@@ -751,13 +794,15 @@ export class Game {
         this.cameraRig?.triggerShake(0.35);
         this.showToast('🎯 ¡MISIÓN CUMPLIDA!', `${m.title} (+${m.reward} 🪙)`, 'mission');
 
-        const { nextActive, nextCompleted } = advanceCompletedMission(
+        const { nextActive, nextCompleted, nextProgress } = advanceCompletedMission(
           STATE.missions.active,
           STATE.missions.completed,
           m.id,
+          STATE.missions.progress,
         );
         STATE.missions.active = nextActive;
         STATE.missions.completed = nextCompleted;
+        STATE.missions.progress = nextProgress;
         changed = true;
       }
     }
@@ -770,18 +815,21 @@ export class Game {
   }
 
   /**
-   * Actualiza la visualización de las misiones en el lobby, panel de premios y pantalla de resultados.
+   * Actualiza la visualización de las misiones en el lobby, panel de premios, pausa y pantalla de resultados.
    * @param {object} [flightStats=null]
    */
   renderMisiones(flightStats = null) {
     if (!STATE.missions?.active) return;
-    const list = evaluateMissions(STATE.missions.active, flightStats, STATE.stats);
+    const list = evaluateMissions(STATE.missions.active, flightStats, STATE.missions.progress);
 
     if (UI.missionsWidgetList) {
       UI.missionsWidgetList.replaceChildren(...list.map((m) => this._createMissionCard(m)));
     }
     if (UI.missionsPanelList) {
       UI.missionsPanelList.replaceChildren(...list.map((m) => this._createMissionCard(m)));
+    }
+    if (UI.pauseMissionsList) {
+      UI.pauseMissionsList.replaceChildren(...list.map((m) => this._createMissionCard(m)));
     }
     if (UI.resultMissions) {
       const heading = document.createElement('div');
@@ -1123,6 +1171,7 @@ export class Game {
        * al reanudar no debe seguir aplicándose sola.
        */
       setPointerFollow(false);
+      this.renderMisiones();
     } else {
       /*
        * Se descarta el tiempo transcurrido en pausa.
@@ -1132,6 +1181,7 @@ export class Game {
        */
       this.lastTime = performance.now();
       setPointerFollow(STATE.cursorFollow);
+      document.getElementById('pause-missions-box')?.classList.add('hidden');
 
     /*
      * ── Música ──
@@ -1372,6 +1422,23 @@ export class Game {
       this.enterLaunchMode();
     });
 
+    document.getElementById('btn-lobby-missions')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      const widget = document.getElementById('missions-widget');
+      if (widget) {
+        const willShow = widget.classList.contains('hidden');
+        widget.classList.toggle('hidden', !willShow);
+        if (willShow) this.renderMisiones();
+      }
+    });
+
+    document.getElementById('btn-missions-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      document.getElementById('missions-widget')?.classList.add('hidden');
+    });
+
     /*
      * Se dibujan al abrir, no al construir: los totales cambian con cada vuelo y
      * regenerar la lista en cada apertura es más simple que mantenerla sincronizada.
@@ -1577,6 +1644,17 @@ export class Game {
       e.stopPropagation();
       sfx.click();
       this.setPaused(false);
+    });
+
+    document.getElementById('btn-pause-missions')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      const box = document.getElementById('pause-missions-box');
+      if (box) {
+        const willShow = box.classList.contains('hidden');
+        box.classList.toggle('hidden', !willShow);
+        if (willShow) this.renderMisiones();
+      }
     });
 
     document.getElementById('btn-pause-options')?.addEventListener('click', (e) => {
@@ -2333,7 +2411,7 @@ export class Game {
         this.cameraRig.triggerShake(0.25);
         this.effects.nearMiss(payload.x, payload.y, payload.z);
         HUD.updateCoins(STATE.coins + (this.controller.stats?.coins ?? 0));
-        this.showToast('¡ROZADO!', `+${payload.bonusCoins} 🪙 (Near Miss)`, 'near-miss');
+        this.showNearMissPop(payload.x, payload.y, payload.z, payload.bonusCoins);
         this.checkMissionsProgress();
         break;
 

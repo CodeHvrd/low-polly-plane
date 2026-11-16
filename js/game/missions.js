@@ -3,17 +3,16 @@
  * ============================================================
  * Sistema de Misiones Tripartitas (3 objetivos activos simultáneos).
  *
- * ── Inspiración y Filosofía de Diseño ──
- * Basado en las mejores prácticas de retención de Alto's Adventure y Jetpack
- * Joyride: el jugador siempre tiene 3 objetivos claros y alcanzables en pantalla
- * que evitan el "muro de desconexión" y otorgan inyecciones constantes de
- * monedas entre vuelos.
+ * ── Filosofía de Diseño y Calibración ──
+ * Basado en las mejores prácticas de retención (Alto's Adventure, Jetpack Joyride).
+ * Cada misión está calibrada para resolverse en el marco de 3 a 4 partidas:
+ *   - Objetivos acumulativos que progresan sostenidamente entre vuelos.
+ *   - Desafíos de vuelo que requieren comprar mejoras iniciales o dominar impulsos.
  *
  * ── Pureza Arquitectónica ──
  * Módulo 100% puro (sin DOM ni Three.js), testeable en Node.js.
  * ============================================================
  */
-import { clamp } from '../core/math.js';
 
 /**
  * @typedef {Object} MissionDef
@@ -22,199 +21,200 @@ import { clamp } from '../core/math.js';
  * @property {string} desc
  * @property {string} icon
  * @property {number} reward          Monedas al completarla
- * @property {'flight'|'total'} scope 'flight' = en un solo vuelo, 'total' = acumulado
+ * @property {'flight'|'cumulative'} scope 'flight' = en un solo vuelo, 'cumulative' = acumulado entre partidas
  * @property {number} target          Valor a alcanzar
- * @property {(flightStats:object, lifetimeStats:object) => number} getProgress
+ * @property {((flightStats:object) => number)} [getProgress]
+ * @property {((flightStats:object) => number)} [getContribution]
  */
 
-/** Catálogo de misiones ordenadas por progresión y variedad de mecánicas. */
+/** Catálogo de misiones calibradas para resolverse en un marco de 3-4 partidas. */
 export const MISSION_CATALOG = [
-  // ── Rango 1: Primeros vuelos e iniciación ──
+  // ── Rango 1: Objetivos de 3 a 4 partidas iniciales ──
   {
-    id: 'dist-120',
-    title: 'Bautismo de Vuelo',
-    desc: 'Alcanzá 120 m en un solo vuelo',
-    icon: '📏',
-    reward: 50,
-    scope: 'flight',
-    target: 120,
-    getProgress: (f) => f?.distance ?? 0,
+    id: 'cum-dist-1000',
+    title: 'Travesía Inicial',
+    desc: 'Acumulá 1.000 m de vuelo total',
+    icon: '🗺️',
+    reward: 120,
+    scope: 'cumulative',
+    target: 1000,
+    getContribution: (f) => f?.distance ?? 0,
   },
   {
-    id: 'speed-35',
-    title: 'Aceleración',
-    desc: 'Superá los 35 m/s de velocidad',
+    id: 'single-speed-58',
+    title: 'Rompiendo el Viento',
+    desc: 'Superá los 58 m/s de velocidad punta',
     icon: '⚡',
-    reward: 50,
+    reward: 110,
     scope: 'flight',
-    target: 35,
+    target: 58,
     getProgress: (f) => f?.maxSpeed ?? 0,
   },
   {
-    id: 'coins-15',
-    title: 'Monedero',
-    desc: 'Recogé 15 monedas en un vuelo',
+    id: 'cum-coins-75',
+    title: 'Cazador de Monedas',
+    desc: 'Acumulá 75 monedas recogidas en total',
     icon: '🪙',
-    reward: 60,
-    scope: 'flight',
-    target: 15,
-    getProgress: (f) => f?.coinsCollected ?? 0,
+    reward: 110,
+    scope: 'cumulative',
+    target: 75,
+    getContribution: (f) => f?.coinsCollected ?? 0,
   },
 
-  // ── Rango 2: Habilidad, aros y rozes cercanos ──
+  // ── Rango 2: Habilidad táctica, rozes y aros ──
   {
-    id: 'near-1',
-    title: 'Vuelo Temerario',
-    desc: 'Rozá 1 obstáculo sin chocar (Near Miss)',
-    icon: '🎯',
-    reward: 80,
+    id: 'single-dist-380',
+    title: 'Cruzando el Valle',
+    desc: 'Alcanzá 380 m en un solo vuelo',
+    icon: '📏',
+    reward: 130,
     scope: 'flight',
-    target: 1,
-    getProgress: (f) => f?.nearMisses ?? 0,
+    target: 380,
+    getProgress: (f) => f?.distance ?? 0,
   },
   {
-    id: 'rings-3',
-    title: 'Diana en el Aire',
-    desc: 'Atravesá 3 aros en un solo vuelo',
+    id: 'cum-near-4',
+    title: 'As del Rasante',
+    desc: 'Acumulá 4 Near Misses (rozes cercanos)',
+    icon: '🎯',
+    reward: 140,
+    scope: 'cumulative',
+    target: 4,
+    getContribution: (f) => f?.nearMisses ?? 0,
+  },
+  {
+    id: 'single-rings-4',
+    title: 'Puntería Perfecta',
+    desc: 'Atravesá 4 aros en un solo vuelo',
     icon: '⭕',
-    reward: 90,
+    reward: 120,
     scope: 'flight',
-    target: 3,
+    target: 4,
     getProgress: (f) => f?.rings ?? 0,
   },
   {
-    id: 'alt-25',
+    id: 'cum-boosters-8',
+    title: 'Carga Continua',
+    desc: 'Recogé 8 boosters en total',
+    icon: '🔋',
+    reward: 130,
+    scope: 'cumulative',
+    target: 8,
+    getContribution: (f) => f?.boosters ?? 0,
+  },
+  {
+    id: 'single-alt-32',
     title: 'Vuelo Alto',
-    desc: 'Alcanzá 25 m de altitud',
+    desc: 'Alcanzá 32 m de altitud en un vuelo',
     icon: '🏔️',
-    reward: 70,
+    reward: 100,
     scope: 'flight',
-    target: 25,
+    target: 32,
     getProgress: (f) => f?.maxAltitude ?? 0,
   },
   {
-    id: 'boosters-3',
-    title: 'Recarga Táctica',
-    desc: 'Recogé 3 boosters en un vuelo',
-    icon: '🔋',
-    reward: 85,
-    scope: 'flight',
-    target: 3,
-    getProgress: (f) => f?.boosters ?? 0,
-  },
-  {
-    id: 'thrust-2',
-    title: 'Piloto a Reacción',
-    desc: 'Activá la propulsión 2 veces en un vuelo',
+    id: 'cum-thrust-6',
+    title: 'Fuerza Propulsora',
+    desc: 'Activá la propulsión 6 veces en total',
     icon: '🚀',
-    reward: 75,
-    scope: 'flight',
-    target: 2,
-    getProgress: (f) => f?.thrustsUsed ?? 0,
+    reward: 125,
+    scope: 'cumulative',
+    target: 6,
+    getContribution: (f) => f?.thrustsUsed ?? 0,
   },
 
-  // ── Rango 3: Destreza intermedia y combos ──
+  // ── Rango 3: Destreza media y combos sostenidos ──
   {
-    id: 'combo-1',
+    id: 'single-combo-1',
     title: 'Cadencia Sonora',
-    desc: 'Completá 1 combo de aros (4 aros seguidos)',
+    desc: 'Completá 1 combo de aros (4 seguidos)',
     icon: '🎶',
-    reward: 120,
+    reward: 150,
     scope: 'flight',
     target: 1,
     getProgress: (f) => f?.ringCombos ?? 0,
   },
   {
-    id: 'dist-350',
-    title: 'Cruzando el Valle',
-    desc: 'Alcanzá 350 m en un solo vuelo',
-    icon: '🗺️',
-    reward: 130,
-    scope: 'flight',
-    target: 350,
-    getProgress: (f) => f?.distance ?? 0,
-  },
-  {
-    id: 'speed-55',
-    title: 'Rompiendo la Barrera',
-    desc: 'Superá los 55 m/s de velocidad',
-    icon: '💨',
+    id: 'cum-rings-12',
+    title: 'Maestro del Circuito',
+    desc: 'Atravesá 12 aros en total',
+    icon: '🏆',
     reward: 140,
-    scope: 'flight',
-    target: 55,
-    getProgress: (f) => f?.maxSpeed ?? 0,
+    scope: 'cumulative',
+    target: 12,
+    getContribution: (f) => f?.rings ?? 0,
   },
   {
-    id: 'near-3',
-    title: 'A Milímetros',
-    desc: 'Rozá 3 obstáculos sin chocar en un vuelo',
+    id: 'single-near-2',
+    title: 'Doble Vuelo Temerario',
+    desc: 'Rozá 2 obstáculos sólidos en un solo vuelo',
     icon: '⚡',
-    reward: 150,
+    reward: 135,
     scope: 'flight',
-    target: 3,
+    target: 2,
     getProgress: (f) => f?.nearMisses ?? 0,
   },
-
-  // ── Rango 4: Metas acumuladas y maestría ──
   {
-    id: 'total-rings-20',
-    title: 'Veterano del Circuito',
-    desc: 'Acumulá 20 aros atravesados en total',
-    icon: '🏆',
-    reward: 160,
-    scope: 'total',
-    target: 20,
-    getProgress: (_f, s) => s?.rings ?? 0,
-  },
-  {
-    id: 'total-coins-200',
-    title: 'Fortuna Aérea',
-    desc: 'Acumulá 200 monedas recogidas en total',
+    id: 'single-coins-25',
+    title: 'Fortuna en el Aire',
+    desc: 'Recogé 25 monedas en un solo vuelo',
     icon: '💰',
-    reward: 180,
-    scope: 'total',
-    target: 200,
-    getProgress: (_f, s) => s?.coinsCollected ?? 0,
+    reward: 120,
+    scope: 'flight',
+    target: 25,
+    getProgress: (f) => f?.coinsCollected ?? 0,
   },
   {
-    id: 'dist-700',
-    title: 'As del Horizonte',
-    desc: 'Alcanzá 700 m en un solo vuelo',
+    id: 'cum-dist-1500',
+    title: 'Gran Expedición',
+    desc: 'Acumulá 1.500 m de vuelo total',
     icon: '🌄',
-    reward: 220,
-    scope: 'flight',
-    target: 700,
-    getProgress: (f) => f?.distance ?? 0,
+    reward: 160,
+    scope: 'cumulative',
+    target: 1500,
+    getContribution: (f) => f?.distance ?? 0,
   },
+
+  // ── Rango 4: Metas avanzadas para aviones mejorados ──
   {
-    id: 'speed-70',
+    id: 'single-speed-68',
     title: 'Mach 1',
-    desc: 'Alcanzá 70 m/s de velocidad punta',
+    desc: 'Alcanzá 68 m/s de velocidad punta',
     icon: '🌠',
-    reward: 250,
+    reward: 160,
     scope: 'flight',
-    target: 70,
+    target: 68,
     getProgress: (f) => f?.maxSpeed ?? 0,
   },
   {
-    id: 'total-near-10',
-    title: 'Intocable',
-    desc: 'Acumulá 10 Near Misses en total',
-    icon: '🎖️',
-    reward: 200,
-    scope: 'total',
-    target: 10,
-    getProgress: (_f, s) => s?.nearMisses ?? 0,
+    id: 'cum-coins-120',
+    title: 'Arca de Oro',
+    desc: 'Acumulá 120 monedas recogidas en total',
+    icon: '🪙',
+    reward: 170,
+    scope: 'cumulative',
+    target: 120,
+    getContribution: (f) => f?.coinsCollected ?? 0,
   },
   {
-    id: 'dist-1200',
-    title: 'Vuelo Transcontinental',
-    desc: 'Alcanzá 1.200 m de distancia',
+    id: 'single-dist-600',
+    title: 'As del Horizonte',
+    desc: 'Alcanzá 600 m en un solo vuelo',
     icon: '🌟',
-    reward: 350,
+    reward: 220,
     scope: 'flight',
-    target: 1200,
+    target: 600,
     getProgress: (f) => f?.distance ?? 0,
+  },
+  {
+    id: 'cum-near-8',
+    title: 'Intocable',
+    desc: 'Acumulá 8 Near Misses en total',
+    icon: '🎖️',
+    reward: 200,
+    scope: 'cumulative',
+    target: 8,
+    getContribution: (f) => f?.nearMisses ?? 0,
   },
 ];
 
@@ -226,16 +226,16 @@ export const MISSION_BY_ID = new Map(MISSION_CATALOG.map((m) => [m.id, m]));
  */
 export function getInitialActiveMissions() {
   return [
-    MISSION_CATALOG[0].id, // dist-120
-    MISSION_CATALOG[1].id, // speed-35
-    MISSION_CATALOG[2].id, // coins-15
+    'cum-dist-1000',
+    'single-speed-58',
+    'cum-coins-75',
   ];
 }
 
 /**
  * Sanea y valida el estado de misiones guardado.
  * @param {object} raw
- * @returns {{active:string[], completed:string[]}}
+ * @returns {{active:string[], completed:string[], progress:Record<string,number>}}
  */
 export function sanitizeMissionsSave(raw) {
   const completed = Array.isArray(raw?.completed)
@@ -256,7 +256,7 @@ export function sanitizeMissionsSave(raw) {
     }
   }
 
-  // Si todas las misiones del catálogo fueron completadas, reciclamos las últimas
+  // Si todas las misiones del catálogo fueron completadas, reciclamos
   if (active.length < 3) {
     for (const def of MISSION_CATALOG) {
       if (active.length >= 3) break;
@@ -264,7 +264,15 @@ export function sanitizeMissionsSave(raw) {
     }
   }
 
-  return { active: active.slice(0, 3), completed };
+  const rawProg = raw?.progress && typeof raw.progress === 'object' ? raw.progress : {};
+  const progress = {};
+  for (const id of active) {
+    if (typeof rawProg[id] === 'number' && Number.isFinite(rawProg[id])) {
+      progress[id] = Math.max(0, rawProg[id]);
+    }
+  }
+
+  return { active: active.slice(0, 3), completed, progress };
 }
 
 /**
@@ -274,7 +282,7 @@ export function sanitizeMissionsSave(raw) {
  * @property {string} desc
  * @property {string} icon
  * @property {number} reward
- * @property {'flight'|'total'} scope
+ * @property {'flight'|'cumulative'} scope
  * @property {number} target
  * @property {number} progress
  * @property {number} pct
@@ -286,17 +294,25 @@ export function sanitizeMissionsSave(raw) {
  *
  * @param {string[]} activeIds
  * @param {object} flightStats
- * @param {object} lifetimeStats
+ * @param {Record<string,number>} [activeProgress={}]
  * @returns {MissionState[]}
  */
-export function evaluateMissions(activeIds, flightStats, lifetimeStats) {
+export function evaluateMissions(activeIds, flightStats, activeProgress = {}) {
   const list = [];
   for (const id of activeIds) {
     const def = MISSION_BY_ID.get(id);
     if (!def) continue;
 
-    const currentVal = def.getProgress(flightStats, lifetimeStats);
-    const progress = Math.min(def.target, Math.max(0, currentVal));
+    let currentVal = 0;
+    if (def.scope === 'flight') {
+      currentVal = def.getProgress ? def.getProgress(flightStats) : 0;
+    } else {
+      const base = activeProgress?.[def.id] ?? 0;
+      const inFlight = def.getContribution ? def.getContribution(flightStats) : 0;
+      currentVal = base + inFlight;
+    }
+
+    const progress = Math.min(def.target, Math.max(0, Math.round(currentVal)));
     const isCompleted = progress >= def.target;
     const pct = def.target > 0 ? Math.min(100, Math.round((progress / def.target) * 100)) : 0;
 
@@ -317,14 +333,34 @@ export function evaluateMissions(activeIds, flightStats, lifetimeStats) {
 }
 
 /**
+ * Acumula el progreso de un vuelo finalizado en el diccionario de progreso acumulativo.
+ *
+ * @param {string[]} activeIds
+ * @param {object} flightStats
+ * @param {Record<string,number>} activeProgress
+ * @returns {Record<string,number>}
+ */
+export function recordFlightProgress(activeIds, flightStats, activeProgress = {}) {
+  const next = { ...activeProgress };
+  for (const id of activeIds) {
+    const def = MISSION_BY_ID.get(id);
+    if (!def || def.scope !== 'cumulative') continue;
+    const contribution = def.getContribution ? def.getContribution(flightStats) : 0;
+    next[id] = (next[id] ?? 0) + contribution;
+  }
+  return next;
+}
+
+/**
  * Reemplaza una misión completada por la siguiente disponible en el catálogo.
  *
  * @param {string[]} activeIds
  * @param {string[]} completedIds
  * @param {string} completedMissionId
- * @returns {{nextActive: string[], nextCompleted: string[], replacement: MissionDef|null}}
+ * @param {Record<string,number>} [activeProgress={}]
+ * @returns {{nextActive: string[], nextCompleted: string[], replacement: MissionDef|null, nextProgress: Record<string,number>}}
  */
-export function advanceCompletedMission(activeIds, completedIds, completedMissionId) {
+export function advanceCompletedMission(activeIds, completedIds, completedMissionId, activeProgress = {}) {
   const nextCompleted = completedIds.includes(completedMissionId)
     ? [...completedIds]
     : [...completedIds, completedMissionId];
@@ -340,6 +376,8 @@ export function advanceCompletedMission(activeIds, completedIds, completedMissio
   }
 
   const nextActive = activeIds.map((id) => (id === completedMissionId ? replacement?.id ?? id : id));
+  const nextProgress = { ...activeProgress };
+  delete nextProgress[completedMissionId];
 
-  return { nextActive, nextCompleted, replacement };
+  return { nextActive, nextCompleted, replacement, nextProgress };
 }

@@ -102,5 +102,8 @@ export function statsVacios() {
     corridorExits: 0,
     /** Rozes cercanos a milímetros de obstáculos sin chocar. */
     nearMisses: 0,
+    totalDistance: 0,
+    ringCombos: 0,
+    thrustsUsed: 0,
   };
 }

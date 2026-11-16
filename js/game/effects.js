@@ -140,14 +140,14 @@ export class Effects {
   updateSpeedLines(flightX, flightY, flightZ, vx, vy, vz, dt) {
     if (!this.speedLines) return;
     const speed = Math.hypot(vx, vy, vz);
-    if (speed < 32) {
-      this.speedLineMat.opacity = Math.max(0, this.speedLineMat.opacity - dt * 3);
+    if (speed < 55) {
+      this.speedLineMat.opacity = Math.max(0, this.speedLineMat.opacity - dt * 3.5);
       this.speedLines.visible = this.speedLineMat.opacity > 0.01;
       return;
     }
 
     this.speedLines.visible = true;
-    const targetOpacity = Math.min(0.65, ((speed - 32) / 38) * 0.65);
+    const targetOpacity = Math.min(0.75, ((speed - 55) / 25) * 0.75);
     this.speedLineMat.opacity += (targetOpacity - this.speedLineMat.opacity) * (1 - Math.exp(-4 * dt));
 
     const dirX = vx / speed;

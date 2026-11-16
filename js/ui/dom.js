@@ -125,8 +125,14 @@ function resolve() {
     missionsWidget: optional('missions-widget'),
     missionsWidgetList: optional('missions-widget-list'),
     missionsPanelList: optional('missions-panel-list'),
+    btnLobbyMissions: optional('btn-lobby-missions'),
+    btnMissionsClose: optional('btn-missions-close'),
+    btnPauseMissions: optional('btn-pause-missions'),
+    pauseMissionsBox: optional('pause-missions-box'),
+    pauseMissionsList: optional('pause-missions-list'),
     resultMissions: optional('result-missions'),
     toastLayer: optional('toast-layer'),
+    worldPopups: optional('world-popups'),
 
     // Varios
     crashFlash: must('crash-flash'),

@@ -155,8 +155,8 @@ export const UPGRADE_IDS = UPGRADES.map((u) => u.id);
 export function statsVacios() {
   return {
     rings: 0, boosters: 0, runs: 0, crashes: 0, coinsCollected: 0,
-    bestDistance: 0, playMs: 0, landings: 0, corridorExits: 0,
-    nearMisses: 0,
+    bestDistance: 0, totalDistance: 0, playMs: 0, landings: 0, corridorExits: 0,
+    nearMisses: 0, ringCombos: 0, thrustsUsed: 0,
   };
 }
 
@@ -175,7 +175,7 @@ export const STATE = {
   aircraft: DEFAULT_AIRCRAFT,
   muted: false,
   orientationPref: 'auto',
-  missions: { active: getInitialActiveMissions(), completed: [] },
+  missions: { active: getInitialActiveMissions(), completed: [], progress: {} },
 
   /**
    * Vuelo siguiendo el cursor del mouse (escritorio). APAGADO por defecto.

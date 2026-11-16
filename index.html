@@ -120,14 +120,18 @@
     -->
     <nav id="main-menu" data-ui-interactive>
       <button type="button" id="btn-new-game" class="menu-btn primary">NUEVA PARTIDA</button>
+      <button type="button" id="btn-lobby-missions" class="menu-btn"><span class="btn-icon">🎯</span> MISIONES</button>
       <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
       <button type="button" id="btn-options" class="menu-btn">OPCIONES</button>
       <button type="button" id="btn-exit" class="menu-btn">EXIT</button>
     </nav>
 
-    <!-- Widget de las 3 misiones activas en el lobby -->
-    <div id="missions-widget" class="missions-widget" data-ui-interactive>
-      <div class="missions-widget-title">🎯 MISIONES ACTIVAS</div>
+    <!-- Modal/Panel de las 3 misiones activas en el lobby -->
+    <div id="missions-widget" class="missions-widget hidden" data-ui-interactive>
+      <div class="missions-widget-header">
+        <span class="missions-widget-title">🎯 MISIONES DIARIAS</span>
+        <button type="button" id="btn-missions-close" class="missions-close-btn" aria-label="Cerrar">✕</button>
+      </div>
       <div id="missions-widget-list" class="missions-list"></div>
     </div>
 
@@ -419,11 +423,19 @@
       -->
       <div class="pause-actions">
         <button type="button" id="btn-pause-resume" class="menu-btn primary">CONTINUAR</button>
+        <button type="button" id="btn-pause-missions" class="menu-btn"><span class="btn-icon">🎯</span> MISIONES</button>
         <button type="button" id="btn-pause-options" class="menu-btn">OPCIONES</button>
         <button type="button" id="btn-pause-quit" class="menu-btn danger">SALIR</button>
       </div>
+      <div id="pause-missions-box" class="pause-missions-box hidden">
+        <div class="pause-missions-header">🎯 OBJETIVOS ACTIVOS</div>
+        <div id="pause-missions-list" class="missions-list"></div>
+      </div>
     </div>
   </div>
+
+  <!-- ── POPUPS EN EL MUNDO (NEAR MISS Y COMBOS) ── -->
+  <div id="world-popups" aria-hidden="true"></div>
 
   <!-- ── TOASTS FLOTANTES (MISIONES Y GAME JUICE) ── -->
   <div id="toast-layer" aria-live="polite"></div>

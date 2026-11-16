@@ -237,9 +237,9 @@ export class CameraRig {
 
     const speed = Math.hypot(flight.vx, flight.vy, flight.vz);
 
-    // ── FOV dinámico por velocidad ──
-    const speedRatio = clamp((speed - 25) / 45, 0, 1);
-    const targetFovOffset = speedRatio * 11;
+    // ── FOV dinámico por velocidad y empuje (+10° a +14°) ──
+    const speedRatio = clamp((speed - 22) / 48, 0, 1);
+    const targetFovOffset = speedRatio * 14;
     this.speedFovOffset += (targetFovOffset - this.speedFovOffset) * (1 - Math.exp(-3.5 * dt));
     const targetFov = this.baseFov + this.speedFovOffset;
     if (Math.abs(camera.fov - targetFov) > 0.05) {

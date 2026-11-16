@@ -22,6 +22,7 @@ import {
   sanitizeMissionsSave,
   evaluateMissions,
   advanceCompletedMission,
+  recordFlightProgress,
 } from '../js/game/missions.js';
 
 let passed = 0;
@@ -622,62 +623,70 @@ section('12. Detección de Near Miss (Vuelo rasante)');
   check('los aros no disparan near miss (se premian al cruzarlos)', ringNear === null);
 }
 
-// ── 13. Sistema de Misiones Tripartitas ───────────────────────
-section('13. Sistema de Misiones Tripartitas');
+// ── 13. Sistema de Misiones Tripartitas (Calibradas a 3-4 partidas) ──
+section('13. Sistema de Misiones Tripartitas (Calibradas a 3-4 partidas)');
 {
   check('el catálogo de misiones tiene al menos 15 misiones', MISSION_CATALOG.length >= 15, `${MISSION_CATALOG.length}`);
   check(
-    'todas las misiones tienen id, títulos, recompensas y función de progreso válidos',
+    'todas las misiones tienen id, títulos, recompensas y funciones válidas',
     MISSION_CATALOG.every(
       (m) =>
         typeof m.id === 'string' &&
         typeof m.title === 'string' &&
         m.reward > 0 &&
         m.target > 0 &&
-        (m.scope === 'flight' || m.scope === 'total') &&
-        typeof m.getProgress === 'function',
+        (m.scope === 'flight' || m.scope === 'cumulative') &&
+        (typeof m.getProgress === 'function' || typeof m.getContribution === 'function'),
     ),
   );
 
   const initial = getInitialActiveMissions();
   check('las misiones iniciales son exactamente 3 distintas', initial.length === 3 && new Set(initial).size === 3);
 
-  // Saneamiento de partidas guardadas
+  // Saneamiento de partidas guardadas con diccionario de progreso acumulativo
   const sanitized = sanitizeMissionsSave({
-    active: ['dist-120', 'invalid-id'],
-    completed: ['speed-35'],
+    active: ['cum-dist-1000', 'invalid-id'],
+    completed: ['single-speed-58'],
+    progress: { 'cum-dist-1000': 350 },
   });
   check('sanitizeMissionsSave rellena hasta 3 activas válidas', sanitized.active.length === 3);
-  check('sanitizeMissionsSave preserva las completadas', sanitized.completed.includes('speed-35'));
-  check('las misiones activas no contienen IDs completados', !sanitized.active.includes('speed-35'));
+  check('sanitizeMissionsSave preserva las completadas', sanitized.completed.includes('single-speed-58'));
+  check('las misiones activas no contienen IDs completados', !sanitized.active.includes('single-speed-58'));
+  check('preserva el progreso acumulado válido', sanitized.progress['cum-dist-1000'] === 350);
 
-  // Evaluación de progreso
+  // Evaluación de progreso acumulativo y de vuelo
   const flightStats = {
-    distance: 150, // supera dist-120 (target 120)
-    maxSpeed: 25,  // no supera speed-35 (target 35)
-    coinsCollected: 10,
-    nearMisses: 2,
+    distance: 400,
+    maxSpeed: 45, // No llega a 58
+    coinsCollected: 25,
+    nearMisses: 1,
   };
-  const lifetimeStats = { rings: 5, nearMisses: 5, coinsCollected: 50 };
+  const activeProgress = { 'cum-dist-1000': 700 }; // 700 + 400 = 1100 >= 1000 (cumplida)
 
-  const evaluated = evaluateMissions(['dist-120', 'speed-35', 'near-1'], flightStats, lifetimeStats);
-  const mDist = evaluated.find((m) => m.id === 'dist-120');
-  const mSpeed = evaluated.find((m) => m.id === 'speed-35');
-  const mNear = evaluated.find((m) => m.id === 'near-1');
+  const evaluated = evaluateMissions(['cum-dist-1000', 'single-speed-58', 'cum-coins-75'], flightStats, activeProgress);
+  const mDist = evaluated.find((m) => m.id === 'cum-dist-1000');
+  const mSpeed = evaluated.find((m) => m.id === 'single-speed-58');
+  const mCoins = evaluated.find((m) => m.id === 'cum-coins-75');
 
-  check('misión de distancia cumplida detectada', mDist?.isCompleted === true && mDist?.pct === 100);
+  check('misión acumulada cumplida al sumar el vuelo', mDist?.isCompleted === true && mDist?.pct === 100);
   check('misión de velocidad incompleta calcula porcentaje correcto', mSpeed?.isCompleted === false && mSpeed?.pct > 0 && mSpeed?.pct < 100);
-  check('misión de near miss cumplida', mNear?.isCompleted === true);
+  check('misión acumulada de monedas suma contribución en vuelo', mCoins?.progress === 25);
+
+  // Registro de progreso acumulativo tras el vuelo
+  const recorded = recordFlightProgress(['cum-dist-1000', 'single-speed-58', 'cum-coins-75'], flightStats, { 'cum-coins-75': 30 });
+  check('recordFlightProgress suma la contribución del vuelo al acumulado', recorded['cum-coins-75'] === 55);
 
   // Rotación y avance de misión cumplida
-  const { nextActive, nextCompleted, replacement } = advanceCompletedMission(
-    ['dist-120', 'speed-35', 'near-1'],
+  const { nextActive, nextCompleted, replacement, nextProgress } = advanceCompletedMission(
+    ['cum-dist-1000', 'single-speed-58', 'cum-coins-75'],
     [],
-    'dist-120',
+    'cum-dist-1000',
+    { 'cum-dist-1000': 1100, 'cum-coins-75': 55 },
   );
-  check('la misión completada pasa a la lista de completadas', nextCompleted.includes('dist-120'));
-  check('el slot activo es reemplazado por una nueva misión', !nextActive.includes('dist-120') && nextActive.length === 3);
-  check('hay un reemplazo válido del catálogo', replacement !== null && replacement.id !== 'dist-120');
+  check('la misión completada pasa a la lista de completadas', nextCompleted.includes('cum-dist-1000'));
+  check('el slot activo es reemplazado por una nueva misión', !nextActive.includes('cum-dist-1000') && nextActive.length === 3);
+  check('se limpia el progreso de la misión completada', !('cum-dist-1000' in nextProgress));
+  check('hay un reemplazo válido del catálogo', replacement !== null && replacement.id !== 'cum-dist-1000');
 }
 
 // ── Resumen ─────────────────────────────────────────────────
