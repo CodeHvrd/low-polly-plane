@@ -165,3 +165,4 @@ story: {
 1. **Portal de Meta (`finish_gate_chrome.glb`)**: Se coloca como objeto visual decorativo en `x = level.targetDistance`. El vuelo **no** se corta abruptamente al cruzar la meta — el jugador puede seguir volando para buscar la 2.ª y 3.ª estrella hasta aterrizar o chocar.
 2. **Evaluación Post-Vuelo (`finishRun`)**: Al terminar el vuelo en modo Historia, se evalúan los 3 criterios `stars[i].check(result)`. Si `result.distance >= level.targetDistance`, el nivel cuenta como superado, se otorgan las monedas de recompensa, se actualiza `unlockedLevel` y, tras el Nivel 5, se activa `endlessUnlocked = true`.
 3. **Selector de Campaña (UI)**: Un mapa horizontal de 5 nodos conectados (Nivel 1 → 2 → 3 → 4 → 5 → Endless) mostrando las estrellas obtenidas (`⭐⭐⭐`) y el tutorial sugerido antes de despegar.
+

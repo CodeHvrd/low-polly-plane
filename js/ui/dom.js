@@ -133,6 +133,9 @@ function resolve() {
     resultMissions: optional('result-missions'),
     toastLayer: optional('toast-layer'),
     worldPopups: optional('world-popups'),
+    storyPanel: optional('story-panel'),
+    storyLevelsList: optional('story-levels-list'),
+    storyHintBanner: optional('story-hint-banner'),
 
     // Varios
     crashFlash: must('crash-flash'),

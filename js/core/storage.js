@@ -14,6 +14,7 @@
 import { SAVE } from '../config.js';
 import { clamp } from './math.js';
 import { sanitizeMissionsSave, getInitialActiveMissions } from '../game/missions.js';
+import { sanitizeStorySave } from '../modes/storyLevels.js';
 
 /** @returns {Storage|null} */
 function getStore() {
@@ -82,7 +83,8 @@ export const DEFAULT_SAVE = {
   aircraft: 'paper',
   muted: false,
   orientation: 'auto',
-  missions: { active: getInitialActiveMissions(), completed: [] },
+  missions: { active: getInitialActiveMissions(), completed: [], progress: {} },
+  story: { unlockedLevel: 1, endlessUnlocked: false, stars: {} },
 };
 
 /**
@@ -112,6 +114,7 @@ export function sanitizeSave(raw, upgradeIds, aircraftIds) {
 
   out.cursorFollow = raw.cursorFollow === true;
   out.missions = sanitizeMissionsSave(raw.missions);
+  out.story = sanitizeStorySave(raw.story);
   out.stats = raw.stats && typeof raw.stats === 'object' ? { ...raw.stats } : undefined;
 
   const levels = raw.upgrades && typeof raw.upgrades === 'object' ? raw.upgrades : {};
@@ -146,6 +149,7 @@ export function persistSave(state) {
     orientation: state.orientationPref ?? 'auto',
     cursorFollow: state.cursorFollow === true,
     missions: state.missions ? sanitizeMissionsSave(state.missions) : undefined,
+    story: state.story ? sanitizeStorySave(state.story) : undefined,
     stats: state.stats ? { ...state.stats } : undefined,
   });
 }

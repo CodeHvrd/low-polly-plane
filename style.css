@@ -3064,3 +3064,142 @@ body.modo-diagnostico #diag-overlay {
   font-weight: 700;
   margin-bottom: 2px;
 }
+
+/* ── 11. Modo Historia (Selector de Niveles y Tutorial) ───── */
+
+.story-panel-sub {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.story-levels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.story-level-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--text);
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.story-level-card:hover:not(.locked) {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.story-level-card.locked {
+  opacity: 0.45;
+  border-color: var(--border-soft);
+  cursor: not-allowed;
+}
+
+.story-lvl-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.story-lvl-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.story-lvl-name {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.story-lvl-sub {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.story-lvl-stars {
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+.story-hint-banner {
+  position: fixed;
+  bottom: max(76px, env(safe-area-inset-bottom) + 60px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  background: rgba(10, 14, 26, 0.88);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  width: min(90vw, 440px);
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.story-hint-banner.hidden {
+  display: none !important;
+}
+
+.story-result-card {
+  background: rgba(0, 229, 255, 0.07);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.story-result-card.passed {
+  border-color: rgba(61, 220, 132, 0.55);
+  background: rgba(61, 220, 132, 0.08);
+}
+
+.story-result-title {
+  font-family: var(--font-display);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 2px;
+}
+
+.story-star-row {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.story-star-row.earned {
+  color: var(--text);
+  font-weight: 600;
+}

@@ -72,6 +72,8 @@ import { Shop } from '../ui/shop.js';
 import { AircraftSelector } from '../ui/aircraftSelector.js';
 import { TouchControls } from '../ui/touchControls.js';
 import { evaluateMissions, advanceCompletedMission, recordFlightProgress } from './missions.js';
+import { STORY_LEVELS, getStoryLevel, evaluateStoryResult } from '../modes/storyLevels.js';
+import { preloadStoryProps, buildStoryProps, disposeStoryProps } from '../world/storyProps.js';
 
 export class Game {
   constructor() {
@@ -92,6 +94,8 @@ export class Game {
     this.resultTimer = null;
     /** Misiones completadas durante el vuelo actual para evitar toasts duplicados. */
     this._completedThisFlight = new Set();
+    /** Nivel activo del Modo Historia (null = Modo Endless). */
+    this.activeStoryLevel = null;
 
     this.overlays = new Overlays();
 
@@ -196,6 +200,9 @@ export class Game {
     this.overlays.set(Screen.STANDBY);
 
     this.running = true;
+    preloadStoryProps().then(() => {
+      if (this.running) this.rebuildStoryProps();
+    });
 
     this.lastTime = performance.now();
     requestAnimationFrame((t) => this.frame(t));
@@ -386,6 +393,29 @@ export class Game {
     else if (result.cause === 'ground') st.landings += 1;
     else if (result.cause === 'corridor') st.corridorExits += 1;
 
+    document.getElementById('story-hint-banner')?.classList.add('hidden');
+    let storySummary = null;
+    if (this.activeStoryLevel) {
+      const lvl = this.activeStoryLevel;
+      const ev = evaluateStoryResult(lvl, result);
+      storySummary = { lvl, ev };
+      if (ev.passed) {
+        const prev = STATE.story.stars[lvl.id] ?? 0;
+        STATE.story.stars[lvl.id] = Math.max(prev, ev.starsEarned);
+        if (lvl.number >= STATE.story.unlockedLevel && lvl.number < STORY_LEVELS.length) {
+          STATE.story.unlockedLevel = lvl.number + 1;
+        }
+        if (lvl.number === STORY_LEVELS.length) {
+          STATE.story.endlessUnlocked = true;
+        }
+        STATE.coins += ev.rewardCoins;
+        sfx.missionComplete();
+        const starIcons = '⭐'.repeat(ev.starsEarned);
+        const endlessNote = lvl.number === STORY_LEVELS.length ? ' · ¡Endless Desbloqueado!' : '';
+        this.showToast(`🏆 ¡NIVEL ${lvl.number} SUPERADO!`, `${starIcons} +${ev.rewardCoins} 🪙${endlessNote}`, 'mission');
+      }
+    }
+
     this.persist();
     this.syncCoins();
     this.shop.sync();
@@ -394,6 +424,9 @@ export class Game {
     ResultScreen.show(result);
     this.checkMissionsProgress(result);
     this.renderMisiones(result);
+    if (storySummary && UI.resultMissions) {
+      this._prependStoryResult(storySummary.lvl, storySummary.ev);
+    }
 
     // El HUD queda visible de fondo mostrando las cifras finales.
     this.overlays.showResult();
@@ -452,12 +485,13 @@ export class Game {
      * vuela en cada tramo, así que el perfil se arma primero y se inyecta. Es el
      * único lugar donde vive esa decisión; ver `game/flightProfile.js`.
      */
+    const storyAmp = this.activeStoryLevel?.groundAmplitude;
     this.profile = buildProfile({
       stageCount: Math.max(1, Math.ceil(WORLD.COURSE_LENGTH / STAGES.SEGMENT_LENGTH)),
       segmentLength: STAGES.SEGMENT_LENGTH,
       courseLength: WORLD.COURSE_LENGTH,
       heightGrowth: STAGES.HEIGHT_GROWTH,
-      groundAmplitude: STAGES.GROUND_AMPLITUDE,
+      groundAmplitude: typeof storyAmp === 'number' ? storyAmp : STAGES.GROUND_AMPLITUDE,
     });
     this.currentStage = -1;
     setTerrainAmplitudeProvider((x) => valueAt(this.profile, x, 'amplitude', 1));
@@ -474,6 +508,7 @@ export class Game {
     initDirectionArrows();
     buildLauncher();
     buildLaunchPad();
+    this.rebuildStoryProps();
 
     /*
      * El corredor se genera por TRAMOS alrededor de la posición de partida.
@@ -505,6 +540,52 @@ export class Game {
      * volar. Ahora `startRun` vuelve a sortearla. Ver `rerollPickupPaths`.
      */
     this.rerollPickupPaths(this.chunkRange?.from, this.chunkRange?.to);
+  }
+
+  /** Reconstruye los props 3D de Historia/entorno (portal de meta, boyas, nubes, balizas). */
+  rebuildStoryProps() {
+    const lvl = this.activeStoryLevel;
+    buildStoryProps({
+      targetDistance: lvl?.targetDistance ?? null,
+      courseLength: lvl?.courseLength ?? 2000,
+      showBeacons: Boolean(lvl && lvl.number <= 3),
+    });
+  }
+
+  /** Inicia un nivel específico (1..5) del Modo Historia. */
+  startStoryLevel(levelNumber) {
+    const lvl = getStoryLevel(levelNumber);
+    if (!lvl) return;
+    this.activeStoryLevel = lvl;
+
+    if (lvl.aircraft) {
+      STATE.aircraft = lvl.aircraft;
+      this.view.setType(lvl.aircraft);
+      this.selector.sync();
+      this.selector.syncDockLabel();
+    }
+
+    this.rebuildForMode();
+    this.startRun({ fade: false });
+    setStagePalette(lvl.paletteIndex);
+    document.getElementById('story-panel')?.classList.add('hidden');
+    document.getElementById('main-menu')?.classList.remove('hidden');
+    this.enterLaunchMode();
+
+    const banner = UI.storyHintBanner || document.getElementById('story-hint-banner');
+    if (banner) {
+      banner.textContent = `🗺️ Nivel ${lvl.number}: ${lvl.name} — ${lvl.hint}`;
+      banner.classList.remove('hidden');
+    }
+  }
+
+  /** Sale del Modo Historia y vuelve a la configuración Endless estándar. */
+  exitStoryMode() {
+    if (!this.activeStoryLevel) return;
+    this.activeStoryLevel = null;
+    const banner = UI.storyHintBanner || document.getElementById('story-hint-banner');
+    if (banner) banner.classList.add('hidden');
+    this.rebuildForMode();
   }
 
   /**
@@ -841,6 +922,30 @@ export class Game {
       heading.textContent = '🎯 OBJETIVOS Y MISIONES';
       UI.resultMissions.replaceChildren(heading, ...list.map((m) => this._createMissionCard(m)));
     }
+  }
+
+  /** Muestra el resumen de estrellas y objetivos del nivel de Historia en resultados. */
+  _prependStoryResult(lvl, ev) {
+    if (!UI.resultMissions) return;
+    const box = document.createElement('div');
+    box.className = 'story-result-card ' + (ev.passed ? 'passed' : 'failed');
+
+    const title = document.createElement('div');
+    title.className = 'story-result-title';
+    const stars = '⭐'.repeat(ev.starsEarned) + '☆'.repeat(3 - ev.starsEarned);
+    title.textContent = ev.passed
+      ? `🗺️ NIVEL ${lvl.number}: ¡SUPERADO! ${stars}`
+      : `🗺️ NIVEL ${lvl.number}: META ${lvl.targetDistance} m`;
+    box.appendChild(title);
+
+    for (const s of ev.starDetails) {
+      const row = document.createElement('div');
+      row.className = 'story-star-row' + (s.earned ? ' earned' : '');
+      row.textContent = `${s.earned ? '⭐' : '○'} ${s.label}`;
+      box.appendChild(row);
+    }
+
+    UI.resultMissions.prepend(box);
   }
 
   buyUpgrade(id) {
@@ -1390,12 +1495,14 @@ export class Game {
     const menu = document.getElementById('main-menu');
     const awardsPanel = document.getElementById('awards-panel');
     const optionsPanel = document.getElementById('options-panel');
+    const storyPanel = document.getElementById('story-panel');
 
     const mostrarPanel = (panel) => {
       menu?.classList.toggle('hidden', Boolean(panel));
-      document.getElementById('missions-widget')?.classList.toggle('hidden', Boolean(panel));
+      document.getElementById('missions-widget')?.classList.toggle('hidden', true);
       awardsPanel?.classList.toggle('hidden', panel !== awardsPanel);
       optionsPanel?.classList.toggle('hidden', panel !== optionsPanel);
+      storyPanel?.classList.toggle('hidden', panel !== storyPanel);
       if (!panel) HUD.invalidate();
     };
 
@@ -1415,17 +1522,66 @@ export class Game {
     btnNew?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      /*
-       * ── Se usa la MISMA transición que la tecla Enter ──
-       *
-       * Antes se llamaba a `overlays.set(AIM)` a mano, que sólo cambia las capas
-       * de UI: la cámara se quedaba donde estaba y aparecía de costado o de atrás,
-       * sin el viaje hasta detrás del lanzador.
-       *
-       * `enterLaunchMode()` es el camino real: mueve la cámara, recalcula el neutro
-       * del ángulo y recién entonces muestra la pantalla de apuntado.
-       */
+      this.exitStoryMode();
       this.enterLaunchMode();
+    });
+
+    const renderStoryPanel = () => {
+      const listEl = UI.storyLevelsList || document.getElementById('story-levels-list');
+      if (!listEl) return;
+      const unlocked = STATE.story?.unlockedLevel ?? 1;
+      const starsMap = STATE.story?.stars ?? {};
+
+      listEl.replaceChildren(...STORY_LEVELS.map((lvl) => {
+        const isUnlocked = lvl.number <= unlocked;
+        const earned = starsMap[lvl.id] ?? 0;
+
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'story-level-card' + (isUnlocked ? '' : ' locked');
+        card.disabled = !isUnlocked;
+
+        const left = document.createElement('div');
+        left.className = 'story-lvl-num';
+        left.textContent = isUnlocked ? `${lvl.number}` : '🔒';
+
+        const mid = document.createElement('div');
+        mid.className = 'story-lvl-body';
+        const title = document.createElement('div');
+        title.className = 'story-lvl-name';
+        title.textContent = lvl.name;
+        const sub = document.createElement('div');
+        sub.className = 'story-lvl-sub';
+        sub.textContent = `${lvl.subtitle} · Meta ${lvl.targetDistance} m`;
+        mid.append(title, sub);
+
+        const right = document.createElement('div');
+        right.className = 'story-lvl-stars';
+        right.textContent = isUnlocked ? '⭐'.repeat(earned) + '☆'.repeat(3 - earned) : '';
+
+        card.append(left, mid, right);
+        if (isUnlocked) {
+          card.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sfx.click();
+            this.startStoryLevel(lvl.number);
+          });
+        }
+        return card;
+      }));
+    };
+
+    document.getElementById('btn-story-mode')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      renderStoryPanel();
+      mostrarPanel(storyPanel);
+    });
+
+    document.getElementById('btn-story-back')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      mostrarPanel(null);
     });
 
     document.getElementById('btn-lobby-missions')?.addEventListener('click', (e) => {

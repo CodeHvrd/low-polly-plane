@@ -120,11 +120,20 @@
     -->
     <nav id="main-menu" data-ui-interactive>
       <button type="button" id="btn-new-game" class="menu-btn primary">NUEVA PARTIDA</button>
+      <button type="button" id="btn-story-mode" class="menu-btn"><span class="btn-icon">🗺️</span> MODO HISTORIA</button>
       <button type="button" id="btn-lobby-missions" class="menu-btn"><span class="btn-icon">🎯</span> MISIONES</button>
       <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
       <button type="button" id="btn-options" class="menu-btn">OPCIONES</button>
       <button type="button" id="btn-exit" class="menu-btn">EXIT</button>
     </nav>
+
+    <!-- Panel de Modo Historia (Niveles 1 a 5) -->
+    <section id="story-panel" class="menu-panel hidden" data-ui-interactive>
+      <h2>MODO HISTORIA</h2>
+      <p class="story-panel-sub">Completá los 5 tutoriales progresivos para dominar PaperCrash</p>
+      <div id="story-levels-list" class="story-levels-list"></div>
+      <button type="button" id="btn-story-back" class="menu-back">← VOLVER</button>
+    </section>
 
     <!-- Modal/Panel de las 3 misiones activas en el lobby -->
     <div id="missions-widget" class="missions-widget hidden" data-ui-interactive>
@@ -436,6 +445,9 @@
 
   <!-- ── POPUPS EN EL MUNDO (NEAR MISS Y COMBOS) ── -->
   <div id="world-popups" aria-hidden="true"></div>
+
+  <!-- ── TUTORIAL CONTEXTUAL (MODO HISTORIA) ── -->
+  <div id="story-hint-banner" class="story-hint-banner hidden" aria-live="polite"></div>
 
   <!-- ── TOASTS FLOTANTES (MISIONES Y GAME JUICE) ── -->
   <div id="toast-layer" aria-live="polite"></div>

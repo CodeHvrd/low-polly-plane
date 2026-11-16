@@ -24,6 +24,12 @@ import {
   advanceCompletedMission,
   recordFlightProgress,
 } from '../js/game/missions.js';
+import {
+  STORY_LEVELS,
+  getStoryLevel,
+  evaluateStoryResult,
+  sanitizeStorySave,
+} from '../js/modes/storyLevels.js';
 
 let passed = 0;
 const failures = [];
@@ -687,6 +693,28 @@ section('13. Sistema de Misiones Tripartitas (Calibradas a 3-4 partidas)');
   check('el slot activo es reemplazado por una nueva misión', !nextActive.includes('cum-dist-1000') && nextActive.length === 3);
   check('se limpia el progreso de la misión completada', !('cum-dist-1000' in nextProgress));
   check('hay un reemplazo válido del catálogo', replacement !== null && replacement.id !== 'cum-dist-1000');
+}
+
+// ── 14. Modo Historia (Niveles 1 a 5 progresivos) ─────────────
+section('14. Modo Historia (Niveles 1 a 5)');
+{
+  check('el Modo Historia tiene exactamente 5 niveles', STORY_LEVELS.length === 5);
+  check(
+    'las metas de distancia y recompensa crecen progresivamente',
+    STORY_LEVELS.every((l, idx) => idx === 0 || l.targetDistance > STORY_LEVELS[idx - 1].targetDistance),
+  );
+
+  const lvl1 = getStoryLevel(1);
+  check('getStoryLevel(1) devuelve el Nivel 1', lvl1?.id === 'story-1' && lvl1.stars.length === 3);
+
+  const failEval = evaluateStoryResult(lvl1, { distance: 90, coinsCollected: 12, kind: 'landing' });
+  check('si no alcanza la meta de distancia, no aprueba ni da estrellas', !failEval.passed && failEval.starsEarned === 0 && failEval.rewardCoins === 0);
+
+  const passEval = evaluateStoryResult(lvl1, { distance: 175, coinsCollected: 9, kind: 'landing' });
+  check('si supera meta y criterios, otorga 3 estrellas y monedas', passEval.passed && passEval.starsEarned === 3 && passEval.rewardCoins === lvl1.rewardCoins);
+
+  const cleanSave = sanitizeStorySave({ unlockedLevel: 99, endlessUnlocked: 'yes', stars: { 'story-1': 5, fake: 2 } });
+  check('sanitizeStorySave acota nivel máximo, booleano y estrellas (0..3)', cleanSave.unlockedLevel === 5 && cleanSave.endlessUnlocked === false && cleanSave.stars['story-1'] === 3 && !('fake' in cleanSave.stars));
 }
 
 // ── Resumen ─────────────────────────────────────────────────
