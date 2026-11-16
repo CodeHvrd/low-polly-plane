@@ -29,7 +29,7 @@ const disposables = [];
 
 /** Precarga en segundo plano los 4 modelos GLB generados con Meshy. */
 export function preloadStoryProps() {
-  return Promise.all(STORY_MODEL_PATHS.map((p) => precargarGLB(p).catch(() => null)));
+  return precargarGLB(STORY_MODEL_PATHS);
 }
 
 function makeFallbackGate() {
