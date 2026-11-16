@@ -50,7 +50,7 @@ scene.fog = new THREE.FogExp2(0x0a0e1a, WORLD.FOG_DENSITY);
  * deliberado: más que eso y la perspectiva se deforma tanto que cuesta leer las
  * distancias.
  */
-function fovParaAspecto(aspecto) {
+export function fovParaAspecto(aspecto) {
   const base = CAMERA.FOV;
   // En apaisado (aspecto > 1) se usa el valor base.
   if (aspecto >= 1) return base;

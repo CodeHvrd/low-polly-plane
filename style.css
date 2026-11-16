@@ -2722,3 +2722,264 @@ body.modo-diagnostico #diag-overlay {
   font-size: 0.74rem;
   color: var(--muted);
 }
+
+/* ── 10. Misiones Tripartitas y Toasts de Notificación ──────── */
+
+/* Capa de toasts flotantes */
+#toast-layer {
+  position: fixed;
+  top: max(20px, env(safe-area-inset-top) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(92vw, 420px);
+}
+
+.game-toast {
+  pointer-events: auto;
+  background: rgba(10, 14, 26, 0.94);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px var(--cyan-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  animation: toastSlideIn 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  max-width: 100%;
+}
+
+.game-toast.toast-leaving {
+  opacity: 0;
+  transform: translateY(-24px) scale(0.92);
+}
+
+.toast-title {
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  text-shadow: 0 0 10px rgba(255, 215, 64, 0.4);
+}
+
+.toast-sub {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+/* Toast específico de Near Miss */
+.game-toast.toast-near-miss {
+  border-color: var(--gold);
+  background: rgba(18, 22, 38, 0.95);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 215, 64, 0.35);
+  animation: toastNearMissPop 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.35) forwards;
+}
+
+.game-toast.toast-near-miss .toast-title {
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.6);
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastNearMissPop {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.7);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Widget de Misiones en Lobby / Standby */
+.missions-widget {
+  margin-top: 12px;
+  width: min(340px, 86vw);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.missions-widget.hidden {
+  display: none !important;
+}
+
+.missions-widget-title {
+  font-family: var(--font-display);
+  font-size: 0.64rem;
+  letter-spacing: 0.18em;
+  color: var(--cyan);
+  text-transform: uppercase;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Tarjeta individual de Misión */
+.missions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.mission-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.mission-card.completed {
+  border-color: rgba(61, 220, 132, 0.45);
+  background: rgba(61, 220, 132, 0.08);
+}
+
+.mission-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mission-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mission-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.mission-title {
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mission-reward {
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--gold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mission-desc {
+  font-size: 0.66rem;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+.mission-bar {
+  position: relative;
+  width: 100%;
+  height: 9px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.mission-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, var(--cyan), #3ddc84);
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.mission-card.completed .mission-fill {
+  background: #3ddc84;
+}
+
+.mission-bar-text {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* Caja de misiones en la pantalla de resultado */
+.result-missions-box {
+  margin-top: 10px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.result-missions-title {
+  font-family: var(--font-display);
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  color: var(--cyan);
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 2px;
+}

@@ -59,6 +59,7 @@ export class Effects {
     this.flashes = [];
 
     this.buildFlashPool();
+    this.buildSpeedLines();
   }
 
   // ── Pools ─────────────────────────────────────────────────
@@ -107,6 +108,79 @@ export class Effects {
   buildFlashPool() {
     // Destellos: esferas aditivas que se expanden y se apagan.
     this.flashGeo = new THREE.SphereGeometry(1, 12, 8);
+  }
+
+  buildSpeedLines() {
+    this.speedLineCount = 36;
+    this.speedLinePositions = new Float32Array(this.speedLineCount * 2 * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(this.speedLinePositions, 3));
+    this.speedLineMat = new THREE.LineBasicMaterial({
+      color: 0x88f0ff,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+    });
+    this.speedLines = new THREE.LineSegments(geo, this.speedLineMat);
+    this.speedLines.frustumCulled = false;
+    scene.add(this.speedLines);
+
+    this._lineOffsets = [];
+    for (let i = 0; i < this.speedLineCount; i++) {
+      this._lineOffsets.push({
+        rx: (Math.random() - 0.5) * 35,
+        ry: (Math.random() - 0.5) * 16,
+        rz: (Math.random() - 0.5) * 24,
+        len: 4 + Math.random() * 8,
+        speedFactor: 0.8 + Math.random() * 0.4,
+      });
+    }
+  }
+
+  updateSpeedLines(flightX, flightY, flightZ, vx, vy, vz, dt) {
+    if (!this.speedLines) return;
+    const speed = Math.hypot(vx, vy, vz);
+    if (speed < 32) {
+      this.speedLineMat.opacity = Math.max(0, this.speedLineMat.opacity - dt * 3);
+      this.speedLines.visible = this.speedLineMat.opacity > 0.01;
+      return;
+    }
+
+    this.speedLines.visible = true;
+    const targetOpacity = Math.min(0.65, ((speed - 32) / 38) * 0.65);
+    this.speedLineMat.opacity += (targetOpacity - this.speedLineMat.opacity) * (1 - Math.exp(-4 * dt));
+
+    const dirX = vx / speed;
+    const dirY = vy / speed;
+    const dirZ = vz / speed;
+
+    const pos = this.speedLinePositions;
+    for (let i = 0; i < this.speedLineCount; i++) {
+      const off = this._lineOffsets[i];
+      off.rx -= speed * off.speedFactor * dt;
+      if (off.rx < -15) {
+        off.rx += 40;
+        off.ry = (Math.random() - 0.5) * 16;
+        off.rz = (Math.random() - 0.5) * 24;
+      }
+
+      const p1x = flightX + off.rx;
+      const p1y = flightY + off.ry;
+      const p1z = flightZ + off.rz;
+
+      const p2x = p1x - dirX * off.len;
+      const p2y = p1y - dirY * off.len;
+      const p2z = p1z - dirZ * off.len;
+
+      const idx = i * 6;
+      pos[idx] = p1x;
+      pos[idx + 1] = p1y;
+      pos[idx + 2] = p1z;
+      pos[idx + 3] = p2x;
+      pos[idx + 4] = p2y;
+      pos[idx + 5] = p2z;
+    }
+    this.speedLines.geometry.attributes.position.needsUpdate = true;
   }
 
   // ── Emisores ──────────────────────────────────────────────
@@ -209,6 +283,35 @@ export class Effects {
       });
     }
     this.spawnFlash(x, y, z, 1.1, 0.28, 0x66ffaa);
+  }
+
+  /**
+   * Roce cercano contra un obstáculo (Near Miss): chispas doradas/cian y destello de onda.
+   */
+  nearMiss(x, y, z) {
+    for (let i = 0; i < 16; i++) {
+      const mesh = this.acquireParticle(new THREE.Color().setHSL(0.12 + Math.random() * 0.4, 1, 0.65));
+      const size = 0.08 + Math.random() * 0.12;
+      mesh.scale.setScalar(size);
+      mesh.position.set(x, y, z);
+      const angle = Math.random() * Math.PI * 2;
+      const spd = 2 + Math.random() * 5;
+      this.active.push({
+        mesh,
+        vel: {
+          x: -1 + Math.random() * 2,
+          y: Math.cos(angle) * spd,
+          z: Math.sin(angle) * spd,
+        },
+        angVel: { x: 0, y: 0, z: 0 },
+        life: 0.35 + Math.random() * 0.25,
+        maxLife: 0.6,
+        bounce: 0,
+        drag: 2.2,
+        size,
+      });
+    }
+    this.spawnFlash(x, y, z, 1.4, 0.22, 0xffd700);
   }
 
   /**
@@ -415,5 +518,10 @@ export class Effects {
     this.debrisGeo.dispose();
     this.particleGeo.dispose();
     this.flashGeo.dispose();
+    if (this.speedLines) {
+      scene.remove(this.speedLines);
+      this.speedLines.geometry.dispose();
+      this.speedLineMat.dispose();
+    }
   }
 }

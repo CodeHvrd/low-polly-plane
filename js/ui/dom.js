@@ -121,6 +121,13 @@ function resolve() {
     btnOpenShop: optional('btn-open-shop'),
     btnAgain: must('btn-again'),
 
+    // Misiones y Toasts
+    missionsWidget: optional('missions-widget'),
+    missionsWidgetList: optional('missions-widget-list'),
+    missionsPanelList: optional('missions-panel-list'),
+    resultMissions: optional('result-missions'),
+    toastLayer: optional('toast-layer'),
+
     // Varios
     crashFlash: must('crash-flash'),
     fader: must('fader'),

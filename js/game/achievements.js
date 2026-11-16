@@ -100,5 +100,7 @@ export function statsVacios() {
     landings: 0,
     /** Veces que se salió del corredor. */
     corridorExits: 0,
+    /** Rozes cercanos a milímetros de obstáculos sin chocar. */
+    nearMisses: 0,
   };
 }

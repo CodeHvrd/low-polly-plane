@@ -125,8 +125,16 @@
       <button type="button" id="btn-exit" class="menu-btn">EXIT</button>
     </nav>
 
+    <!-- Widget de las 3 misiones activas en el lobby -->
+    <div id="missions-widget" class="missions-widget" data-ui-interactive>
+      <div class="missions-widget-title">🎯 MISIONES ACTIVAS</div>
+      <div id="missions-widget-list" class="missions-list"></div>
+    </div>
+
     <!-- Panel de premios: se llena en el paso 3. -->
     <section id="awards-panel" class="menu-panel hidden" data-ui-interactive>
+      <h2 class="profile-title">MISIONES ACTIVAS</h2>
+      <div id="missions-panel-list" class="missions-list"></div>
       <h2>PREMIOS <span id="awards-count">0 / 0</span></h2>
       <div id="awards-list"></div>
       <h2 class="profile-title">MEJORES VUELOS</h2>
@@ -367,6 +375,9 @@
 
       <div id="res-record" data-required></div><!-- versión chica: ver CSS -->
 
+      <!-- Progreso de misiones tras el vuelo -->
+      <div id="result-missions" class="result-missions-box"></div>
+
       <!--
         ── Tres íconos en vez de botones de texto ──
         Reintentar (↻), salir al menú (⌂) y opciones (⚙). Es lo que se pidió: un
@@ -413,6 +424,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ── TOASTS FLOTANTES (MISIONES Y GAME JUICE) ── -->
+  <div id="toast-layer" aria-live="polite"></div>
 
   <!-- ── CAPAS EFÍMERAS ── -->
   <div id="crash-flash" data-required aria-hidden="true"></div>

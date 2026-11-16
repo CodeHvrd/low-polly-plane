@@ -24,7 +24,7 @@
  * persecución.
  * ============================================================
  */
-import { camera, onResize } from '../core/engine.js';
+import { camera, onResize, fovParaAspecto } from '../core/engine.js';
 import { CAMERA } from '../config.js';
 import { smoothstep, clamp01, clamp } from '../core/math.js';
 import { PHASE } from './RunController.js';
@@ -74,6 +74,10 @@ export class CameraRig {
     /** Eje lateral del mundo, para calcular el alabeo. */
     this._right = new THREE.Vector3();
 
+    this.baseFov = fovParaAspecto(camera.aspect || 1);
+    this.speedFovOffset = 0;
+    this.shake = 0;
+
     camera.position.copy(this.position);
     camera.lookAt(this.target);
 
@@ -84,10 +88,17 @@ export class CameraRig {
 
   applyAspect() {
     camera.aspect = window.innerWidth / window.innerHeight;
+    this.baseFov = fovParaAspecto(camera.aspect);
+    camera.fov = this.baseFov + this.speedFovOffset;
     camera.updateProjectionMatrix();
     if (this.blend < 1 || this.mode === CameraMode.STANDBY || this.mode === CameraMode.LAUNCH) {
       this._applyBlend();
     }
+  }
+
+  /** Dispara un sacudón cinético en la cámara (near miss, choque o propulsión). */
+  triggerShake(amount = 0.3) {
+    this.shake = Math.min(0.8, this.shake + amount);
   }
 
   /**
@@ -205,6 +216,11 @@ export class CameraRig {
     const isFlying = phase === PHASE.FLYING || phase === PHASE.CRASHED;
 
     if (!isFlying) {
+      if (this.speedFovOffset > 0.05) {
+        this.speedFovOffset *= Math.exp(-6 * dt);
+        camera.fov = this.baseFov + this.speedFovOffset;
+        camera.updateProjectionMatrix();
+      }
       // Quieto en la resortera: avanzar la transición, si hay alguna.
       this._advanceBlend(dt);
       this._applyBlend();
@@ -220,6 +236,17 @@ export class CameraRig {
     this.onTransitionEnd = null;
 
     const speed = Math.hypot(flight.vx, flight.vy, flight.vz);
+
+    // ── FOV dinámico por velocidad ──
+    const speedRatio = clamp((speed - 25) / 45, 0, 1);
+    const targetFovOffset = speedRatio * 11;
+    this.speedFovOffset += (targetFovOffset - this.speedFovOffset) * (1 - Math.exp(-3.5 * dt));
+    const targetFov = this.baseFov + this.speedFovOffset;
+    if (Math.abs(camera.fov - targetFov) > 0.05) {
+      camera.fov = targetFov;
+      camera.updateProjectionMatrix();
+    }
+
     this._velDir.set(flight.vx, flight.vy, flight.vz);
     if (this._velDir.lengthSq() < 1e-6) this._velDir.set(1, 0, 0);
     this._velDir.normalize();
@@ -295,6 +322,24 @@ export class CameraRig {
      */
     const floor = Math.max(1.5, flight.y + CAMERA.FOLLOW_MIN_ABOVE);
     if (this.position.y < floor) this.position.y = floor;
+
+    // Sacudón cinético (impacto / near miss / propulsión / alta velocidad aerodinámica)
+    let shakeX = 0;
+    let shakeY = 0;
+    if (speed > 45) {
+      const rumble = clamp((speed - 45) / 35, 0, 1) * 0.12;
+      shakeX += (Math.random() - 0.5) * rumble;
+      shakeY += (Math.random() - 0.5) * rumble;
+    }
+    if (this.shake > 0.005) {
+      shakeX += (Math.random() - 0.5) * this.shake * 0.45;
+      shakeY += (Math.random() - 0.5) * this.shake * 0.45;
+      this.shake *= Math.exp(-6 * dt);
+    }
+    if (shakeX !== 0 || shakeY !== 0) {
+      this.position.x += shakeX;
+      this.position.y += shakeY;
+    }
 
     camera.position.copy(this.position);
     camera.lookAt(this.target);

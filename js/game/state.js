@@ -17,6 +17,7 @@
  * ============================================================
  */
 import { getSpec, DEFAULT_AIRCRAFT, AIRCRAFT_LIST } from '../physics/specs.js';
+import { sanitizeMissionsSave, getInitialActiveMissions } from './missions.js';
 
 /**
  * @typedef {Object} UpgradeDef
@@ -155,6 +156,7 @@ export function statsVacios() {
   return {
     rings: 0, boosters: 0, runs: 0, crashes: 0, coinsCollected: 0,
     bestDistance: 0, playMs: 0, landings: 0, corridorExits: 0,
+    nearMisses: 0,
   };
 }
 
@@ -173,6 +175,7 @@ export const STATE = {
   aircraft: DEFAULT_AIRCRAFT,
   muted: false,
   orientationPref: 'auto',
+  missions: { active: getInitialActiveMissions(), completed: [] },
 
   /**
    * Vuelo siguiendo el cursor del mouse (escritorio). APAGADO por defecto.
@@ -261,6 +264,7 @@ export function hydrate(save) {
    * explícitamente vuela con el teclado, que es lo que ya conoce.
    */
   STATE.cursorFollow = save.cursorFollow === true;
+  STATE.missions = sanitizeMissionsSave(save.missions);
   /*
    * Las mejoras guardadas pueden venir en el formato VIEJO (global) o en el nuevo
    * (por nave). Se migran al cargar, asignando las compradas a la nave que el
@@ -417,5 +421,7 @@ export function toSaveObject() {
     muted: STATE.muted,
     cursorFollow: STATE.cursorFollow,
     orientationPref: STATE.orientationPref,
+    missions: sanitizeMissionsSave(STATE.missions),
+    stats: { ...STATE.stats },
   };
 }

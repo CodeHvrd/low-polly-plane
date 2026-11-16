@@ -120,10 +120,35 @@ export const sfx = {
     noiseBurst({ dur: 0.22, gain: 0.12, freq: 1400 });
   },
 
-  /** Aro atravesado: arpegio corto y brillante. */
-  ring() {
-    tone({ freq: 880, dur: 0.12, type: 'sine', gain: 0.18 });
-    tone({ freq: 1320, dur: 0.16, type: 'sine', gain: 0.14, delay: 0.07 });
+  /** Aro atravesado: arpegio ascendente que escala en tono con la racha. */
+  ring(streak = 1) {
+    const semitone = Math.min(12, Math.max(0, (streak - 1) % 12));
+    const pitchMult = Math.pow(2, semitone / 12);
+    tone({ freq: 880 * pitchMult, dur: 0.12, type: 'sine', gain: 0.18 });
+    tone({ freq: 1320 * pitchMult, dur: 0.16, type: 'sine', gain: 0.14, delay: 0.06 });
+  },
+
+  /** Roce a milímetros de un obstáculo sin chocar (Near Miss). */
+  nearMiss() {
+    noiseBurst({ dur: 0.18, gain: 0.22, freq: 1900, q: 2.4 });
+    tone({ freq: 1760, toFreq: 2637, dur: 0.15, type: 'sine', gain: 0.18 });
+    tone({ freq: 2200, dur: 0.20, type: 'triangle', gain: 0.14, delay: 0.05 });
+  },
+
+  /** Misión cumplida: fanfarria ascendente triunfal de 4 notas. */
+  missionComplete() {
+    tone({ freq: 523, dur: 0.08, type: 'triangle', gain: 0.22 });
+    tone({ freq: 659, dur: 0.08, type: 'triangle', gain: 0.22, delay: 0.07 });
+    tone({ freq: 784, dur: 0.09, type: 'triangle', gain: 0.24, delay: 0.14 });
+    tone({ freq: 1046, dur: 0.28, type: 'triangle', gain: 0.28, delay: 0.22 });
+    tone({ freq: 2093, dur: 0.22, type: 'sine', gain: 0.12, delay: 0.22 });
+  },
+
+  /** Disparo de propulsión a reacción: rugido y cuerpo con empuje. */
+  thrust() {
+    noiseBurst({ dur: 0.32, gain: 0.26, freq: 900, q: 1.2 });
+    tone({ freq: 200, toFreq: 50, dur: 0.35, type: 'sawtooth', gain: 0.22 });
+    tone({ freq: 380, toFreq: 95, dur: 0.28, type: 'sine', gain: 0.18, delay: 0.02 });
   },
 
   bounce(strength01) {

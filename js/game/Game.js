@@ -71,6 +71,7 @@ import { ResultScreen } from '../ui/resultScreen.js';
 import { Shop } from '../ui/shop.js';
 import { AircraftSelector } from '../ui/aircraftSelector.js';
 import { TouchControls } from '../ui/touchControls.js';
+import { evaluateMissions, advanceCompletedMission } from './missions.js';
 
 export class Game {
   constructor() {
@@ -89,6 +90,8 @@ export class Game {
     this.lastTime = 0;
     /** Acumulador para el tope de tiempo del resultado. */
     this.resultTimer = null;
+    /** Misiones completadas durante el vuelo actual para evitar toasts duplicados. */
+    this._completedThisFlight = new Set();
 
     this.overlays = new Overlays();
 
@@ -181,6 +184,7 @@ export class Game {
 
     this.view.setType(STATE.aircraft);
     this.syncCoins();
+    this.renderMisiones();
     this.syncAimCallout();
     this.cameraRig.snapToAim();
 
@@ -266,6 +270,8 @@ export class Game {
 
     this.controller.setRecordBaseline(STATE.bestDistance);
     this.controller.reset();
+    this._completedThisFlight.clear();
+    this.renderMisiones();
     this.aiming.refresh();
     // Tras un vuelo se vuelve a la PRIMERA etapa: cámara lateral, con el
     // título y la tienda a la vista. El jugador decide cuándo pasar a la
@@ -346,6 +352,8 @@ export class Game {
     st.rings += result.rings ?? 0;
     st.boosters += result.boosters ?? 0;
     st.coinsCollected += result.coinsCollected ?? 0;
+    st.nearMisses = (st.nearMisses ?? 0) + (result.nearMisses ?? 0);
+    st.ringCombos = (st.ringCombos ?? 0) + (result.ringCombos ?? 0);
     st.playMs += Math.round((result.time ?? 0) * 1000);
     if (result.distance > st.bestDistance) st.bestDistance = result.distance;
     /*
@@ -373,6 +381,8 @@ export class Game {
     this.selector.setActive(STATE.aircraft);
 
     ResultScreen.show(result);
+    this.checkMissionsProgress(result);
+    this.renderMisiones(result);
 
     // El HUD queda visible de fondo mostrando las cifras finales.
     this.overlays.showResult();
@@ -625,6 +635,160 @@ export class Game {
   syncCoins() {
     HUD.updateCoins(STATE.coins);
     this.shop.refreshAffordability();
+  }
+
+  // ── Misiones y Notificaciones Flotantes ───────────────────
+  /**
+   * Muestra un toast emergente flotante en pantalla (misión cumplida, near miss, etc.).
+   * @param {string} title
+   * @param {string} subtitle
+   * @param {'mission'|'near-miss'|'info'} [type='mission']
+   */
+  showToast(title, subtitle, type = 'mission') {
+    const layer = UI.toastLayer || document.getElementById('toast-layer');
+    if (!layer) return;
+
+    const toast = document.createElement('div');
+    toast.className = `game-toast toast-${type}`;
+
+    const tTitle = document.createElement('div');
+    tTitle.className = 'toast-title';
+    tTitle.textContent = title;
+
+    const tSub = document.createElement('div');
+    tSub.className = 'toast-sub';
+    tSub.textContent = subtitle;
+
+    toast.append(tTitle, tSub);
+    layer.appendChild(toast);
+
+    const duration = type === 'near-miss' ? 1800 : 2800;
+    setTimeout(() => {
+      toast.classList.add('toast-leaving');
+      setTimeout(() => {
+        toast.remove();
+      }, 350);
+    }, duration);
+  }
+
+  /**
+   * Construye el elemento DOM de una tarjeta de misión para widgets y paneles.
+   * @private
+   */
+  _createMissionCard(m) {
+    const card = document.createElement('div');
+    card.className = 'mission-card' + (m.isCompleted ? ' completed' : '');
+
+    const icon = document.createElement('div');
+    icon.className = 'mission-icon';
+    icon.textContent = m.icon || '🎯';
+
+    const body = document.createElement('div');
+    body.className = 'mission-body';
+
+    const titleRow = document.createElement('div');
+    titleRow.className = 'mission-title-row';
+
+    const title = document.createElement('div');
+    title.className = 'mission-title';
+    title.textContent = m.title;
+
+    const reward = document.createElement('div');
+    reward.className = 'mission-reward';
+    reward.textContent = `+${m.reward} 🪙`;
+
+    titleRow.append(title, reward);
+
+    const desc = document.createElement('div');
+    desc.className = 'mission-desc';
+    desc.textContent = m.desc;
+
+    const bar = document.createElement('div');
+    bar.className = 'mission-bar';
+
+    const fill = document.createElement('div');
+    fill.className = 'mission-fill';
+    fill.style.width = `${m.pct}%`;
+
+    const txt = document.createElement('div');
+    txt.className = 'mission-bar-text';
+    txt.textContent = m.isCompleted ? '✓ ¡COMPLETADA!' : `${m.progress} / ${m.target}`;
+
+    bar.append(fill, txt);
+    body.append(titleRow, desc, bar);
+    card.append(icon, body);
+    return card;
+  }
+
+  /**
+   * Evalúa el progreso de las 3 misiones activas en tiempo real o al final del vuelo.
+   * @param {object} [finalStats=null]
+   */
+  checkMissionsProgress(finalStats = null) {
+    if (!STATE.missions?.active) return;
+    const fl = this.controller?.flight;
+    const runStats = this.controller?.stats;
+    const flightStats = finalStats || {
+      distance: Math.max(0, Math.round(fl?.x ?? runStats?.distance ?? 0)),
+      maxSpeed: runStats?.maxSpeed ?? 0,
+      maxAltitude: Math.max(0, (fl?.y ?? runStats?.maxAltitude ?? 0) - LAUNCH_POS.y),
+      coinsCollected: runStats?.coinsCollected ?? 0,
+      rings: runStats?.rings ?? 0,
+      boosters: runStats?.boosters ?? 0,
+      nearMisses: runStats?.nearMisses ?? 0,
+      ringCombos: runStats?.ringCombos ?? 0,
+      thrustsUsed: runStats?.thrustsUsed ?? 0,
+      time: runStats?.time ?? 0,
+    };
+
+    const evalList = evaluateMissions(STATE.missions.active, flightStats, STATE.stats);
+    let changed = false;
+    for (const m of evalList) {
+      if (m.isCompleted && !this._completedThisFlight.has(m.id)) {
+        this._completedThisFlight.add(m.id);
+        STATE.coins += m.reward;
+        sfx.missionComplete();
+        this.cameraRig?.triggerShake(0.35);
+        this.showToast('🎯 ¡MISIÓN CUMPLIDA!', `${m.title} (+${m.reward} 🪙)`, 'mission');
+
+        const { nextActive, nextCompleted } = advanceCompletedMission(
+          STATE.missions.active,
+          STATE.missions.completed,
+          m.id,
+        );
+        STATE.missions.active = nextActive;
+        STATE.missions.completed = nextCompleted;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.persist();
+      this.syncCoins();
+      this.renderMisiones(flightStats);
+    }
+  }
+
+  /**
+   * Actualiza la visualización de las misiones en el lobby, panel de premios y pantalla de resultados.
+   * @param {object} [flightStats=null]
+   */
+  renderMisiones(flightStats = null) {
+    if (!STATE.missions?.active) return;
+    const list = evaluateMissions(STATE.missions.active, flightStats, STATE.stats);
+
+    if (UI.missionsWidgetList) {
+      UI.missionsWidgetList.replaceChildren(...list.map((m) => this._createMissionCard(m)));
+    }
+    if (UI.missionsPanelList) {
+      UI.missionsPanelList.replaceChildren(...list.map((m) => this._createMissionCard(m)));
+    }
+    if (UI.resultMissions) {
+      const heading = document.createElement('div');
+      heading.className = 'result-missions-title';
+      heading.textContent = '🎯 OBJETIVOS Y MISIONES';
+      UI.resultMissions.replaceChildren(heading, ...list.map((m) => this._createMissionCard(m)));
+    }
   }
 
   buyUpgrade(id) {
@@ -1173,6 +1337,7 @@ export class Game {
 
     const mostrarPanel = (panel) => {
       menu?.classList.toggle('hidden', Boolean(panel));
+      document.getElementById('missions-widget')?.classList.toggle('hidden', Boolean(panel));
       awardsPanel?.classList.toggle('hidden', panel !== awardsPanel);
       optionsPanel?.classList.toggle('hidden', panel !== optionsPanel);
       if (!panel) HUD.invalidate();
@@ -1312,6 +1477,7 @@ export class Game {
     document.getElementById('btn-awards')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      this.renderMisiones();
       renderLogros();
       renderRanking();
       renderPerfil();
@@ -2106,6 +2272,10 @@ export class Game {
           music.setPista(Math.min(2, Math.floor(x / 2500)));
         }
         this.syncStage(payload.stage ?? 0, payload.state.x);
+        this._missionTick = (this._missionTick || 0) + 1;
+        if (this._missionTick % 10 === 0) {
+          this.checkMissionsProgress();
+        }
         break;
 
       /*
@@ -2123,12 +2293,10 @@ export class Game {
          * aro atravesado aporte su nota.
          */
         music.ringPing(payload.total ?? 0);
-        sfx.ring();
+        sfx.ring(payload.streak ?? 1);
+        this.checkMissionsProgress();
         break;
       }
-
-        sfx.ring();
-        break;
 
       /*
        * ── Combo de aros: el empuje grande ──
@@ -2150,11 +2318,23 @@ export class Game {
          * estallidos, que se lee como premio y no como paso.
          */
         sfx.combo();
+        this.cameraRig.triggerShake(0.35);
         for (let i = 0; i < 3; i++) {
           this.effects.ringBurst(payload.x + i * 1.2, payload.y + i * 0.6, payload.z);
         }
         this.effects.boosterBurst(payload.x, payload.y, payload.z);
         HUD.flashCombo?.();
+        this.showToast('¡COMBO DE AROS!', '🚀 Súper Impulso + Carga', 'mission');
+        this.checkMissionsProgress();
+        break;
+
+      case 'nearMiss':
+        sfx.nearMiss();
+        this.cameraRig.triggerShake(0.25);
+        this.effects.nearMiss(payload.x, payload.y, payload.z);
+        HUD.updateCoins(STATE.coins + (this.controller.stats?.coins ?? 0));
+        this.showToast('¡ROZADO!', `+${payload.bonusCoins} 🪙 (Near Miss)`, 'near-miss');
+        this.checkMissionsProgress();
         break;
 
       case 'coin':
@@ -2162,6 +2342,7 @@ export class Game {
         this.effects.coinPop(payload.pickup.x, payload.pickup.y, payload.pickup.z, payload.value);
         // El HUD de monedas muestra lo del vuelo; el global se acredita al final.
         HUD.updateCoins(STATE.coins + payload.coins);
+        this.checkMissionsProgress();
         break;
 
       case 'booster':
@@ -2169,14 +2350,17 @@ export class Game {
         // El booster ya no empuja: CARGA una propulsión. El aviso es la carga,
         // no un impulso.
         HUD.updateCharges(payload.charges, PROPULSION.MAX_CHARGES, true);
+        this.checkMissionsProgress();
         break;
 
       case 'thrust':
-        sfx.booster();
+        sfx.thrust();
+        this.cameraRig.triggerShake(0.28);
         HUD.updateCharges(payload.charges, PROPULSION.MAX_CHARGES, false);
         // El empujón de morro arriba tiene su propio aviso: el jugador tiene que
         // notar que la combinación hizo algo distinto.
         if (payload.climbed) this.overlays.flash(0.18);
+        this.checkMissionsProgress();
         break;
 
       case 'bounce':
@@ -2246,6 +2430,13 @@ export class Game {
 
     this.controller.update(dt);
     this.effects.update(dt);
+
+    if (this.controller.phase === PHASE.FLYING && this.controller.flight) {
+      const fl = this.controller.flight;
+      this.effects.updateSpeedLines(fl.x, fl.y, fl.z, fl.vx, fl.vy, fl.vz, dt);
+    } else {
+      this.effects.updateSpeedLines(0, 0, 0, 0, 0, 0, dt);
+    }
 
     /*
      * Ventana de tramos: se corre cuando el avión cruza al tramo siguiente.

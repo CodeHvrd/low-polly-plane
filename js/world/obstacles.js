@@ -957,6 +957,44 @@ export function findCollision(obstacles, x, y, z, radius) {
 }
 
 /**
+ * Detecta si el avión pasó a milímetros de un obstáculo sólido sin llegar a colisionar (Near Miss).
+ *
+ * @param {Obstacle[]} obstacles
+ * @param {number} x @param {number} y @param {number} z
+ * @param {number} radius
+ * @param {number} [margin=2.4] Margen extra alrededor del AABB
+ * @returns {Obstacle|null}
+ */
+export function findNearMiss(obstacles, x, y, z, radius, margin = 2.4) {
+  const outer = radius + margin;
+  for (const ob of obstacles) {
+    if (ob._nearMissed || ob.type === 'ring' || ob.type === 'updraft') continue;
+    const a = ob.aabb;
+    if (
+      x >= a.minX - outer &&
+      x <= a.maxX + outer &&
+      y >= a.minY - outer &&
+      y <= a.maxY + outer &&
+      z >= a.minZ - outer &&
+      z <= a.maxZ + outer
+    ) {
+      const collided =
+        x >= a.minX - radius &&
+        x <= a.maxX + radius &&
+        y >= a.minY - radius &&
+        y <= a.maxY + radius &&
+        z >= a.minZ - radius &&
+        z <= a.maxZ + radius;
+
+      if (!collided) {
+        return ob;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Detecta si el avión atravesó la zona de paso de algún aro entre dos
  * posiciones consecutivas. Devuelve los aros recién atravesados.
  *
@@ -985,9 +1023,12 @@ export function findRingsPassed(obstacles, prevX, x, y, z, radius) {
   return hit;
 }
 
-/** Reinicia el estado por-vuelo de los aros. */
+/** Reinicia el estado por-vuelo de los obstáculos y aros. */
 export function resetCourseState(obstacles) {
-  for (const ob of obstacles) ob.passed = false;
+  for (const ob of obstacles) {
+    ob.passed = false;
+    ob._nearMissed = false;
+  }
 }
 
 /** Caja envolvente de todo el corredor (útil para depurar). */

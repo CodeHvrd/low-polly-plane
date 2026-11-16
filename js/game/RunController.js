@@ -42,6 +42,7 @@ import {
 import { groundHeightAt } from '../world/terrainField.js';
 import {
   findCollision,
+  findNearMiss,
   findRingsPassed,
   resetCourseState,
 } from '../world/obstacles.js';
@@ -293,6 +294,10 @@ export class RunController {
       chargesFull: false,
       /** Propulsiones usadas en el vuelo. */
       thrustsUsed: 0,
+      /** Rozes cercanos a milímetros de obstáculos sin chocar (Near Misses). */
+      nearMisses: 0,
+      /** Combos de aros conseguidos. */
+      ringCombos: 0,
       /** Velocidad que aportó el último booster (m/s), para el cartel de aviso. */
       boosterSpeed: 0,
       /**
@@ -369,6 +374,7 @@ export class RunController {
     this.charges = 0;
     this.thrustCooldown = 0;
     this.thrustsUsed = 0;
+    this.ringStreak = 0;
     this.stats = this.blankStats();
     this.accumulator = 0;
     this.impact = null;
@@ -624,6 +630,8 @@ export class RunController {
       this.accumulator -= SIM.FIXED_DT;
 
       const s = this.flight;
+      const currentSpeed = Math.hypot(s.vx, s.vy, s.vz);
+      if (currentSpeed > this.stats.maxSpeed) this.stats.maxSpeed = currentSpeed;
 
       // Longitud real de la trayectoria (no solo el avance en X).
       this.stats.pathLength += distance2D(prevX, prevZ, s.x, s.z);
@@ -700,6 +708,24 @@ export class RunController {
         break;
       }
 
+      // Near Miss (roce a milímetros sin colisión destructiva)
+      const near = findNearMiss(this.obstacles, s.x, s.y, s.z, PLANE_RADIUS, 2.4);
+      if (near && !near._nearMissed) {
+        near._nearMissed = true;
+        this.stats.nearMisses = (this.stats.nearMisses ?? 0) + 1;
+        const bonusCoins = 15;
+        this.stats.coins += bonusCoins;
+        this.stats.coinsCollected = (this.stats.coinsCollected ?? 0) + 1;
+        this.onEvent('nearMiss', {
+          obstacle: near,
+          bonusCoins,
+          x: s.x,
+          y: s.y,
+          z: s.z,
+          total: this.stats.nearMisses,
+        });
+      }
+
       /*
        * Recolectables.
        *
@@ -752,7 +778,8 @@ export class RunController {
     for (const ob of ringsHit) {
       markRingPassed(ob);
       this.effects.ringBurst(ob.x, ob.params.centerY, ob.z);
-      this.onEvent('ring', { obstacle: ob, total: this.stats.rings });
+      this.ringStreak = (this.ringStreak ?? 0) + 1;
+      this.onEvent('ring', { obstacle: ob, total: this.stats.rings, streak: this.ringStreak });
     }
 
     for (const p of collected) {
@@ -1074,6 +1101,8 @@ export class RunController {
       coinsCollected: st.coinsCollected,
       boosters: st.boosters,
       thrustsUsed: st.thrustsUsed,
+      nearMisses: st.nearMisses ?? 0,
+      ringCombos: st.ringCombos ?? 0,
       chargesLeft: st.charges,
       kind: this.impact?.kind ?? 'landing',
       cause: this.impact?.cause ?? 'ground',

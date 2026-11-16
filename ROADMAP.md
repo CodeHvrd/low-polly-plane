@@ -99,6 +99,17 @@ Soporte completo y fluido en ambas orientaciones con selector de preferencia en 
 - Regenerar el APK y sincronizar `sw.js` tras cada hito.
 - Actualizar README (algunas cifras están viejas: corredor de 600 m vs 2500 m).
 
+## Retención y Game Juice (Implementado)
+
+- [x] **Sistema de Misiones Tripartitas (Retención tipo Alto's Adventure)**: 3 objetivos activos concurrentes en Standby, Premios y Resultados con 18 misiones en catálogo, recompensas en monedas y rotación fluida al completarse.
+- [x] **Sensación de Velocidad y Game Juice (Problemática #2)**:
+  - **FOV dinámico**: apertura reactiva (+10-12°) ligada a la velocidad real y aceleración.
+  - **Speedlines procedurales**: estelas de viento de alta velocidad desvaneciéndose por encima de 32 m/s sin sobrecarga de GC.
+  - **Rumble aerodinámico y sacudida cinética**: vibración de cámara a más de 45 m/s e impactos visuales en propulsión y combos.
+  - **Mecánica de Near Miss (Vuelo rasante)**: detección de proximidad (<2.4m) a obstáculos sólidos sin impacto con premio instantáneo (+15 monedas), ráfaga de partículas oro/cian y sacudida.
+  - **Escala armónica de aros**: pitch ascendente en semitonos para rachas consecutivas de aros atravesados.
+  - **Toasts flotantes**: avisos estilizados en tiempo real para misiones y vuelos rasantes.
+
 ## Decisiones tomadas
 
 1. **Ranking online.** Requiere backend (cuenta/ID de jugador, validación anti-trampa, tabla por avión). Hay que elegir proveedor y definir cómo se verifica un puntaje (el juego es determinista por semilla: se puede reenviar semilla + inputs para validar).

@@ -9,13 +9,20 @@
  * Ejecutar:  node tools/verify-game-logic.mjs
  * ============================================================
  */
-import { generateCourse, findCollision, findRingsPassed, resetCourseState, courseBounds, pointInAabb } from '../js/world/obstacles.js';
+import { generateCourse, findCollision, findNearMiss, findRingsPassed, resetCourseState, courseBounds, pointInAabb } from '../js/world/obstacles.js';
 import { terrainHeightAt, setTerrainAmplitudeProvider } from '../js/world/terrainField.js';
 import { generatePickups, pickupSummary, collectAt, resetPickups, setAltitudeProvider } from '../js/world/collectibles.js';
 import { buildProfile, valueAt, desiredAltitudeAt } from '../js/game/flightProfile.js';
 import { sanitizeSave, DEFAULT_SAVE } from '../js/core/storage.js';
 import { clamp, createRng, remap, formatNumber, damp } from '../js/core/math.js';
 import { AIM, WORLD, OBSTACLES, ECONOMY, STAGES, PICKUPS, PROPULSION } from '../js/config.js';
+import {
+  MISSION_CATALOG,
+  getInitialActiveMissions,
+  sanitizeMissionsSave,
+  evaluateMissions,
+  advanceCompletedMission,
+} from '../js/game/missions.js';
 
 let passed = 0;
 const failures = [];
@@ -575,6 +582,102 @@ section('11. Propulsión como recurso');
   check('el planeo base es corto (los boosters importan)', PROPULSION.BASE_GLIDE <= 8, `${PROPULSION.BASE_GLIDE}s`);
   check('el planeo tiene tope', PROPULSION.GLIDE_MAX > PROPULSION.BASE_GLIDE && PROPULSION.GLIDE_MAX < 40, `${PROPULSION.GLIDE_MAX}s`);
   check('la recarga de planeo por booster es positiva', PROPULSION.GLIDE_BONUS > 0);
+}
+
+// ── 12. Detección de Near Miss (Vuelo rasante y Game Juice) ─
+section('12. Detección de Near Miss (Vuelo rasante)');
+{
+  const testObstacles = [
+    {
+      id: 101,
+      type: 'rock',
+      aabb: { minX: 100, maxX: 104, minY: 0, maxY: 6, minZ: -2, maxZ: 2 },
+    },
+    {
+      id: 102,
+      type: 'ring', // Los aros se atraviesan, no son near miss
+      aabb: { minX: 150, maxX: 152, minY: 5, maxY: 15, minZ: -5, maxZ: 5 },
+    },
+  ];
+
+  // Colisión directa -> no es Near Miss (es un impacto)
+  const directCollision = findNearMiss(testObstacles, 102, 3, 0, 0.4, 2.5);
+  check('impacto directo no es near miss', directCollision === null);
+
+  // Vuelo rasante a 1.2 m del borde de la roca -> Near Miss exitoso
+  const near = findNearMiss(testObstacles, 105.2, 3, 0, 0.4, 2.5);
+  check('vuelo rasante a un obstáculo sólido lo detecta', near?.id === 101);
+
+  // Ya marcado con _nearMissed no se detecta otra vez
+  near._nearMissed = true;
+  const duplicate = findNearMiss(testObstacles, 105.2, 3, 0, 0.4, 2.5);
+  check('el mismo obstáculo no dispara dos near misses', duplicate === null);
+
+  // Reset limpia la bandera
+  resetCourseState(testObstacles);
+  check('resetCourseState limpia la bandera _nearMissed', testObstacles[0]._nearMissed === false);
+
+  // Un aro nunca dispara near miss
+  const ringNear = findNearMiss(testObstacles, 153, 10, 0, 0.4, 2.5);
+  check('los aros no disparan near miss (se premian al cruzarlos)', ringNear === null);
+}
+
+// ── 13. Sistema de Misiones Tripartitas ───────────────────────
+section('13. Sistema de Misiones Tripartitas');
+{
+  check('el catálogo de misiones tiene al menos 15 misiones', MISSION_CATALOG.length >= 15, `${MISSION_CATALOG.length}`);
+  check(
+    'todas las misiones tienen id, títulos, recompensas y función de progreso válidos',
+    MISSION_CATALOG.every(
+      (m) =>
+        typeof m.id === 'string' &&
+        typeof m.title === 'string' &&
+        m.reward > 0 &&
+        m.target > 0 &&
+        (m.scope === 'flight' || m.scope === 'total') &&
+        typeof m.getProgress === 'function',
+    ),
+  );
+
+  const initial = getInitialActiveMissions();
+  check('las misiones iniciales son exactamente 3 distintas', initial.length === 3 && new Set(initial).size === 3);
+
+  // Saneamiento de partidas guardadas
+  const sanitized = sanitizeMissionsSave({
+    active: ['dist-120', 'invalid-id'],
+    completed: ['speed-35'],
+  });
+  check('sanitizeMissionsSave rellena hasta 3 activas válidas', sanitized.active.length === 3);
+  check('sanitizeMissionsSave preserva las completadas', sanitized.completed.includes('speed-35'));
+  check('las misiones activas no contienen IDs completados', !sanitized.active.includes('speed-35'));
+
+  // Evaluación de progreso
+  const flightStats = {
+    distance: 150, // supera dist-120 (target 120)
+    maxSpeed: 25,  // no supera speed-35 (target 35)
+    coinsCollected: 10,
+    nearMisses: 2,
+  };
+  const lifetimeStats = { rings: 5, nearMisses: 5, coinsCollected: 50 };
+
+  const evaluated = evaluateMissions(['dist-120', 'speed-35', 'near-1'], flightStats, lifetimeStats);
+  const mDist = evaluated.find((m) => m.id === 'dist-120');
+  const mSpeed = evaluated.find((m) => m.id === 'speed-35');
+  const mNear = evaluated.find((m) => m.id === 'near-1');
+
+  check('misión de distancia cumplida detectada', mDist?.isCompleted === true && mDist?.pct === 100);
+  check('misión de velocidad incompleta calcula porcentaje correcto', mSpeed?.isCompleted === false && mSpeed?.pct > 0 && mSpeed?.pct < 100);
+  check('misión de near miss cumplida', mNear?.isCompleted === true);
+
+  // Rotación y avance de misión cumplida
+  const { nextActive, nextCompleted, replacement } = advanceCompletedMission(
+    ['dist-120', 'speed-35', 'near-1'],
+    [],
+    'dist-120',
+  );
+  check('la misión completada pasa a la lista de completadas', nextCompleted.includes('dist-120'));
+  check('el slot activo es reemplazado por una nueva misión', !nextActive.includes('dist-120') && nextActive.length === 3);
+  check('hay un reemplazo válido del catálogo', replacement !== null && replacement.id !== 'dist-120');
 }
 
 // ── Resumen ─────────────────────────────────────────────────
