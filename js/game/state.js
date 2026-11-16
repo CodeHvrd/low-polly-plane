@@ -265,7 +265,7 @@ export function hydrate(save) {
    * El vuelo con cursor es una alternativa, no el modo principal: quien no lo elija
    * explícitamente vuela con el teclado, que es lo que ya conoce.
    */
-  STATE.cursorFollow = save.cursorFollow === true;
+  STATE.cursorFollow = typeof save.cursorFollow === 'boolean' ? save.cursorFollow : null;
   STATE.missions = sanitizeMissionsSave(save.missions);
   STATE.story = sanitizeStorySave(save.story);
   /*

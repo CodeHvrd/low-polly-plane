@@ -170,8 +170,23 @@ export class TouchControls {
     cont.appendChild(atras);
 
     document.body.appendChild(cont);
+    this.raiz = cont;
     this.built = true;
     return true;
+  }
+
+  /**
+   * Alterna entre modo "Seguir al dedo" (oculta flechas, boost abajo-izquierda)
+   * y modo "Teclas en pantalla" (D-pad visible + boost abajo-derecha).
+   * @param {boolean} active
+   */
+  setFollowMode(active) {
+    const on = Boolean(active);
+    this.followMode = on;
+    if (!this.built) return;
+    this.dpad?.raiz?.classList.toggle('hidden', on);
+    this.raiz?.classList.toggle('follow-mode', on);
+    if (on) this._resetDpad();
   }
 
   /**

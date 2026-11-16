@@ -37,7 +37,7 @@ import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted } from '../core/audio.js';
 import { music, pistaParaTramo } from '../core/music.js';
 import { precargarGLB } from '../world/glbLoader.js';
-import { setPointerFollow, setPointerPosition, pointerFollowInfo } from '../core/input.js';
+import { setPointerFollow, setPointerPosition, pointerFollowInfo, isTouchDevice } from '../core/input.js';
 import { BUILD } from '../core/version.js';
 
 import {
@@ -176,6 +176,9 @@ export class Game {
   // ── Arranque ──────────────────────────────────────────────
   start() {
     hydrate(loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id)));
+    if (STATE.cursorFollow === null || STATE.cursorFollow === undefined) {
+      STATE.cursorFollow = isTouchDevice();
+    }
     initUpgradeLevels();
     setMuted(STATE.muted ?? false);
     this.syncMuteButton();
@@ -1445,6 +1448,7 @@ export class Game {
         }
       },
     });
+    this.touch.setFollowMode(Boolean(STATE.cursorFollow));
 
     /*
      * ── El selector se oculta si hay un solo modo ──
@@ -1893,6 +1897,7 @@ export class Game {
         STATE.cursorFollow = !STATE.cursorFollow;
         btnCursor.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
         setPointerFollow(STATE.cursorFollow && this.controller.phase === PHASE.FLYING);
+        this.touch?.setFollowMode(Boolean(STATE.cursorFollow));
         this.persist();
       });
     }
@@ -2062,10 +2067,35 @@ export class Game {
     const seguirCursor = (e) => {
       setPointerPosition(e.clientX, e.clientY);
     };
+    this._followTouchId = null;
+    window.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      if (this.controller.phase !== PHASE.FLYING || !STATE.cursorFollow) return;
+      if (e.target?.closest?.('#touch-controls, [data-ui-interactive]')) return;
+      if (this._followTouchId === null) {
+        this._followTouchId = e.pointerId;
+        seguirCursor(e);
+      }
+    }, { capture: true });
     window.addEventListener('pointermove', (e) => {
-      if (e.pointerType === 'touch') return;
+      if (e.pointerType === 'touch') {
+        if (e.pointerId === this._followTouchId && this.controller.phase === PHASE.FLYING && STATE.cursorFollow) {
+          seguirCursor(e);
+        }
+        return;
+      }
       seguirCursor(e);
     }, { capture: true });
+    const soltarDedoSeguir = (e) => {
+      if (e.pointerType === 'touch' && e.pointerId === this._followTouchId) {
+        this._followTouchId = null;
+        if (this.controller.phase === PHASE.FLYING && STATE.cursorFollow) {
+          setPointerFollow(true); // vuelve a neutro al levantar el dedo
+        }
+      }
+    };
+    window.addEventListener('pointerup', soltarDedoSeguir, { capture: true });
+    window.addEventListener('pointercancel', soltarDedoSeguir, { capture: true });
     window.addEventListener('mousemove', seguirCursor, { capture: true });
 
     /*

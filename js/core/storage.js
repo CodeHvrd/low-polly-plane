@@ -112,7 +112,7 @@ export function sanitizeSave(raw, upgradeIds, aircraftIds) {
     ? raw.aircraft
     : DEFAULT_SAVE.aircraft;
 
-  out.cursorFollow = raw.cursorFollow === true;
+  out.cursorFollow = typeof raw.cursorFollow === 'boolean' ? raw.cursorFollow : null;
   out.missions = sanitizeMissionsSave(raw.missions);
   out.story = sanitizeStorySave(raw.story);
   out.stats = raw.stats && typeof raw.stats === 'object' ? { ...raw.stats } : undefined;
@@ -147,7 +147,7 @@ export function persistSave(state) {
     aircraft: state.aircraft,
     muted: state.muted,
     orientation: state.orientationPref ?? 'auto',
-    cursorFollow: state.cursorFollow === true,
+    cursorFollow: typeof state.cursorFollow === 'boolean' ? state.cursorFollow : null,
     missions: state.missions ? sanitizeMissionsSave(state.missions) : undefined,
     story: state.story ? sanitizeStorySave(state.story) : undefined,
     stats: state.stats ? { ...state.stats } : undefined,
