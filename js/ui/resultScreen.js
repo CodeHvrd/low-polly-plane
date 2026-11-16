@@ -17,6 +17,9 @@ import { formatNumber } from '../core/math.js';
 
 /** Título y color según cómo terminó el vuelo. */
 function classify(result) {
+  if (result.cause === 'finish') {
+    return { title: '🏁 ¡NIVEL COMPLETADO!', cls: 'res-good' };
+  }
   if (result.cause === 'obstacle') {
     return { title: '💥 IMPACTO', cls: 'res-crash' };
   }

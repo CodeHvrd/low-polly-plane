@@ -2,7 +2,7 @@
  * PAPERCRASH — modes/storyLevels.js
  * ============================================================
  * Configuración declarativa pura de los 5 niveles del Modo Historia
- * (tutoriales progresivos hacia el Modo Endless).
+ * (niveles finitos con meta física que desbloquean el Modo Endless).
  *
  * ── Pureza Arquitectónica ──
  * Módulo 100% puro (sin DOM ni Three.js). Define parámetros de terreno,
@@ -25,14 +25,14 @@
  * @property {string} name
  * @property {string} subtitle
  * @property {string|null} aircraft   ID fijo de aeronave o null para libre elección
- * @property {number} targetDistance  Meta de distancia (m) para superar el nivel (1★)
- * @property {number} courseLength    Largo sugerido del corredor (m)
+ * @property {number} targetDistance  Meta de distancia (m) donde termina el nivel (1★)
+ * @property {number} courseLength    Largo del corredor del nivel (m)
  * @property {number} paletteIndex    Índice de paleta en STAGES.PALETTES
  * @property {number} groundAmplitude Amplitud de relieve inyectada en terrainField
  * @property {number} obstacleDensity Multiplicador de densidad de obstáculos
  * @property {string[]} allowedObstacles Tipos permitidos en este nivel
  * @property {string} hint            Mensaje tutorial contextual no intrusivo
- * @property {number} rewardCoins     Monedas ganadas al completar el nivel por 1.ª vez o superarlo
+ * @property {number} rewardCoins     Monedas ganadas al completar el nivel
  * @property {StoryStarCriterion[]} stars
  */
 
@@ -42,31 +42,31 @@ export const STORY_LEVELS = [
     id: 'story-1',
     number: 1,
     name: 'El Primer Pliegue',
-    subtitle: 'Domina la resortera y el planeo',
+    subtitle: 'Resortera, planeo y primeros boosters',
     aircraft: 'paper',
-    targetDistance: 150,
-    courseLength: 240,
+    targetDistance: 600,
+    courseLength: 700,
     paletteIndex: 0,
     groundAmplitude: 0.04,
-    obstacleDensity: 0.2,
-    allowedObstacles: ['tree'],
-    hint: 'Arrastrá la resortera hacia atrás para cargar potencia y arriba/abajo para elegir ángulo.',
-    rewardCoins: 80,
+    obstacleDensity: 0.25,
+    allowedObstacles: ['tree', 'rock'],
+    hint: 'Arrastrá la resortera para ajustar potencia y ángulo. ¡Recogé boosters para llegar a la meta a 600 m!',
+    rewardCoins: 100,
     stars: [
       {
         id: 'finish',
-        label: 'Cruzá la meta a 150 m',
-        check: (r) => (r?.distance ?? 0) >= 150,
+        label: 'Cruzá la meta a 600 m',
+        check: (r) => (r?.distance ?? 0) >= 600,
       },
       {
         id: 'coins',
-        label: 'Recogé al menos 8 monedas',
-        check: (r) => (r?.coinsCollected ?? 0) >= 8,
+        label: 'Recogé al menos 12 monedas',
+        check: (r) => (r?.coinsCollected ?? 0) >= 12,
       },
       {
-        id: 'land',
-        label: 'Aterrizaje suave pasado los 170 m',
-        check: (r) => (r?.distance ?? 0) >= 170 && r?.kind === 'landing',
+        id: 'boosters',
+        label: 'Recogé 2 boosters en el vuelo',
+        check: (r) => (r?.boosters ?? 0) >= 2,
       },
     ],
   },
@@ -76,29 +76,29 @@ export const STORY_LEVELS = [
     name: 'Corrientes del Valle',
     subtitle: 'Boosters de recarga y vendavales',
     aircraft: 'paper',
-    targetDistance: 280,
-    courseLength: 380,
+    targetDistance: 1000,
+    courseLength: 1100,
     paletteIndex: 1,
     groundAmplitude: 0.09,
     obstacleDensity: 0.45,
     allowedObstacles: ['tree', 'rock', 'updraft'],
-    hint: 'Los boosters recargan tu planeo y te dan cargas. ¡Entrá en los vendavales para remontar!',
-    rewardCoins: 120,
+    hint: 'Los boosters recargan tu planeo y te dan cargas. ¡Entrá en los vendavales para remontar hasta los 1.000 m!',
+    rewardCoins: 150,
     stars: [
       {
         id: 'finish',
-        label: 'Cruzá la meta a 280 m',
-        check: (r) => (r?.distance ?? 0) >= 280,
+        label: 'Cruzá la meta a 1.000 m',
+        check: (r) => (r?.distance ?? 0) >= 1000,
       },
       {
         id: 'boosters',
-        label: 'Recogé 2 boosters en el vuelo',
-        check: (r) => (r?.boosters ?? 0) >= 2,
+        label: 'Recogé 3 boosters en el vuelo',
+        check: (r) => (r?.boosters ?? 0) >= 3,
       },
       {
         id: 'altitude',
-        label: 'Alcanzá 24 m de altitud máxima',
-        check: (r) => (r?.maxAltitude ?? 0) >= 24,
+        label: 'Alcanzá 26 m de altitud máxima',
+        check: (r) => (r?.maxAltitude ?? 0) >= 26,
       },
     ],
   },
@@ -108,24 +108,24 @@ export const STORY_LEVELS = [
     name: 'El Circuito de Aros',
     subtitle: 'Viraje lateral y combos de aros',
     aircraft: 'passenger',
-    targetDistance: 400,
-    courseLength: 520,
+    targetDistance: 2200,
+    courseLength: 2350,
     paletteIndex: 2,
     groundAmplitude: 0.14,
     obstacleDensity: 0.68,
     allowedObstacles: ['tree', 'rock', 'mesa', 'ring', 'updraft'],
-    hint: 'Girá con A/D para alinear el avión con los aros celestes. ¡4 seguidos activan un Súper Impulso!',
-    rewardCoins: 160,
+    hint: 'Girá con A/D para alinear el avión con los aros celestes. ¡4 seguidos activan un Súper Impulso hacia los 2.200 m!',
+    rewardCoins: 220,
     stars: [
       {
         id: 'finish',
-        label: 'Cruzá la meta a 400 m',
-        check: (r) => (r?.distance ?? 0) >= 400,
+        label: 'Cruzá la meta a 2.200 m',
+        check: (r) => (r?.distance ?? 0) >= 2200,
       },
       {
         id: 'rings',
-        label: 'Atravesá 3 aros en el recorrido',
-        check: (r) => (r?.rings ?? 0) >= 3,
+        label: 'Atravesá 5 aros en el recorrido',
+        check: (r) => (r?.rings ?? 0) >= 5,
       },
       {
         id: 'combo',
@@ -138,31 +138,31 @@ export const STORY_LEVELS = [
     id: 'story-4',
     number: 4,
     name: 'Desfiladero Supersónico',
-    subtitle: 'Propulsión táctica y Near Miss',
+    subtitle: 'Jet de Caza — Propulsión y Near Miss',
     aircraft: 'jet',
-    targetDistance: 600,
-    courseLength: 740,
+    targetDistance: 5000,
+    courseLength: 5200,
     paletteIndex: 3,
     groundAmplitude: 0.22,
     obstacleDensity: 0.9,
     allowedObstacles: ['rock', 'spire', 'log', 'ring', 'updraft'],
-    hint: 'Presioná ESPACIO para activar el propulsor. ¡Rozá rocas a milímetros para sumar bonos!',
-    rewardCoins: 220,
+    hint: 'Presioná ESPACIO para activar el propulsor del Jet. ¡Cruzá la meta a 5.000 m!',
+    rewardCoins: 320,
     stars: [
       {
         id: 'finish',
-        label: 'Cruzá la meta a 600 m',
-        check: (r) => (r?.distance ?? 0) >= 600,
+        label: 'Cruzá la meta a 5.000 m',
+        check: (r) => (r?.distance ?? 0) >= 5000,
       },
       {
         id: 'speed',
-        label: 'Superá los 58 m/s de velocidad punta',
-        check: (r) => (r?.maxSpeed ?? 0) >= 58,
+        label: 'Superá los 60 m/s de velocidad punta',
+        check: (r) => (r?.maxSpeed ?? 0) >= 60,
       },
       {
         id: 'nearmiss',
-        label: 'Realizá 2 Near Misses sin chocar',
-        check: (r) => (r?.nearMisses ?? 0) >= 2,
+        label: 'Realizá 3 Near Misses sin chocar',
+        check: (r) => (r?.nearMisses ?? 0) >= 3,
       },
     ],
   },
@@ -172,29 +172,29 @@ export const STORY_LEVELS = [
     name: 'La Prueba del Horizonte',
     subtitle: 'Maestría total — Desbloquea Endless',
     aircraft: null, // Libre elección de nave
-    targetDistance: 850,
-    courseLength: 1050,
+    targetDistance: 7500,
+    courseLength: 7800,
     paletteIndex: 4,
     groundAmplitude: 0.30,
     obstacleDensity: 1.15,
     allowedObstacles: ['tree', 'rock', 'mesa', 'spire', 'log', 'ring', 'updraft'],
-    hint: 'Combiná aros, vendavales, propulsión y near misses. ¡Superá 850 m para desbloquear Endless!',
-    rewardCoins: 400,
+    hint: 'Combiná aros, vendavales, propulsión y near misses. ¡Superá 7.500 m para desbloquear Endless!',
+    rewardCoins: 500,
     stars: [
       {
         id: 'finish',
-        label: 'Cruzá la meta final a 850 m',
-        check: (r) => (r?.distance ?? 0) >= 850,
+        label: 'Cruzá la meta final a 7.500 m',
+        check: (r) => (r?.distance ?? 0) >= 7500,
       },
       {
         id: 'tactical',
-        label: 'Atravesá 4 aros y usá 2 propulsiones',
-        check: (r) => (r?.rings ?? 0) >= 4 && (r?.thrustsUsed ?? 0) >= 2,
+        label: 'Atravesá 6 aros y usá 3 propulsiones',
+        check: (r) => (r?.rings ?? 0) >= 6 && (r?.thrustsUsed ?? 0) >= 3,
       },
       {
         id: 'mastery',
-        label: '950 m + 1 Combo de aros + 2 Near Misses',
-        check: (r) => (r?.distance ?? 0) >= 950 && (r?.ringCombos ?? 0) >= 1 && (r?.nearMisses ?? 0) >= 2,
+        label: '1 Combo de aros + 3 Near Misses',
+        check: (r) => (r?.ringCombos ?? 0) >= 1 && (r?.nearMisses ?? 0) >= 3,
       },
     ],
   },

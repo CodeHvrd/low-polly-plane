@@ -557,6 +557,7 @@ export class Game {
     const lvl = getStoryLevel(levelNumber);
     if (!lvl) return;
     this.activeStoryLevel = lvl;
+    this.controller?.setFinishDistance(lvl.targetDistance);
 
     if (lvl.aircraft) {
       STATE.aircraft = lvl.aircraft;
@@ -583,6 +584,7 @@ export class Game {
   exitStoryMode() {
     if (!this.activeStoryLevel) return;
     this.activeStoryLevel = null;
+    this.controller?.setFinishDistance(null);
     const banner = UI.storyHintBanner || document.getElementById('story-hint-banner');
     if (banner) banner.classList.add('hidden');
     this.rebuildForMode();
@@ -2607,6 +2609,13 @@ export class Game {
         break;
 
       case 'impact': {
+        if (payload.cause === 'finish') {
+          sfx.missionComplete();
+          music.setModo('menu');
+          this.overlays.flash(0.25);
+          this.scheduleResult();
+          break;
+        }
         const severity = clamp(payload.speed / 30, 0, 1);
         sfx.crash(severity);
         music.onCrash(severity);

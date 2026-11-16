@@ -183,11 +183,18 @@ export class RunController {
     this.flightSeed = 0;
     this.windRng = createRng(1);
     this.recorder = new InputRecorder();
+    /** Meta opcional de fin de nivel para Modo Historia (null = Endless). */
+    this.finishDistance = null;
   }
 
   /** Fija la semilla del vuelo para determinismo en viento y replay. */
   setFlightSeed(seed) {
     this.flightSeed = seed ?? 0;
+  }
+
+  /** Fija la distancia de meta para niveles finitos (null = Endless). */
+  setFinishDistance(dist) {
+    this.finishDistance = typeof dist === 'number' && dist > 0 ? dist : null;
   }
 
   // ── Propulsión ────────────────────────────────────────────
@@ -739,6 +746,17 @@ export class RunController {
           this.collectBooster(picked);
         }
         collected.push(picked);
+      }
+
+      // Meta de nivel finito (Modo Historia)
+      if (this.finishDistance !== null && s.x >= this.finishDistance) {
+        s.x = this.finishDistance;
+        this.stats.distance = s.x;
+        this.impact = { kind: 'landing', cause: 'finish', severity: 0, obstacle: null };
+        this.phase = PHASE.CRASHED;
+        this.onEvent('phase', { phase: this.phase });
+        this.onEvent('impact', { kind: 'landing', cause: 'finish', speed: 0, obstacle: null });
+        break;
       }
 
       // Suelo.

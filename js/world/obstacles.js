@@ -922,34 +922,45 @@ export function pointInAabb(px, py, pz, aabb) {
  * @param {number} radius
  * @returns {Obstacle|null}
  */
+/**
+ * Comprueba si un punto (con radio de avión) colisiona con la silueta real de un obstáculo.
+ * Para obstáculos cónicos/piramidales (`spire`, `tree`), estrecha el radio con la altura
+ * y usa sección elíptica para evitar esquinas invisibles en la punta.
+ */
+function isCollidingObstacle(ob, x, y, z, radius) {
+  if (ob.type === 'ring' || ob.type === 'updraft') return false;
+  const a = ob.aabb;
+  if (
+    x < a.minX - radius ||
+    x > a.maxX + radius ||
+    y < a.minY - radius ||
+    y > a.maxY + radius ||
+    z < a.minZ - radius ||
+    z > a.maxZ + radius
+  ) {
+    return false;
+  }
+
+  if (ob.type === 'spire' || ob.type === 'tree') {
+    if (y > a.maxY + radius * 0.5) return false;
+    const height = Math.max(0.1, a.maxY - a.minY);
+    const t = Math.max(0, Math.min(1, (y - a.minY) / height));
+    const taper = 1 - 0.72 * t;
+    const rx = Math.max(0.25, ((a.maxX - a.minX) * 0.5) * taper) + radius * 0.8;
+    const rz = Math.max(0.25, ((a.maxZ - a.minZ) * 0.5) * taper) + radius * 0.8;
+    const dx = x - ob.x;
+    const dz = z - ob.z;
+    if ((dx * dx) / (rx * rx) + (dz * dz) / (rz * rz) > 1) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function findCollision(obstacles, x, y, z, radius) {
   for (const ob of obstacles) {
-    const a = ob.aabb;
-    // AABB expandida por el radio del avión.
-    if (
-      x >= a.minX - radius &&
-      x <= a.maxX + radius &&
-      y >= a.minY - radius &&
-      y <= a.maxY + radius &&
-      z >= a.minZ - radius &&
-      z <= a.maxZ + radius
-    ) {
-      /*
-       * ── Los aros NO son obstáculos ──
-       *
-       * Se pidió explícitamente: el borde del aro no debe chocar con la nave.
-       * Un aro es una OPORTUNIDAD, no un peligro: si cruzás el centro limpio te
-       * llevás el premio, y si lo rozás no pasa nada. Hacerlo colisionar
-       * castigaba justamente al jugador que se animaba a apuntarle.
-       *
-       * El premio se detecta aparte, en `findRingsPassed`, que sólo cuenta el
-       * cruce por DENTRO del agujero.
-       */
-      /*
-       * Aros y vendavales NO son obstáculos: el vendaval es una AYUDA, y morir
-       * contra una corriente de aire sería absurdo.
-       */
-      if (ob.type === 'ring' || ob.type === 'updraft') continue;
+    if (isCollidingObstacle(ob, x, y, z, radius)) {
       return ob;
     }
   }
@@ -978,13 +989,7 @@ export function findNearMiss(obstacles, x, y, z, radius, margin = 2.4) {
       z >= a.minZ - outer &&
       z <= a.maxZ + outer
     ) {
-      const collided =
-        x >= a.minX - radius &&
-        x <= a.maxX + radius &&
-        y >= a.minY - radius &&
-        y <= a.maxY + radius &&
-        z >= a.minZ - radius &&
-        z <= a.maxZ + radius;
+      const collided = isCollidingObstacle(ob, x, y, z, radius);
 
       if (!collided) {
         return ob;

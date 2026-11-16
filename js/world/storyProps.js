@@ -145,9 +145,10 @@ export function buildStoryProps({
     propGroup.add(gate);
   }
 
-  // 2. Boyas de distancia cada 100 m en ambos márgenes del corredor
-  const maxDist = Math.min(courseLength, 2500);
-  for (let x = 100; x <= maxDist; x += 100) {
+  // 2. Boyas de distancia en ambos márgenes del corredor (espaciado adaptativo)
+  const maxDist = Math.min(courseLength, 8000);
+  const milestoneStep = Math.max(100, Math.round(maxDist / 20));
+  for (let x = milestoneStep; x <= maxDist; x += milestoneStep) {
     for (const side of [-24, 24]) {
       const gy = groundHeightAt(x, side);
       const pylon =
@@ -160,7 +161,8 @@ export function buildStoryProps({
 
   // 3. Nubes low-poly en altura (sin castShadow para 0 costo extra en GPU)
   const rng = createRng(777);
-  for (let x = 80; x <= maxDist; x += 130) {
+  const cloudStep = Math.max(140, Math.round(maxDist / 22));
+  for (let x = 80; x <= maxDist; x += cloudStep) {
     const z = rng.range(-55, 55);
     const y = rng.range(42, 65);
     const s = rng.range(3.5, 6.5);

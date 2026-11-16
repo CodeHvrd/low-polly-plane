@@ -627,6 +627,17 @@ section('12. Detección de Near Miss (Vuelo rasante)');
   // Un aro nunca dispara near miss
   const ringNear = findNearMiss(testObstacles, 153, 10, 0, 0.4, 2.5);
   check('los aros no disparan near miss (se premian al cruzarlos)', ringNear === null);
+
+  // Caso reportado con captura: aguja cónica (spire) en x=2377 y=5.3..9.1 z=-10.3 contra avión en x=2374.1 y=9.8 z=-7.8
+  const spireCase = [{
+    id: 999,
+    type: 'spire',
+    x: 2377,
+    z: -10.3,
+    aabb: { minX: 2374.5, maxX: 2379.5, minY: 5.3, maxY: 9.1, minZ: -12.8, maxZ: -7.8 },
+  }];
+  check('no colisiona contra la esquina invisible superior de una aguja (spire)', findCollision(spireCase, 2374.1, 9.8, -7.8, 0.7) === null);
+  check('en su lugar otorga un Near Miss justo', findNearMiss(spireCase, 2374.1, 9.8, -7.8, 0.7, 2.4)?.id === 999);
 }
 
 // ── 13. Sistema de Misiones Tripartitas (Calibradas a 3-4 partidas) ──
@@ -710,8 +721,9 @@ section('14. Modo Historia (Niveles 1 a 5)');
   const failEval = evaluateStoryResult(lvl1, { distance: 90, coinsCollected: 12, kind: 'landing' });
   check('si no alcanza la meta de distancia, no aprueba ni da estrellas', !failEval.passed && failEval.starsEarned === 0 && failEval.rewardCoins === 0);
 
-  const passEval = evaluateStoryResult(lvl1, { distance: 175, coinsCollected: 9, kind: 'landing' });
+  const passEval = evaluateStoryResult(lvl1, { distance: 620, coinsCollected: 14, boosters: 3 });
   check('si supera meta y criterios, otorga 3 estrellas y monedas', passEval.passed && passEval.starsEarned === 3 && passEval.rewardCoins === lvl1.rewardCoins);
+  check('el Nivel 4 (Jet) tiene meta de 5.000 m', getStoryLevel(4)?.targetDistance === 5000);
 
   const cleanSave = sanitizeStorySave({ unlockedLevel: 99, endlessUnlocked: 'yes', stars: { 'story-1': 5, fake: 2 } });
   check('sanitizeStorySave acota nivel máximo, booleano y estrellas (0..3)', cleanSave.unlockedLevel === 5 && cleanSave.endlessUnlocked === false && cleanSave.stars['story-1'] === 3 && !('fake' in cleanSave.stars));
