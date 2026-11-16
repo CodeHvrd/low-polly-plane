@@ -136,6 +136,8 @@ function resolve() {
     storyPanel: optional('story-panel'),
     storyLevelsList: optional('story-levels-list'),
     storyHintBanner: optional('story-hint-banner'),
+    btnNextLevel: optional('btn-next-level'),
+    btnNextLevelLabel: optional('btn-next-level-label'),
 
     // Varios
     crashFlash: must('crash-flash'),

@@ -396,13 +396,27 @@
         Reintentar (↻), salir al menú (⌂) y opciones (⚙). Es lo que se pidió: un
         cierre de pantalla que un chico entiende sin leer.
       -->
+      <button type="button" id="btn-next-level" data-ui-interactive class="result-next-btn hidden">
+        <span class="act-icon">▶</span>
+        <span id="btn-next-level-label">SIGUIENTE NIVEL</span>
+      </button>
+
       <div id="result-actions">
         <button type="button" id="btn-again" data-required data-ui-interactive
-          class="round-btn primary" aria-label="Retry" title="Retry">↻</button>
+          class="result-action-btn primary" aria-label="Reintentar" title="Reintentar">
+          <span class="act-icon">↻</span>
+          <span class="act-label">REINTENTAR</span>
+        </button>
         <button type="button" id="btn-result-menu" data-ui-interactive
-          class="round-btn" aria-label="Exit to menu" title="Exit to menu">⌂</button>
+          class="result-action-btn" aria-label="Menú" title="Menú">
+          <span class="act-icon">⌂</span>
+          <span class="act-label">MENÚ</span>
+        </button>
         <button type="button" id="btn-result-options" data-ui-interactive
-          class="round-btn" aria-label="Options" title="Options">⚙</button>
+          class="result-action-btn" aria-label="Opciones" title="Opciones">
+          <span class="act-icon">⚙</span>
+          <span class="act-label">OPCIONES</span>
+        </button>
       </div>
     </div>
   </div>

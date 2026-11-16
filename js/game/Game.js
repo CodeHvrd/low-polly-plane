@@ -428,6 +428,26 @@ export class Game {
       this._prependStoryResult(storySummary.lvl, storySummary.ev);
     }
 
+    const nextBtn = UI.btnNextLevel || document.getElementById('btn-next-level');
+    const nextLbl = UI.btnNextLevelLabel || document.getElementById('btn-next-level-label');
+    if (storySummary?.ev?.passed && nextBtn) {
+      const lvl = storySummary.lvl;
+      if (lvl.number < STORY_LEVELS.length) {
+        if (nextLbl) nextLbl.textContent = `SIGUIENTE NIVEL (${lvl.number + 1})`;
+        this._nextStoryAction = () => this.startStoryLevel(lvl.number + 1);
+      } else {
+        if (nextLbl) nextLbl.textContent = 'IR AL MODO ENDLESS';
+        this._nextStoryAction = () => {
+          this.exitStoryMode();
+          this.enterLaunchMode();
+        };
+      }
+      nextBtn.classList.remove('hidden');
+    } else if (nextBtn) {
+      this._nextStoryAction = null;
+      nextBtn.classList.add('hidden');
+    }
+
     // El HUD queda visible de fondo mostrando las cifras finales.
     this.overlays.showResult();
     music.setModo('menu');
@@ -1375,18 +1395,20 @@ export class Game {
 
   wireUiButtons() {
     UI.btnAgain?.addEventListener('click', (e) => {
-      // Evitar que el clic se propague al gestor de arrastre.
       e.stopPropagation();
       sfx.click();
-      /*
-       * ── Reintentar lleva DIRECTO al lanzador ──
-       *
-       * Antes `startRun` dejaba la partida en la pantalla de espera, así que el
-       * jugador tenía que volver a pulsar para llegar a apuntar. Se pidió que el
-       * ↻ reinicie y deje el avión listo para lanzar.
-       */
+      if (this.activeStoryLevel) {
+        this.startStoryLevel(this.activeStoryLevel.number);
+        return;
+      }
       this.startRun({ fade: true });
       this.enterLaunchMode();
+    });
+
+    UI.btnNextLevel?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      this._nextStoryAction?.();
     });
 
     // ── Tienda ──
