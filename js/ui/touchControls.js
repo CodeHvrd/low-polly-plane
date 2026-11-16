@@ -184,7 +184,10 @@ export class TouchControls {
     const on = Boolean(active);
     this.followMode = on;
     if (!this.built) return;
-    this.dpad?.raiz?.classList.toggle('hidden', on);
+    if (this.dpad?.raiz) {
+      this.dpad.raiz.classList.toggle('hidden', on);
+      this.dpad.raiz.style.display = on ? 'none' : '';
+    }
     this.raiz?.classList.toggle('follow-mode', on);
     if (on) this._resetDpad();
   }

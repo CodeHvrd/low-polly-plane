@@ -37,7 +37,14 @@ import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted } from '../core/audio.js';
 import { music, pistaParaTramo } from '../core/music.js';
 import { precargarGLB } from '../world/glbLoader.js';
-import { setPointerFollow, setPointerPosition, pointerFollowInfo, isTouchDevice } from '../core/input.js';
+import {
+  setPointerFollow,
+  setPointerPosition,
+  setTouchAnchor,
+  setTouchRelativePosition,
+  pointerFollowInfo,
+  isTouchDevice,
+} from '../core/input.js';
 import { BUILD } from '../core/version.js';
 
 import {
@@ -1356,6 +1363,9 @@ export class Game {
     const btnMusic = document.getElementById('btn-options-music');
     if (btnMusic) btnMusic.textContent = STATE.musicOff ? 'OFF' : 'ON';
 
+    const lblCur = document.getElementById('lbl-options-cursor');
+    if (lblCur) lblCur.textContent = isTouchDevice() ? 'Control' : 'Seguir el cursor';
+
     const btnCur = document.getElementById('btn-options-cursor');
     if (btnCur) btnCur.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
 
@@ -2074,13 +2084,13 @@ export class Game {
       if (e.target?.closest?.('#touch-controls, [data-ui-interactive]')) return;
       if (this._followTouchId === null) {
         this._followTouchId = e.pointerId;
-        seguirCursor(e);
+        setTouchAnchor(e.clientX, e.clientY);
       }
     }, { capture: true });
     window.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'touch') {
         if (e.pointerId === this._followTouchId && this.controller.phase === PHASE.FLYING && STATE.cursorFollow) {
-          seguirCursor(e);
+          setTouchRelativePosition(e.clientX, e.clientY);
         }
         return;
       }

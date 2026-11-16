@@ -390,6 +390,43 @@ export function setPointerPosition(clientX, clientY) {
   pointerFollow.eventos += 1;
 }
 
+const touchFollowAnchor = { x: 0, y: 0 };
+
+/**
+ * Fija el punto de origen al apoyar el dedo en pantalla (joystick flotante).
+ * Al apoyar el dedo el avión permanece neutro hasta que se desliza desde ese punto.
+ */
+export function setTouchAnchor(clientX, clientY) {
+  touchFollowAnchor.x = clientX;
+  touchFollowAnchor.y = clientY;
+  pointerFollow.steer = 0;
+  pointerFollow.nose = 0;
+}
+
+/**
+ * Calcula el desvío y cabeceo relativos al punto donde se apoyó el dedo.
+ */
+export function setTouchRelativePosition(clientX, clientY) {
+  if (typeof window === 'undefined') return;
+  const minDim = Math.min(window.innerWidth || 360, window.innerHeight || 360);
+  const range = Math.max(52, minDim * 0.22);
+
+  const nx = clampUnit((clientX - touchFollowAnchor.x) / range);
+  const ny = clampUnit(-(clientY - touchFollowAnchor.y) / range);
+
+  const ZONA = 0.08;
+  const aplicar = (v) => {
+    const mag = Math.abs(v);
+    if (mag <= ZONA) return 0;
+    return Math.sign(v) * Math.min(1, (mag - ZONA) / (1 - ZONA));
+  };
+
+  pointerFollow.steer = aplicar(nx);
+  pointerFollow.nose = aplicar(ny);
+  pointerFollow.at = performance.now();
+  pointerFollow.eventos += 1;
+}
+
 /** Recorta a [-1, 1]. */
 function clampUnit(v) {
   return v > 1 ? 1 : v < -1 ? -1 : v;
