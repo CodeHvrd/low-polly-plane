@@ -71,3 +71,4 @@ Cliente (Navegador / APK)                        Backend (Node.js / Edge Worker)
    - **Estela (`trail.js`)**: Ring-buffer sobre `Float32Array` fijo con `copyWithin(0, 3)` (0 alocaciones por frame).
    - **Speedlines (`effects.js`)**: Buffer estático pre-alocado en `LineSegments` que solo se actualiza por encima de 55 m/s.
    - **Física Headless**: Verificado en `tools/verify-replay.mjs` con costo constante de ~9–15 µs por tick de física.
+

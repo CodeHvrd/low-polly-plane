@@ -397,6 +397,7 @@ export class Game {
 
     // El HUD queda visible de fondo mostrando las cifras finales.
     this.overlays.showResult();
+    music.setModo('menu');
 
     if (result.coins > 0) sfx.coin();
   }
@@ -894,6 +895,7 @@ export class Game {
    */
   enterLaunchMode(opts = {}) {
     if (!this.controller.canAimEditable) return false;
+    music.setModo('aim');
 
     /*
      * ── Sello de tiempo para ignorar el gesto que abrió esta pantalla ──
@@ -999,6 +1001,7 @@ export class Game {
    */
   exitLaunchMode() {
     if (!this.controller.canAimEditable) return false;
+    music.setModo('menu');
     if (this.controller.phase === PHASE.AIMING) this.controller.cancelAim();
     this.aiming.setPreviewEnabled(false);
     this.band.setVisible(false);
@@ -2264,11 +2267,8 @@ export class Game {
            * al entrar en vuelo se volvía a encender igual.
            */
           setPointerFollow(STATE.cursorFollow);
-          /*
-           * Al entrar en el lanzador la música se acentúa: es el momento de máxima
-           * tensión antes del disparo.
-           */
-          music.setIntensidad(0.4);
+          music.setModo('flight');
+          music.setIntensidad(0.35, 30);
           // Al empezar el vuelo se vuelve al tramo 1: el avión sale de la
           // resortera, no de donde terminó el vuelo anterior.
           this.currentStage = -1;
@@ -2283,7 +2283,8 @@ export class Game {
            * La música NO se corta al terminar: sigue sonando en el resultado y en el
            * menú. Es la banda sonora de la sesión, no del vuelo.
            */
-          music.setIntensidad(0.2);
+          music.setModo('menu');
+          music.setIntensidad(0.15, 0);
           // El controlador volvió a reposo (gesto cancelado, reinicio). Si
           // veníamos de volar, se vuelve a la primera etapa; si no, se respeta
           // la etapa actual (por ejemplo, seguir en modo lanzamiento).
@@ -2341,7 +2342,7 @@ export class Game {
            */
           const porVelocidad = Math.max(0, (vel / tope - 0.28) / 0.72);
 
-          music.setIntensidad(Math.min(1, escalon * 0.85 + porVelocidad * 0.35));
+          music.setIntensidad(Math.min(1, escalon * 0.85 + porVelocidad * 0.35), vel);
 
           /*
            * ── Clima cada 2500 m ──
@@ -2452,6 +2453,7 @@ export class Game {
       case 'impact': {
         const severity = clamp(payload.speed / 30, 0, 1);
         sfx.crash(severity);
+        music.onCrash(severity);
         this.overlays.flash(payload.kind === 'crash' ? severity : severity * 0.6);
         this.scheduleResult();
         break;

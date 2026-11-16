@@ -106,14 +106,22 @@ export class MusicEngine {
     this.pista = null;
     this.activo = false;
     this.mudo = false;
+    /** Modo musical actual: 'menu' | 'aim' | 'flight' | 'crash' */
+    this.modo = 'menu';
+    /** Velocidad actual del avión (m/s) para activar capas dinámicas. */
+    this.speed = 0;
+    /** Timestamp de audio hasta el cual dura el remate de choque. */
+    this.crashedUntil = 0;
     /** 0 = tranquilo, 1 = a fondo. */
     this.intensidad = 0;
     /** BPM actual, suavizado para que no salte de golpe. */
-    this.bpm = 68;
+    this.bpm = 86;
     /** Próximo instante (s) en el que hay que encolar el siguiente paso. */
     this.siguientePaso = 0;
     /** Índice de paso dentro del compás (0..15). */
     this.paso = 0;
+    /** Número de compás acumulado para avanzar la progresión de acordes. */
+    this.compas = 0;
     /** Nodo de salida de la música. */
     this.salida = null;
     this.filtro = null;
@@ -140,9 +148,12 @@ export class MusicEngine {
     this.pista = PISTAS[Math.max(0, Math.min(PISTAS.length - 1, indice))];
     this._construirCadena();
     this.activo = true;
+    this.modo = 'menu';
     this.paso = 0;
-    this.bpm = this.pista.bpmMin;
-    this.intensidad = 0;
+    this.compas = 0;
+    this.speed = 0;
+    this.bpm = 88;
+    this.intensidad = 0.15;
     this.siguientePaso = this.ctx.currentTime + 0.1;
     this._arrancarPlanificador();
   }
@@ -252,29 +263,116 @@ export class MusicEngine {
   }
 
   /**
-   * Fija la intensidad y ajusta tempo, oscuridad y espacio.
+   * Cambia el estado musical adaptativo:
+   * - 'menu': ambiente calmo sin batería, acordes cálidos y arpegio suave (~88 BPM).
+   * - 'aim': tensión creciente en la resortera.
+   * - 'flight': motor adaptativo completo con capas según la velocidad.
+   * - 'crash': remate dramático y silencio de percusión.
    *
-   * @param {number} v 0..1
+   * @param {'menu'|'aim'|'flight'|'crash'} modo
    */
-  setIntensidad(v) {
-    const valor = Math.max(0, Math.min(1, v));
-    this.intensidad = valor;
+  setModo(modo) {
+    if (this.modo === modo) return;
+    this.modo = modo;
     if (!this.activo || !this.ctx) return;
 
-    // El tempo se suaviza: un salto brusco sonaría a error de reproducción.
+    const ahora = this.ctx.currentTime;
+    if (modo === 'menu') {
+      this.speed = 0;
+      this.setPista(0);
+      this.filtro.frequency.setTargetAtTime(1600, ahora, 0.5);
+      this.humedo.gain.setTargetAtTime(0.32, ahora, 0.5);
+      this.seco.gain.setTargetAtTime(0.68, ahora, 0.5);
+      if (!this.mudo && this.salida) {
+        this.salida.gain.setTargetAtTime(0.45, ahora, 0.4);
+      }
+    } else if (modo === 'aim') {
+      this.filtro.frequency.setTargetAtTime(950, ahora, 0.35);
+      this.humedo.gain.setTargetAtTime(0.24, ahora, 0.35);
+      this.seco.gain.setTargetAtTime(0.76, ahora, 0.35);
+      if (!this.mudo && this.salida) {
+        this.salida.gain.setTargetAtTime(0.5, ahora, 0.25);
+      }
+    } else if (modo === 'flight') {
+      if (!this.mudo && this.salida) {
+        this.salida.gain.setTargetAtTime(0.55, ahora, 0.25);
+      }
+    }
+  }
+
+  /**
+   * Remate musical de choque/aterrizaje:
+   * barre el filtro hacia abajo como si se cortara el aire, suelta un sub-grave
+   * de impacto y atenúa la base rítmica antes de volver al menú.
+   *
+   * @param {number} [severity=0.6]
+   */
+  onCrash(severity = 0.6) {
+    this.modo = 'crash';
+    if (!this.activo || !this.ctx) return;
+
+    const ahora = this.ctx.currentTime;
+    this.crashedUntil = ahora + 1.4;
+
+    this.filtro.frequency.cancelScheduledValues(ahora);
+    this.filtro.frequency.setValueAtTime(Math.max(200, this.filtro.frequency.value), ahora);
+    this.filtro.frequency.exponentialRampToValueAtTime(160, ahora + 0.35);
+
+    if (!this.mudo && this.salida) {
+      this.salida.gain.cancelScheduledValues(ahora);
+      this.salida.gain.setTargetAtTime(0.18, ahora, 0.15);
+    }
+
+    if (!this.mudo) {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(95, ahora);
+      osc.frequency.exponentialRampToValueAtTime(28, ahora + 0.55);
+
+      const vol = 0.25 + 0.25 * Math.min(1, severity);
+      g.gain.setValueAtTime(vol, ahora);
+      g.gain.exponentialRampToValueAtTime(0.001, ahora + 0.65);
+
+      osc.connect(g);
+      g.connect(this.salida);
+      osc.start(ahora);
+      osc.stop(ahora + 0.7);
+    }
+  }
+
+  /**
+   * Fija la intensidad y ajusta tempo, oscuridad, espacio y capas de velocidad.
+   *
+   * @param {number} v 0..1
+   * @param {number} [speed=this.speed] m/s
+   */
+  setIntensidad(v, speed = this.speed) {
+    const valor = Math.max(0, Math.min(1, v));
+    this.intensidad = valor;
+    this.speed = speed;
+    if (!this.activo || !this.ctx) return;
+    if (this.modo === 'crash') return;
+
+    const ahora = this.ctx.currentTime;
+
+    if (this.modo === 'menu') {
+      this.bpm += (88 - this.bpm) * 0.08;
+      return;
+    }
+    if (this.modo === 'aim') {
+      this.bpm += (112 - this.bpm) * 0.08;
+      return;
+    }
+
+    // En vuelo: el tempo sube suavemente según intensidad y velocidad
     const objetivo = this.pista.bpmMin + (this.pista.bpmMax - this.pista.bpmMin) * valor;
     this.bpm += (objetivo - this.bpm) * 0.08;
 
-    /*
-     * Con más velocidad el filtro se CIERRA (más oscuro) y la reverberación sube
-     * (más espacio). Las dos cosas juntas dan la sensación de entrar en una caverna
-     * a toda velocidad.
-     */
-    const ahora = this.ctx.currentTime;
-    const corte = this.pista.padCorte * (1 - 0.55 * valor);
-    this.filtro.frequency.setTargetAtTime(Math.max(220, corte), ahora, 0.4);
-    this.humedo.gain.setTargetAtTime(0.12 + 0.42 * valor, ahora, 0.5);
-    this.seco.gain.setTargetAtTime(0.88 - 0.3 * valor, ahora, 0.5);
+    const corte = this.pista.padCorte * (1 - 0.45 * valor) + (speed > 55 ? 450 : 0);
+    this.filtro.frequency.setTargetAtTime(Math.max(240, corte), ahora, 0.35);
+    this.humedo.gain.setTargetAtTime(0.14 + 0.38 * valor, ahora, 0.4);
+    this.seco.gain.setTargetAtTime(0.86 - 0.28 * valor, ahora, 0.4);
   }
 
   /** Silencia o restaura la música. */
@@ -333,71 +431,107 @@ export class MusicEngine {
       const durPaso = 60 / this.bpm / 4;
       this.siguientePaso += durPaso;
       this.paso = (this.paso + 1) % 16;
+      if (this.paso === 0) this.compas++;
     }
   }
 
   /**
-   * Encola lo que suena en un paso.
+   * Encola lo que suena en un paso según el modo ('menu' | 'aim' | 'flight' | 'crash')
+   * y las capas dinámicas de velocidad.
    *
    * @param {number} cuando @param {number} paso 0..15
    */
   _tocarPaso(cuando, paso) {
     const p = this.pista;
     const i = this.intensidad;
-    const compas = Math.floor(this.paso / 16);
+    const spd = this.speed;
+    const compas = this.compas;
+    const gradoCompas = p.progresion[compas % p.progresion.length];
 
-    // ── PAD: acorde sostenido del compás ──
+    // ── PAD: acorde sostenido del compás (presente en todos los modos) ──
     if (paso === 0) {
-      const grado = p.progresion[compas % p.progresion.length];
-      const base = p.raiz + p.escala[grado % p.escala.length];
+      const base = p.raiz + p.escala[gradoCompas % p.escala.length];
+      const dur = 16 * (60 / this.bpm / 4) * 0.95;
+      const vol = this.modo === 'crash' ? 0.025 : 0.045;
       for (const intervalo of [0, 7, 12]) {
-        this._nota(hz(base + intervalo), cuando, 16 * (60 / this.bpm / 4) * 0.95, p.padOnda, 0.045);
+        this._nota(hz(base + intervalo), cuando, dur, p.padOnda, vol);
       }
     }
 
-    /*
-     * ── BAJO RODANTE de psy trance ──
-     *
-     * Suena en las SEMICORCHEAS (los 16 pasos del compás), no en los tiempos. Ese
-     * pulso continuo es la firma del género y además es lo que evita que haya
-     * silencios: la música está viva desde el primer segundo, sin depender de la
-     * velocidad.
-     *
-     * La velocidad sólo lo hace más presente, no lo enciende.
-     */
+    // Durante el remate de choque no se dispara ritmo ni arpegios
+    if (this.modo === 'crash') return;
+
+    // ── MODO MENÚ: ambiente cálido, sin batería ──
+    if (this.modo === 'menu') {
+      if (paso === 0 || paso === 8) {
+        const nota = p.raiz - 24 + p.escala[gradoCompas % p.escala.length];
+        this._nota(hz(nota), cuando, 0.38, 'sine', 0.12);
+      }
+      if (paso % 4 === 0) {
+        const orden = [0, 2, 4, 2];
+        const grado = orden[(paso / 4) % orden.length] % p.escala.length;
+        const nota = p.raiz + 12 + p.escala[grado];
+        this._nota(hz(nota), cuando, 0.28, 'sine', 0.032);
+      }
+      return;
+    }
+
+    // ── MODO APUNTADO (RESORTERA): pulso contenido de anticipación ──
+    if (this.modo === 'aim') {
+      if (paso % 4 === 0) {
+        const nota = p.raiz - 24 + p.escala[gradoCompas % p.escala.length];
+        this._nota(hz(nota), cuando, 0.20, p.bajoOnda, 0.14);
+      }
+      if (paso % 4 === 2) {
+        const nota = p.raiz + p.escala[(gradoCompas + 2) % p.escala.length];
+        this._nota(hz(nota), cuando, 0.14, 'triangle', 0.035);
+      }
+      return;
+    }
+
+    // ── MODO VUELO: Capas Adaptativas por Velocidad ──
+    // Capa Base (< 30 m/s): Bajo rodante continuo en semicorcheas
     {
-      const grado = p.progresion[compas % p.progresion.length];
-      const nota = p.raiz - 24 + p.escala[grado % p.escala.length];
-      // Acento en los tiempos (más fuerte) y nota más corta en los contratiempos.
+      const nota = p.raiz - 24 + p.escala[gradoCompas % p.escala.length];
       const enTiempo = paso % 4 === 0;
       this._nota(
         hz(nota + (enTiempo ? 0 : 12)),
         cuando,
         enTiempo ? 0.16 : 0.09,
         p.bajoOnda,
-        (enTiempo ? 0.16 : 0.10) + 0.04 * i,
+        (enTiempo ? 0.15 : 0.09) + 0.05 * i,
       );
     }
 
-    // ── ARPEGIO: aparece con la velocidad ──
-    if (paso % 2 === 0) {
-      const orden = [0, 2, 4, 3, 1, 3, 5, 4];
-      const grado = orden[(paso / 2) % orden.length] % p.escala.length;
-      const nota = p.raiz + 12 + p.escala[grado];
-      this._nota(hz(nota), cuando, 0.12, p.arpOnda, 0.035 + 0.05 * i);
+    // Capa 1 (Velocidad Crucero >= 30 m/s o intensidad > 0.25): Arpegio + Hi-Hats
+    if (spd >= 30 || i > 0.25) {
+      if (paso % 2 === 0) {
+        const orden = [0, 2, 4, 3, 1, 3, 5, 4];
+        const grado = orden[(paso / 2) % orden.length] % p.escala.length;
+        const nota = p.raiz + 12 + p.escala[grado];
+        this._nota(hz(nota), cuando, 0.12, p.arpOnda, 0.03 + 0.055 * i);
+      }
+      if (paso % 2 === 1) {
+        this._hat(cuando, 0.025 + 0.05 * i);
+      }
     }
 
-    // ── PERCUSIÓN: bombo en los tiempos, aro en los contratiempos ──
-    /*
-     * ── PERCUSIÓN 4x4 ──
-     *
-     * El bombo en cada tiempo es el pulso del psy trance: no se apaga nunca. La
-     * velocidad agrega el golpe del contratiempo y los hats, que dan la sensación de
-     * urgencia sin dejar huecos.
-     */
-    if (paso % 4 === 0) this._golpe(cuando, 0.4);
-    if (i > 0.3 && paso % 4 === 2) this._golpe(cuando, 0.22 + 0.12 * i);
-    if (paso % 2 === 1) this._hat(cuando, 0.03 + 0.05 * i);
+    // Capa 2 (Alta Velocidad >= 45 m/s o intensidad > 0.45): Bombo 4x4 impulsor
+    if (spd >= 45 || i > 0.45) {
+      if (paso % 4 === 0) this._golpe(cuando, 0.34 + 0.1 * i);
+    } else if (paso === 0 || paso === 8) {
+      // Pulso suave en tiempos 1 y 3 a baja velocidad
+      this._golpe(cuando, 0.22);
+    }
+
+    // Capa 3 (Supersónico >= 60 m/s o intensidad > 0.75): Doble golpe y brillo agudo
+    if (spd >= 60 || i > 0.75) {
+      if (paso % 4 === 2) this._golpe(cuando, 0.26);
+      if (paso % 4 === 2) {
+        const nota = p.raiz + 24 + p.escala[(gradoCompas + 4) % p.escala.length];
+        this._nota(hz(nota), cuando, 0.11, p.arpOnda, 0.04);
+      }
+    }
   }
 
   /**
