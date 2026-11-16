@@ -28,7 +28,8 @@
  */
 
 import { AIM, ECONOMY, LAUNCH_POS, SIM, WORLD, OBSTACLES, PICKUPS, PROPULSION, STAGES } from '../config.js';
-import { clamp, round, distance2D } from '../core/math.js';
+import { clamp, round, distance2D, createRng } from '../core/math.js';
+import { InputRecorder } from './replay.js';
 import {
   addGlideBudget,
   applyBoost,
@@ -177,6 +178,16 @@ export class RunController {
     this.thrustCooldown = 0;
     /** Cuántas propulsiones se usaron en el vuelo. */
     this.thrustsUsed = 0;
+    /** Contador de pasos de física fija (para replay determinista). */
+    this.tickCount = 0;
+    this.flightSeed = 0;
+    this.windRng = createRng(1);
+    this.recorder = new InputRecorder();
+  }
+
+  /** Fija la semilla del vuelo para determinismo en viento y replay. */
+  setFlightSeed(seed) {
+    this.flightSeed = seed ?? 0;
   }
 
   // ── Propulsión ────────────────────────────────────────────
@@ -251,6 +262,7 @@ export class RunController {
     this.charges--;
     this.thrustsUsed++;
     this.thrustCooldown = cfg.COOLDOWN;
+    this.recorder.recordThrust(this.tickCount);
 
     // Tope de velocidad: encadenar propulsiones no debe sacar al avión del
     // corredor ni romper la lectura de la escena.
@@ -496,6 +508,13 @@ export class RunController {
     this.fuel = PROPULSION.FUEL_MAX;
     this.accumulator = 0;
     this.impact = null;
+    this.tickCount = 0;
+    this.rollWind(this.flightSeed);
+    this.recorder.reset({
+      pitchDeg,
+      azimuthDeg,
+      power01: this.aiming.state.power01,
+    });
 
     this.phase = PHASE.FLYING;
     this.trail.clear();
@@ -518,20 +537,21 @@ export class RunController {
    * corredor para que el viento lateral empuje "de vuelta" en promedio:
    * un empuje siempre hacia afuera haría el juego injusto.
    */
-  rollWind() {
-    this.wind.x = (Math.random() - 0.5) * 1.6;
-    this.wind.z = (Math.random() - 0.5) * 1.8;
+  rollWind(seed = this.flightSeed) {
+    this.windRng = createRng((seed >>> 0) ^ 0x9e3779b9);
+    this.wind.x = (this.windRng.next() - 0.5) * 1.6;
+    this.wind.z = (this.windRng.next() - 0.5) * 1.8;
     this.wind.timer = 0;
-    this.wind.nextChange = 3 + Math.random() * 4;
+    this.wind.nextChange = 3 + this.windRng.next() * 4;
   }
 
   updateWind(dt) {
     this.wind.timer += dt;
     if (this.wind.timer < this.wind.nextChange) return;
     this.wind.timer = 0;
-    this.wind.nextChange = 3 + Math.random() * 4;
-    this.wind.x = clamp(this.wind.x + (Math.random() - 0.5) * 1.4, -3.5, 3.5);
-    this.wind.z = clamp(this.wind.z + (Math.random() - 0.5) * 1.6, -4, 4);
+    this.wind.nextChange = 3 + this.windRng.next() * 4;
+    this.wind.x = clamp(this.wind.x + (this.windRng.next() - 0.5) * 1.4, -3.5, 3.5);
+    this.wind.z = clamp(this.wind.z + (this.windRng.next() - 0.5) * 1.6, -4, 4);
   }
 
   // ── Bucle ─────────────────────────────────────────────────
@@ -570,11 +590,6 @@ export class RunController {
   }
 
   updateFlight(dt) {
-    // ── Paso fijo con acumulador ──
-    // La física avanza en incrementos constantes para que un frame lento no
-    // cambie el resultado del vuelo. El viento se actualiza una vez por frame.
-    this.updateWind(dt);
-
     /*
      * Mandos del jugador, una vez por frame.
      *
@@ -584,33 +599,7 @@ export class RunController {
      */
     const controls = this.readControls();
     setControls(this.flight, controls.steer, controls.nose);
-    /*
-     * La propulsión NO se dispara acá.
-     *
-     * ── El bug que esto evita ──
-     * `controls.thrust` es un ESTADO (la tecla está apretada), así que
-     * comprobarlo una vez por frame significaba que mantener Espacio gastaba una
-     * carga apenas se cumplía el enfriamiento. El jugador apretaba una vez y
-     * perdía dos o tres boosters sin querer.
-     *
-     * Ahora la propulsión la dispara el FLANCO de la tecla, desde el manejador
-     * de teclado (`Game`), que además ignora el auto-repeat. Una pulsación, un
-     * uso.
-     */
-    if (this.thrustCooldown > 0) this.thrustCooldown = Math.max(0, this.thrustCooldown - dt);
-
-    /*
-     * Combustible: baja con el tiempo.
-     *
-     * Cuando se termina, el avión PIERDE el motor: deja de poder propulsarse y
-     * el planeo se agota. No se termina el vuelo de golpe porque el avión todavía
-     * puede llegar a un booster de emergencia y remontar; eso es exactamente la
-     * situación que ese booster existe para resolver.
-     */
-    if (this.fuel > 0) this.fuel = Math.max(0, this.fuel - dt);
-
-    this.params.windX = this.wind.x;
-    this.params.windZ = this.wind.z;
+    this.recorder.recordControls(this.tickCount, controls.steer, controls.nose);
 
     this.accumulator = Math.min(this.accumulator + dt, SIM.MAX_FRAME_DT);
     let steps = 0;
@@ -622,11 +611,18 @@ export class RunController {
     const collected = [];
 
     while (this.accumulator >= SIM.FIXED_DT && steps < SIM.MAX_SUBSTEPS) {
+      if (this.thrustCooldown > 0) this.thrustCooldown = Math.max(0, this.thrustCooldown - SIM.FIXED_DT);
+      if (this.fuel > 0) this.fuel = Math.max(0, this.fuel - SIM.FIXED_DT);
+      this.updateWind(SIM.FIXED_DT);
+      this.params.windX = this.wind.x;
+      this.params.windZ = this.wind.z;
+
       const prevX = this.flight.x;
       const prevZ = this.flight.z;
 
       stepFlight(this.flight, this.params, SIM.FIXED_DT);
       steps++;
+      this.tickCount++;
       this.accumulator -= SIM.FIXED_DT;
 
       const s = this.flight;
@@ -1108,6 +1104,7 @@ export class RunController {
       cause: this.impact?.cause ?? 'ground',
       severity,
       isRecord: dist >= 1 && dist > this._recordAtLaunch,
+      replay: this.recorder.export(),
     };
   }
 

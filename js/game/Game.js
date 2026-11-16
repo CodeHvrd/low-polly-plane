@@ -28,7 +28,7 @@ import {
   desiredAltitudeAt,
   valueAt,
 } from './flightProfile.js';
-import { buildPickupMeshes, updatePickupMeshes, disposePickupMeshes } from '../world/pickupMeshes.js';
+import { buildPickupMeshes, updatePickupMeshes, clearPickupMeshes, disposePickupMeshes } from '../world/pickupMeshes.js';
 import { initDirectionArrows, hideDirectionArrows, layDirectionArrows, tickDirectionArrows } from '../world/directionArrows.js';
 import { paramsFromSpec } from '../physics/flightModel.js';
 import { getSpec, AIRCRAFT_LIST } from '../physics/specs.js';
@@ -525,7 +525,10 @@ export class Game {
      * En el aire se reusa la semilla, así que las rutas son las mismas y sólo se
      * extienden hacia adelante.
      */
-    if (!conservarSemilla) this.pickupSeed = (Math.random() * 1e9) | 0;
+    if (!conservarSemilla) {
+      this.pickupSeed = (Math.random() * 1e9) | 0;
+      this.controller?.setFlightSeed(this.pickupSeed);
+    }
     /*
      * El rango es opcional: sin él se genera el corredor completo del modo, que
      * es lo que necesita el arranque. Durante el vuelo se le pasa la ventana de
@@ -538,7 +541,7 @@ export class Game {
      * simple que recolocar las existentes, y este camino corre una vez por
      * vuelo, no por frame.
      */
-    disposePickupMeshes();
+    clearPickupMeshes();
     buildPickupMeshes(this.pickups);
     if (this.controller) this.controller.pickups = this.pickups;
   }
@@ -2564,7 +2567,8 @@ export class Game {
 
     // Reloj propio de la presentación: los recolectables flotan y laten con él.
     this.pickupClock += dt;
-    updatePickupMeshes(this.pickups, dt, this.pickupClock);
+    const focusX = this.controller.phase === PHASE.FLYING ? (this.controller.flight?.x ?? 0) : 0;
+    updatePickupMeshes(this.pickups, dt, this.pickupClock, focusX);
 
     /*
      * Flechas de dirección (modo frenético).

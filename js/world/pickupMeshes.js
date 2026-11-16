@@ -278,8 +278,11 @@ export function buildPickupMeshes(pickups) {
  * @param {number} dt
  * @param {number} [time]  reloj acumulado, para el flotado
  */
-export function updatePickupMeshes(pickups, dt, time = 0) {
+export function updatePickupMeshes(pickups, dt, time = 0, focusX = null) {
   if (!group) return;
+
+  const minX = focusX !== null ? focusX - 60 : -Infinity;
+  const maxX = focusX !== null ? focusX + 420 : Infinity;
 
   for (const p of pickups) {
     const mesh = meshes.get(p.id);
@@ -297,6 +300,9 @@ export function updatePickupMeshes(pickups, dt, time = 0) {
     if (mesh.visible !== shouldShow) mesh.visible = shouldShow;
     if (!shouldShow) continue;
 
+    // Culling de animación: no gastar CPU rotando monedas a 1.5 km de la cámara
+    if (p.x < minX || p.x > maxX) continue;
+
     if (p.kind === 'coin') {
       // Giro sobre su eje vertical + un flotado suave, para que se lea como recogible.
       mesh.rotation.y += dt * 2.6;
@@ -308,6 +314,18 @@ export function updatePickupMeshes(pickups, dt, time = 0) {
       mesh.scale.set(pulse, 1, pulse);
     }
   }
+}
+
+/**
+ * Limpia las mallas actuales de la escena conservando geometrías, materiales y
+ * texturas compartidas en caché (ideal al correr la ventana de tramos en vuelo).
+ */
+export function clearPickupMeshes() {
+  if (!group) return;
+  scene.remove(group);
+  group.clear();
+  meshes.clear();
+  group = null;
 }
 
 /** Libera la geometría y los materiales compartidos. */

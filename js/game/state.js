@@ -310,8 +310,8 @@ export function initOwnedAircraft() {
  * producen el mismo efecto físico: menos frenado. Mantenerlos separados
  * sugeriría una distinción que la simulación no hace.
  */
-export function getUpgradeMods(shipId = STATE.aircraft) {
-  const niveles = nivelesDe(shipId);
+/** Calcula los modificadores físicos a partir de un mapa de niveles de mejora. */
+export function modsFromLevels(niveles = {}) {
   const mods = {
     liftMult: 1,
     launchPowerMult: 1,
@@ -324,7 +324,7 @@ export function getUpgradeMods(shipId = STATE.aircraft) {
   };
 
   for (const u of UPGRADES) {
-    const lvl = niveles[u.id] || 0;
+    const lvl = Math.min(u.maxLevel, Math.max(0, Math.floor(niveles[u.id] || 0)));
     if (lvl > 0) Object.assign(mods, u.effect(lvl));
   }
 
@@ -333,6 +333,10 @@ export function getUpgradeMods(shipId = STATE.aircraft) {
     dragMult: mods.dragMult * mods.massMult,
     launchPowerMult: mods.launchPowerMult * mods.noseMult,
   };
+}
+
+export function getUpgradeMods(shipId = STATE.aircraft) {
+  return modsFromLevels(nivelesDe(shipId));
 }
 
 /** Costo de la próxima compra. */

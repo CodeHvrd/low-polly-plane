@@ -77,6 +77,32 @@ export function crearRegistro({ seed, ship, upgrades, result }) {
     boosters: Math.round(result.boosters ?? 0),
     time: Math.round(result.time ?? 0),
     at: Date.now(),
+    replay: result.replay ?? null,
+  };
+}
+
+/**
+ * Construye el payload estandarizado para envío y validación anti-trampas en el servidor.
+ * @param {RunRecord} registro
+ * @param {string|null} [challengeToken] Token de un solo uso emitido al iniciar la run
+ */
+export function crearPayloadOnline(registro, challengeToken = null) {
+  return {
+    version: 1,
+    build: registro.build,
+    challengeToken,
+    seed: registro.seed,
+    ship: registro.ship,
+    upgrades: registro.upgrades,
+    claimed: {
+      distance: registro.distance,
+      coins: registro.coins,
+      rings: registro.rings,
+      boosters: registro.boosters,
+      time: registro.time,
+    },
+    replay: registro.replay,
+    submittedAt: Date.now(),
   };
 }
 
