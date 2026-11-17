@@ -77,7 +77,19 @@ export const ResultScreen = {
     const elCoinsDetail = document.getElementById('res-score-coins-detail');
     if (elCoinsDetail) {
       const c = breakdown.coinCounts;
-      elCoinsDetail.textContent = `🟡${c.yellow}×10 · 🩷${c.pink}×25 · 🪙${c.gold}×50`;
+      const makeChip = (cls, text) => {
+        const chip = document.createElement('span');
+        chip.className = 'coin-chip';
+        const dot = document.createElement('i');
+        dot.className = `coin-dot ${cls}`;
+        chip.append(dot, document.createTextNode(text));
+        return chip;
+      };
+      elCoinsDetail.replaceChildren(
+        makeChip('yellow', `${c.yellow}×10`),
+        makeChip('pink', `${c.pink}×25`),
+        makeChip('gold', `${c.gold}×50`),
+      );
     }
 
     const elBonusScore = document.getElementById('res-score-bonus');

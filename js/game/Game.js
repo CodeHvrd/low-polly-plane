@@ -442,6 +442,7 @@ export class Game {
     ResultScreen.show(result);
     this.checkMissionsProgress(result);
     this.renderMisiones(result);
+    this._renderResultRanking?.();
     if (storySummary && UI.resultMissions) {
       this._prependStoryResult(storySummary.lvl, storySummary.ev);
     }
@@ -956,7 +957,10 @@ export class Game {
     if (UI.pauseMissionsList) {
       UI.pauseMissionsList.replaceChildren(...list.map((m) => this._createMissionCard(m)));
     }
-    if (UI.resultMissions) {
+    const resList = document.getElementById('result-missions-list');
+    if (resList) {
+      resList.replaceChildren(...list.map((m) => this._createMissionCard(m)));
+    } else if (UI.resultMissions) {
       const heading = document.createElement('div');
       heading.className = 'result-missions-title';
       heading.textContent = '🎯 OBJETIVOS Y MISIONES';
@@ -966,7 +970,8 @@ export class Game {
 
   /** Muestra el resumen de estrellas y objetivos del nivel de Historia en resultados. */
   _prependStoryResult(lvl, ev) {
-    if (!UI.resultMissions) return;
+    const target = document.getElementById('result-missions-list') || UI.resultMissions;
+    if (!target) return;
     const box = document.createElement('div');
     box.className = 'story-result-card ' + (ev.passed ? 'passed' : 'failed');
 
@@ -985,7 +990,7 @@ export class Game {
       box.appendChild(row);
     }
 
-    UI.resultMissions.prepend(box);
+    target.prepend(box);
   }
 
   buyUpgrade(id) {
@@ -1631,11 +1636,9 @@ export class Game {
       mostrarPanel(null);
     });
 
-    let activeRankPeriod = 'weekly';
-    const renderMissionsRanking = () => {
-      const cont = document.getElementById('missions-ranking-list');
+    const fillRankingContainer = (cont, period, limit = 8) => {
       if (!cont) return;
-      const lista = leerRankingFiltrado(activeRankPeriod).slice(0, 10);
+      const lista = leerRankingFiltrado(period).slice(0, limit);
       if (!lista.length) {
         const vacio = document.createElement('p');
         vacio.className = 'ach-desc';
@@ -1659,6 +1662,16 @@ export class Game {
       }));
     };
 
+    let activeRankPeriod = 'weekly';
+    const renderMissionsRanking = () => {
+      fillRankingContainer(document.getElementById('missions-ranking-list'), activeRankPeriod, 8);
+    };
+
+    let activeResRankPeriod = 'weekly';
+    this._renderResultRanking = () => {
+      fillRankingContainer(document.getElementById('result-ranking-list'), activeResRankPeriod, 5);
+    };
+
     const setMissionsTab = (tab) => {
       const isRank = tab === 'ranking';
       document.getElementById('tab-missions-obj')?.classList.toggle('active', !isRank);
@@ -1668,6 +1681,40 @@ export class Game {
       if (isRank) renderMissionsRanking();
       else this.renderMisiones();
     };
+
+    const setResultTab = (tab) => {
+      const isRank = tab === 'ranking';
+      document.getElementById('res-tab-obj')?.classList.toggle('active', !isRank);
+      document.getElementById('res-tab-rank')?.classList.toggle('active', isRank);
+      document.getElementById('res-pane-obj')?.classList.toggle('hidden', isRank);
+      document.getElementById('res-pane-rank')?.classList.toggle('hidden', !isRank);
+      if (isRank) this._renderResultRanking();
+      else this.renderMisiones();
+    };
+
+    document.getElementById('res-tab-obj')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      setResultTab('missions');
+    });
+
+    document.getElementById('res-tab-rank')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      setResultTab('ranking');
+    });
+
+    document.querySelectorAll('.res-period-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.click();
+        activeResRankPeriod = btn.dataset.period || 'all';
+        document.querySelectorAll('.res-period-btn').forEach((b) => {
+          b.classList.toggle('active', b === btn);
+        });
+        this._renderResultRanking();
+      });
+    });
 
     document.getElementById('tab-missions-obj')?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1681,12 +1728,12 @@ export class Game {
       setMissionsTab('ranking');
     });
 
-    document.querySelectorAll('.ranking-period-btn').forEach((btn) => {
+    document.querySelectorAll('.ranking-period-btn:not(.res-period-btn)').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         sfx.click();
         activeRankPeriod = btn.dataset.period || 'all';
-        document.querySelectorAll('.ranking-period-btn').forEach((b) => {
+        document.querySelectorAll('.ranking-period-btn:not(.res-period-btn)').forEach((b) => {
           b.classList.toggle('active', b === btn);
         });
         renderMissionsRanking();

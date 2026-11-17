@@ -121,7 +121,7 @@
     <nav id="main-menu" data-ui-interactive>
       <button type="button" id="btn-new-game" class="menu-btn primary">NUEVA PARTIDA</button>
       <button type="button" id="btn-story-mode" class="menu-btn"><span class="btn-icon">🗺️</span> MODO HISTORIA</button>
-      <button type="button" id="btn-lobby-missions" class="menu-btn"><span class="btn-icon">🎯</span> MISIONES</button>
+      <button type="button" id="btn-lobby-missions" class="menu-btn"><span class="btn-icon">🎯</span> MISIONES / RANKING</button>
       <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
       <button type="button" id="btn-options" class="menu-btn">OPCIONES</button>
       <button type="button" id="btn-exit" class="menu-btn">EXIT</button>
@@ -364,37 +364,85 @@
         <strong id="total-coins-val" data-required>0</strong>
       </div>
 
-      <h2 id="result-title" data-required>YOU CRASH!</h2>
+      <div class="res-layout">
+        <div class="res-col-main">
+          <h2 id="result-title" data-required>YOU CRASH!</h2>
 
-      <div id="res-record" data-required></div>
+          <div id="res-record" data-required></div>
 
-      <div id="result-coins-summary">
-        <span class="score-label">COINS GANADAS</span>
-        <strong id="res-coins" data-required>+0</strong>
-      </div>
-
-      <div id="result-score-card">
-        <div class="score-card-header">SCORE</div>
-        <div class="score-breakdown">
-          <div class="score-row">
-            <span class="score-row-label">MTS <small>Distancia exacta</small></span>
-            <strong id="res-score-mts">0</strong>
+          <div id="result-coins-summary">
+            <span class="score-label">COINS</span>
+            <strong id="res-coins" data-required>+0</strong>
           </div>
-          <div class="score-row">
-            <span class="score-row-label">COINS <small id="res-score-coins-detail">🟡×10 · 🩷×25 · 🪙×50</small></span>
-            <strong id="res-score-coins">0</strong>
-          </div>
-          <div class="score-row">
-            <span class="score-row-label">
-              BONUS <em id="res-score-mult" class="score-mult-badge hidden">x1</em>
-              <small id="res-score-bonus-detail">Rozes · Misiones · Aros</small>
-            </span>
-            <strong id="res-score-bonus">0</strong>
+
+          <div id="result-score-card">
+            <div class="score-card-header">SCORE</div>
+            <div class="score-breakdown">
+              <div class="score-row">
+                <span class="score-row-label">MTS <small>Distancia exacta</small></span>
+                <strong id="res-score-mts">0</strong>
+              </div>
+              <div class="score-row">
+                <span class="score-row-label">COINS <span id="res-score-coins-detail" class="coin-detail-chips"></span></span>
+                <strong id="res-score-coins">0</strong>
+              </div>
+              <div class="score-row">
+                <span class="score-row-label">
+                  BONUS <em id="res-score-mult" class="score-mult-badge hidden">x1</em>
+                  <small id="res-score-bonus-detail">Rozes · Misiones · Aros</small>
+                </span>
+                <strong id="res-score-bonus">0</strong>
+              </div>
+            </div>
+            <div class="score-total-row">
+              <span class="score-label">SCORE</span>
+              <strong id="res-score" data-required>0</strong>
+            </div>
           </div>
         </div>
-        <div class="score-total-row">
-          <span class="score-label">SCORE</span>
-          <strong id="res-score" data-required>0</strong>
+
+        <div class="res-col-side">
+          <!-- Progreso de objetivos/misiones + ranking tras el vuelo -->
+          <div id="result-missions" class="result-missions-box">
+            <div class="missions-tabs result-tabs" role="tablist">
+              <button type="button" id="res-tab-obj" class="missions-tab active" role="tab" aria-selected="true">🎯 OBJETIVOS Y MISIONES</button>
+              <button type="button" id="res-tab-rank" class="missions-tab" role="tab" aria-selected="false">🏆 RANKING</button>
+            </div>
+            <div id="res-pane-obj">
+              <div id="result-missions-list" class="missions-list"></div>
+            </div>
+            <div id="res-pane-rank" class="hidden">
+              <div class="ranking-period-bar res-ranking-periods" role="tablist">
+                <button type="button" class="ranking-period-btn res-period-btn active" data-period="weekly">SEMANAL</button>
+                <button type="button" class="ranking-period-btn res-period-btn" data-period="monthly">MENSUAL</button>
+                <button type="button" class="ranking-period-btn res-period-btn" data-period="all">ALL TIMES</button>
+              </div>
+              <div id="result-ranking-list" class="ranking-tab-list compact"></div>
+            </div>
+          </div>
+
+          <button type="button" id="btn-next-level" data-ui-interactive class="result-next-btn hidden">
+            <span class="act-icon">▶</span>
+            <span id="btn-next-level-label">SIGUIENTE NIVEL</span>
+          </button>
+
+          <div id="result-actions">
+            <button type="button" id="btn-again" data-required data-ui-interactive
+              class="result-action-btn primary" aria-label="Reintentar" title="Reintentar">
+              <span class="act-icon">↻</span>
+              <span class="act-label">REINTENTAR</span>
+            </button>
+            <button type="button" id="btn-result-menu" data-ui-interactive
+              class="result-action-btn" aria-label="Menú" title="Menú">
+              <span class="act-icon">⌂</span>
+              <span class="act-label">MENÚ</span>
+            </button>
+            <button type="button" id="btn-result-options" data-ui-interactive
+              class="result-action-btn" aria-label="Opciones" title="Opciones">
+              <span class="act-icon">⚙</span>
+              <span class="act-label">OPCIONES</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -410,37 +458,6 @@
         <div class="result-stat"><span>🎯 Aros</span><strong id="res-rings" data-required>0</strong></div>
         <div class="result-stat"><span>⚡ Boosters</span><strong id="res-boosters" data-required>0</strong></div>
         <div class="result-stat"><span>🪙 Monedas</span><strong id="res-coin-count" data-required>0</strong></div>
-      </div>
-
-      <!-- Progreso de misiones tras el vuelo -->
-      <div id="result-missions" class="result-missions-box"></div>
-
-      <!--
-        ── Tres íconos en vez de botones de texto ──
-        Reintentar (↻), salir al menú (⌂) y opciones (⚙). Es lo que se pidió: un
-        cierre de pantalla que un chico entiende sin leer.
-      -->
-      <button type="button" id="btn-next-level" data-ui-interactive class="result-next-btn hidden">
-        <span class="act-icon">▶</span>
-        <span id="btn-next-level-label">SIGUIENTE NIVEL</span>
-      </button>
-
-      <div id="result-actions">
-        <button type="button" id="btn-again" data-required data-ui-interactive
-          class="result-action-btn primary" aria-label="Reintentar" title="Reintentar">
-          <span class="act-icon">↻</span>
-          <span class="act-label">REINTENTAR</span>
-        </button>
-        <button type="button" id="btn-result-menu" data-ui-interactive
-          class="result-action-btn" aria-label="Menú" title="Menú">
-          <span class="act-icon">⌂</span>
-          <span class="act-label">MENÚ</span>
-        </button>
-        <button type="button" id="btn-result-options" data-ui-interactive
-          class="result-action-btn" aria-label="Opciones" title="Opciones">
-          <span class="act-icon">⚙</span>
-          <span class="act-label">OPCIONES</span>
-        </button>
       </div>
     </div>
   </div>
