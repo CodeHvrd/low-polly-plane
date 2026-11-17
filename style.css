@@ -3808,6 +3808,7 @@ body.en-vuelo #touch-back {
 }
 
 #account-panel input[type="text"],
+#account-panel input[type="email"],
 #account-panel input[type="password"] {
   flex: 1;
   min-width: 0;
@@ -3819,6 +3820,11 @@ body.en-vuelo #touch-back {
   font-family: var(--font-body, sans-serif);
   font-size: 0.8rem;
   outline: none;
+}
+
+#account-panel input.hidden,
+#account-panel .hidden {
+  display: none !important;
 }
 
 #account-panel input:focus {
@@ -3878,6 +3884,7 @@ body.en-vuelo #touch-back {
     gap: 5px;
   }
   #account-panel input[type="text"],
+  #account-panel input[type="email"],
   #account-panel input[type="password"] {
     padding: 5px 8px;
     font-size: 0.74rem;
@@ -3888,7 +3895,71 @@ body.en-vuelo #touch-back {
     gap: 6px;
   }
   .auth-check,
-  #btn-auth-submit {
+  #btn-auth-submit,
+  #inp-auth-email {
     grid-column: 1 / -1;
+  }
+}
+
+.guest-btn {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.auth-guest-note {
+  font-size: 0.64rem;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.3;
+}
+
+/* ── Accesos rápidos transparentes (SOLO PC y SOLO en menú principal) ── */
+#pc-quick-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  pointer-events: auto;
+}
+
+#pc-quick-bar.hidden {
+  display: none !important;
+}
+
+.pc-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--font-display);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, opacity 0.2s;
+}
+
+.pc-quick-btn:hover {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.10);
+}
+
+.pc-quick-btn.off {
+  opacity: 0.5;
+  border-color: rgba(255, 82, 82, 0.35);
+}
+
+@media (hover: none), (pointer: coarse) {
+  #pc-quick-bar {
+    display: none !important;
   }
 }

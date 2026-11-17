@@ -81,6 +81,19 @@ export function normalizeUsername(username) {
     .replace(/[^a-z0-9_.-]/g, '');
 }
 
+export function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+export function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+
+export function isValidPassword(password) {
+  const s = String(password || '');
+  return s.length >= 6 && /[a-zA-Z]/.test(s) && /[0-9]/.test(s);
+}
+
 async function createUserWithDefaults(displayName, avatarUrl = null) {
   const safeName = sanitizeDisplayName(displayName);
   const created = await query(
@@ -116,7 +129,7 @@ export async function getUserAccountInfo(userId) {
     avatarUrl: u.avatar_url || null,
     provider: primaryProvider,
     username: localRow?.provider_uid || null,
-    email: googleRow?.email || null,
+    email: googleRow?.email || localRow?.email || null,
     providers: idRows.map((r) => r.provider),
   };
 }
@@ -180,27 +193,37 @@ export async function upsertIdentity({
   };
 }
 
-/** Registra una cuenta local (usuario + contraseña). */
+/** Registra una cuenta local (email obligatorio + usuario + contraseña mín. 6 con letras y números). */
 export async function registerLocalAccount({
+  email,
   username,
   password,
   displayName,
   linkToUserId = null,
 }) {
+  const cleanEmail = normalizeEmail(email);
+  if (!isValidEmail(cleanEmail)) {
+    throw Object.assign(new Error('Ingresá un correo electrónico válido.'), { status: 400 });
+  }
   const cleanUser = normalizeUsername(username);
   if (cleanUser.length < 3 || cleanUser.length > 24) {
     throw Object.assign(new Error('El usuario debe tener entre 3 y 24 caracteres (letras/números).'), { status: 400 });
   }
-  if (!password || String(password).length < 4) {
-    throw Object.assign(new Error('La contraseña debe tener al menos 4 caracteres.'), { status: 400 });
+  if (!isValidPassword(password)) {
+    throw Object.assign(new Error('La contraseña debe tener al menos 6 caracteres con letras y números.'), { status: 400 });
   }
 
   const dup = await query(
-    `SELECT 1 FROM auth_identities WHERE provider = 'local' AND provider_uid = $1 LIMIT 1`,
-    [cleanUser],
+    `SELECT provider_uid, email FROM auth_identities
+     WHERE provider = 'local' AND (provider_uid = $1 OR lower(email) = $2)
+     LIMIT 1`,
+    [cleanUser, cleanEmail],
   );
   if (dup.length > 0) {
-    throw Object.assign(new Error('Ese usuario ya está registrado. Probá iniciar sesión.'), { status: 409 });
+    const msg = dup[0].email?.toLowerCase() === cleanEmail
+      ? 'Ese correo ya tiene una cuenta asociada. Iniciá sesión.'
+      : 'Ese nombre de usuario ya está en uso. Elegí otro.';
+    throw Object.assign(new Error(msg), { status: 409 });
   }
 
   const safeName = sanitizeDisplayName(displayName || cleanUser, cleanUser);
@@ -213,9 +236,9 @@ export async function registerLocalAccount({
 
   const pwHash = hashPassword(password);
   await query(
-    `INSERT INTO auth_identities (user_id, provider, provider_uid, password_hash)
-     VALUES ($1, 'local', $2, $3)`,
-    [userId, cleanUser, pwHash],
+    `INSERT INTO auth_identities (user_id, provider, provider_uid, email, password_hash)
+     VALUES ($1, 'local', $2, $3, $4)`,
+    [userId, cleanUser, cleanEmail, pwHash],
   );
 
   const info = await getUserAccountInfo(userId);
@@ -225,26 +248,29 @@ export async function registerLocalAccount({
   };
 }
 
-/** Inicia sesión con usuario + contraseña locales. */
-export async function loginLocalAccount({ username, password }) {
-  const cleanUser = normalizeUsername(username);
+/** Inicia sesión con usuario o email + contraseña locales. */
+export async function loginLocalAccount({ identifier, username, password }) {
+  const rawId = String(identifier ?? username ?? '').trim();
+  const isMail = rawId.includes('@');
+  const cleanUser = isMail ? normalizeEmail(rawId) : normalizeUsername(rawId);
   if (!cleanUser || !password) {
-    throw Object.assign(new Error('Ingresá usuario y contraseña.'), { status: 400 });
+    throw Object.assign(new Error('Ingresá tu usuario (o mail) y contraseña.'), { status: 400 });
   }
 
   const rows = await query(
     `SELECT user_id, password_hash FROM auth_identities
-     WHERE provider = 'local' AND provider_uid = $1 LIMIT 1`,
+     WHERE provider = 'local' AND ${isMail ? 'lower(email) = $1' : 'provider_uid = $1'}
+     LIMIT 1`,
     [cleanUser],
   );
   if (!rows.length || !verifyPassword(password, rows[0].password_hash)) {
-    throw Object.assign(new Error('Usuario o contraseña incorrectos.'), { status: 401 });
+    throw Object.assign(new Error('Usuario/mail o contraseña incorrectos.'), { status: 401 });
   }
 
   const userId = rows[0].user_id;
   await query(
-    `UPDATE auth_identities SET last_login_at = now() WHERE provider = 'local' AND provider_uid = $1`,
-    [cleanUser],
+    `UPDATE auth_identities SET last_login_at = now() WHERE user_id = $1 AND provider = 'local'`,
+    [userId],
   );
   await query(`UPDATE users SET last_seen_at = now() WHERE id = $1`, [userId]);
 

@@ -229,11 +229,19 @@ export class Game {
 
     this.running = true;
     this._syncAccountUi?.();
+    this._syncQuickBar?.();
     initRemoteBackend().then((res) => {
       if (!this.running) return;
       this._syncAccountUi?.();
       this._setupGoogleSignIn?.();
-      if (res?.online && res?.user?.provider && res.user.provider !== 'guest') {
+      const isGuest = !res?.user?.provider || res.user.provider === 'guest' || !res.user.token;
+      if (isGuest) {
+        let ack = false;
+        try { ack = sessionStorage.getItem('papercrash.guestAck') === '1'; } catch { /* noop */ }
+        if (!ack && this.overlays.current === Screen.STANDBY) {
+          this._openAccountPanel?.();
+        }
+      } else if (res?.online) {
         fetchCloudProfile().then((prof) => {
           if (prof && this.controller.phase !== PHASE.FLYING) this._applyCloudProfile?.(prof);
         }).catch(() => {});
@@ -1407,6 +1415,7 @@ export class Game {
     const muted = toggleMuted();
     STATE.muted = muted;
     this.syncMuteButton();
+    this._syncQuickBar?.();
     this.persist();
     if (!muted) sfx.click();
   }
@@ -1425,6 +1434,7 @@ export class Game {
 
     const btnMusic = document.getElementById('btn-options-music');
     if (btnMusic) btnMusic.textContent = STATE.musicOff ? 'OFF' : 'ON';
+    this._syncQuickBar?.();
 
     const lblCur = document.getElementById('lbl-options-cursor');
     if (lblCur) lblCur.textContent = isTouchDevice() ? 'Control' : 'Seguir el cursor';
@@ -1601,6 +1611,7 @@ export class Game {
 
     const mostrarPanel = (panel) => {
       menu?.classList.toggle('hidden', Boolean(panel));
+      document.getElementById('pc-quick-bar')?.classList.toggle('hidden', Boolean(panel));
       document.getElementById('missions-widget')?.classList.toggle('hidden', true);
       awardsPanel?.classList.toggle('hidden', panel !== awardsPanel);
       optionsPanel?.classList.toggle('hidden', panel !== optionsPanel);
@@ -1608,6 +1619,52 @@ export class Game {
       accountPanel?.classList.toggle('hidden', panel !== accountPanel);
       if (!panel) HUD.invalidate();
     };
+
+    this._openAccountPanel = () => {
+      setAuthFeedback('');
+      this._syncAccountUi?.();
+      this._setupGoogleSignIn?.();
+      mostrarPanel(accountPanel);
+    };
+
+    this._syncQuickBar = () => {
+      const btnMus = document.getElementById('btn-quick-music');
+      const btnSfx = document.getElementById('btn-quick-sfx');
+      if (btnMus) {
+        const off = STATE.musicOff === true;
+        btnMus.classList.toggle('off', off);
+        btnMus.querySelector('span').textContent = off ? 'Música OFF' : 'Música';
+      }
+      if (btnSfx) {
+        const off = isMuted();
+        btnSfx.classList.toggle('off', off);
+        btnSfx.querySelector('span').textContent = off ? 'Sonidos OFF' : 'Sonidos';
+      }
+    };
+
+    document.getElementById('btn-quick-music')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      STATE.musicOff = !STATE.musicOff;
+      music.setMudo(STATE.musicOff);
+      this.syncOptionsPanel();
+      this._syncQuickBar();
+      this.persist();
+    });
+
+    document.getElementById('btn-quick-sfx')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleMute();
+      this.syncOptionsPanel();
+      this._syncQuickBar();
+    });
+
+    document.getElementById('btn-quick-options')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      this.syncOptionsPanel();
+      mostrarPanel(optionsPanel);
+    });
 
     const setAuthFeedback = (msg, isError = false) => {
       const fb = document.getElementById('auth-feedback');
@@ -1708,7 +1765,14 @@ export class Game {
     this._setupGoogleSignIn = () => {
       const clientId = getGoogleClientId();
       const wrap = document.getElementById('google-signin-wrap');
-      if (!clientId || !wrap) return;
+      const hint = document.getElementById('google-config-hint');
+      if (!wrap) return;
+      if (!clientId) {
+        wrap.classList.add('hidden');
+        hint?.classList.remove('hidden');
+        return;
+      }
+      hint?.classList.add('hidden');
       wrap.classList.remove('hidden');
       if (wrap.dataset.initialized === '1') return;
       wrap.dataset.initialized = '1';
@@ -1752,10 +1816,7 @@ export class Game {
     document.getElementById('btn-account')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      setAuthFeedback('');
-      this._syncAccountUi();
-      this._setupGoogleSignIn();
-      mostrarPanel(accountPanel);
+      this._openAccountPanel?.();
     });
 
     document.getElementById('btn-account-back')?.addEventListener('click', (e) => {
@@ -1790,12 +1851,28 @@ export class Game {
       document.getElementById('tab-auth-login')?.classList.toggle('active', !isReg);
       document.getElementById('tab-auth-register')?.classList.toggle('active', isReg);
       document.getElementById('lbl-link-guest')?.classList.toggle('hidden', !isReg);
+      const emailInp = document.getElementById('inp-auth-email');
+      if (emailInp) {
+        emailInp.classList.toggle('hidden', !isReg);
+        emailInp.required = isReg;
+      }
+      const userInp = document.getElementById('inp-auth-user');
+      if (userInp) {
+        userInp.placeholder = isReg ? 'Usuario de acceso (letras/números)' : 'Usuario o mail';
+      }
       const btn = document.getElementById('btn-auth-submit');
       if (btn) btn.textContent = isReg ? 'CREAR CUENTA' : 'ENTRAR';
       const passInp = document.getElementById('inp-auth-pass');
       if (passInp) passInp.autocomplete = isReg ? 'new-password' : 'current-password';
       setAuthFeedback('');
     };
+
+    document.getElementById('btn-continue-guest')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      try { sessionStorage.setItem('papercrash.guestAck', '1'); } catch { /* noop */ }
+      mostrarPanel(null);
+    });
 
     document.getElementById('tab-auth-login')?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1813,15 +1890,27 @@ export class Game {
       e.preventDefault();
       e.stopPropagation();
       sfx.click();
-      const username = document.getElementById('inp-auth-user')?.value || '';
+      const email = document.getElementById('inp-auth-email')?.value?.trim() || '';
+      const username = document.getElementById('inp-auth-user')?.value?.trim() || '';
       const password = document.getElementById('inp-auth-pass')?.value || '';
-      const displayName = document.getElementById('inp-pilot-name')?.value || username;
+      const displayName = document.getElementById('inp-pilot-name')?.value?.trim() || username;
       const linkCurrent = Boolean(document.getElementById('chk-link-guest')?.checked);
+
+      if (authMode === 'register') {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+          setAuthFeedback('Ingresá un correo electrónico válido.', true);
+          return;
+        }
+        if (password.length < 6 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+          setAuthFeedback('La contraseña debe tener mínimo 6 caracteres con letras y números.', true);
+          return;
+        }
+      }
 
       setAuthFeedback(authMode === 'register' ? 'Creando cuenta…' : 'Iniciando sesión…');
       const res = authMode === 'register'
-        ? await registerLocalUser({ username, password, displayName, linkCurrentAccount: linkCurrent })
-        : await loginLocalUser({ username, password });
+        ? await registerLocalUser({ email, username, password, displayName, linkCurrentAccount: linkCurrent })
+        : await loginLocalUser({ identifier: username, password });
 
       if (!res.ok) {
         setAuthFeedback(res.error || 'Error de autenticación', true);
@@ -1942,15 +2031,28 @@ export class Game {
 
     const fillRankingContainer = (cont, period, limit = 8) => {
       if (!cont) return;
+      const auth = getStoredAuth();
+      const isGuest = !auth.provider || auth.provider === 'guest' || !auth.token;
       const paintRows = (items, isGlobal = false) => {
         if (!items.length) {
           const vacio = document.createElement('p');
           vacio.className = 'ach-desc';
-          vacio.textContent = 'Todavía no hay vuelos en este período.';
+          vacio.textContent =
+            period !== 'daily' && isGuest
+              ? 'Invitados solo ranquean en Diario. Creá una cuenta para competir acá.'
+              : 'Todavía no hay vuelos en este período.';
           cont.replaceChildren(vacio);
           return;
         }
-        cont.replaceChildren(...items.map((r, i) => {
+        const nodes = [];
+        if (period !== 'daily' && isGuest) {
+          const aviso = document.createElement('p');
+          aviso.className = 'ach-desc';
+          aviso.textContent = 'Tu sesión invitado solo ranquea en Diario (por día).';
+          nodes.push(aviso);
+        }
+        for (let i = 0; i < items.length; i++) {
+          const r = items[i];
           const row = document.createElement('div');
           row.className = 'profile-row ranking-row';
           const puesto = document.createElement('span');
@@ -1959,32 +2061,35 @@ export class Game {
           const nave = document.createElement('span');
           nave.className = 'rank-ship';
           const ship = r.aircraft ?? r.ship ?? '—';
-          const namePrefix = isGlobal && r.display_name ? `${r.display_name} · ` : '';
+          const guestMark = isGlobal && r.is_guest ? ' (Inv.)' : '';
+          const namePrefix = isGlobal && r.display_name ? `${r.display_name}${guestMark} · ` : '';
           nave.textContent = `${namePrefix}${ship} · ${r.distance} m`;
           const pts = document.createElement('strong');
           const val = r.total_score ?? r.score ?? r.distance ?? 0;
           pts.textContent = `${Number(val).toLocaleString('es-AR')} pts`;
           row.append(puesto, nave, pts);
-          return row;
-        }));
+          nodes.push(row);
+        }
+        cont.replaceChildren(...nodes);
       };
 
       const reqId = (cont._rankReqId = (cont._rankReqId || 0) + 1);
-      paintRows(leerRankingFiltrado(period).slice(0, limit), false);
+      const localItems = period === 'daily' || !isGuest ? leerRankingFiltrado(period).slice(0, limit) : [];
+      paintRows(localItems, false);
 
       fetchGlobalLeaderboard(period, limit).then((remote) => {
-        if (remote && remote.length && cont._rankReqId === reqId) {
-          paintRows(remote, true);
+        if (remote && cont._rankReqId === reqId) {
+          if (remote.length || period !== 'daily') paintRows(remote, true);
         }
       }).catch(() => {});
     };
 
-    let activeRankPeriod = 'weekly';
+    let activeRankPeriod = 'daily';
     const renderMissionsRanking = () => {
       fillRankingContainer(document.getElementById('missions-ranking-list'), activeRankPeriod, 8);
     };
 
-    let activeResRankPeriod = 'weekly';
+    let activeResRankPeriod = 'daily';
     this._renderResultRanking = () => {
       fillRankingContainer(document.getElementById('result-ranking-list'), activeResRankPeriod, 5);
     };

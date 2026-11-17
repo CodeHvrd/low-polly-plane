@@ -133,6 +133,13 @@
       <button type="button" id="btn-exit" class="menu-btn">EXIT</button>
     </nav>
 
+    <!-- Accesos directos transparentes SOLO en versión PC y SOLO en el menú principal -->
+    <div id="pc-quick-bar" data-ui-interactive aria-label="Accesos rápidos de escritorio">
+      <button type="button" id="btn-quick-music" class="pc-quick-btn" title="Activar o silenciar música">🎵 <span>Música</span></button>
+      <button type="button" id="btn-quick-sfx" class="pc-quick-btn" title="Activar o silenciar sonidos">🔊 <span>Sonidos</span></button>
+      <button type="button" id="btn-quick-options" class="pc-quick-btn" title="Abrir opciones">⚙ <span>Opciones</span></button>
+    </div>
+
     <!-- Panel de Modo Historia (Niveles 1 a 5) -->
     <section id="story-panel" class="menu-panel hidden" data-ui-interactive>
       <h2>MODO HISTORIA</h2>
@@ -155,7 +162,8 @@
       </div>
       <div id="ranking-tab-pane" class="hidden">
         <div class="ranking-period-bar" role="tablist">
-          <button type="button" class="ranking-period-btn active" data-period="weekly">SEMANAL</button>
+          <button type="button" class="ranking-period-btn active" data-period="daily">DIARIO</button>
+          <button type="button" class="ranking-period-btn" data-period="weekly">SEMANAL</button>
           <button type="button" class="ranking-period-btn" data-period="monthly">MENSUAL</button>
           <button type="button" class="ranking-period-btn" data-period="all">ALL TIMES</button>
         </div>
@@ -240,8 +248,9 @@
         </div>
 
         <form id="auth-form" class="auth-form" autocomplete="on">
-          <input type="text" id="inp-auth-user" maxlength="24" placeholder="Usuario (letras/números)" autocomplete="username" required />
-          <input type="password" id="inp-auth-pass" maxlength="64" placeholder="Contraseña (mín. 4)" autocomplete="current-password" required />
+          <input type="email" id="inp-auth-email" maxlength="120" placeholder="Correo electrónico (obligatorio)" autocomplete="email" class="hidden" />
+          <input type="text" id="inp-auth-user" maxlength="48" placeholder="Usuario o mail" autocomplete="username" required />
+          <input type="password" id="inp-auth-pass" maxlength="64" placeholder="Contraseña (mín. 6, letras y números)" autocomplete="current-password" required />
           <label id="lbl-link-guest" class="auth-check hidden">
             <input type="checkbox" id="chk-link-guest" checked />
             <span>Conservar mis monedas y récord actuales</span>
@@ -250,6 +259,8 @@
         </form>
 
         <div id="google-signin-wrap" class="google-signin-wrap hidden"></div>
+        <p id="google-config-hint" class="auth-guest-note hidden">Google Sign-In requiere configurar <code>GOOGLE_CLIENT_ID</code> en Vercel.</p>
+        <button type="button" id="btn-continue-guest" class="menu-toggle guest-btn">JUGAR COMO INVITADO · Solo Ranking Diario</button>
       </div>
 
       <div id="auth-logged-actions" class="hidden">
@@ -461,7 +472,8 @@
             </div>
             <div id="res-pane-rank" class="hidden">
               <div class="ranking-period-bar res-ranking-periods" role="tablist">
-                <button type="button" class="ranking-period-btn res-period-btn active" data-period="weekly">SEMANAL</button>
+                <button type="button" class="ranking-period-btn res-period-btn active" data-period="daily">DIARIO</button>
+                <button type="button" class="ranking-period-btn res-period-btn" data-period="weekly">SEMANAL</button>
                 <button type="button" class="ranking-period-btn res-period-btn" data-period="monthly">MENSUAL</button>
                 <button type="button" class="ranking-period-btn res-period-btn" data-period="all">ALL TIMES</button>
               </div>

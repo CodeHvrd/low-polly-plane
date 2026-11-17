@@ -117,7 +117,8 @@ export async function handleApiRequest(req, res) {
   }
 
   const url = new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`);
-  const path = url.pathname;
+  const rawRoute = url.searchParams.get('__route');
+  const path = rawRoute ? `/api/${rawRoute.replace(/^\/+/, '')}` : url.pathname;
 
   // ── GET /api/health ─────────────────────────────────────────
   if (req.method === 'GET' && (path === '/api/health' || path === '/api')) {
@@ -157,12 +158,13 @@ export async function handleApiRequest(req, res) {
     return sendJson(res, 200, { ok: true, ...session });
   }
 
-  // ── POST /api/auth/register (Usuario + contraseña local) ────
+  // ── POST /api/auth/register (Mail + usuario + contraseña local) ─
   if (req.method === 'POST' && path === '/api/auth/register') {
     const body = await readJsonBody(req);
     const existingUid = verifySessionToken(readBearerToken(req));
     const linkCurrent = Boolean(body.linkCurrentAccount && existingUid);
     const session = await registerLocalAccount({
+      email: body.email,
       username: body.username,
       password: body.password,
       displayName: body.displayName,
@@ -176,7 +178,7 @@ export async function handleApiRequest(req, res) {
   if (req.method === 'POST' && path === '/api/auth/password-login') {
     const body = await readJsonBody(req);
     const session = await loginLocalAccount({
-      username: body.username,
+      identifier: body.identifier ?? body.username,
       password: body.password,
     });
     return sendJson(res, 200, { ok: true, ...session });
@@ -481,10 +483,10 @@ export async function handleApiRequest(req, res) {
     });
   }
 
-  // ── GET /api/leaderboard?period=weekly|monthly|all ──────────
+  // ── GET /api/leaderboard?period=daily|weekly|monthly|all ─────
   if (req.method === 'GET' && path === '/api/leaderboard') {
-    const rawPeriod = url.searchParams.get('period') || 'weekly';
-    const period = ['weekly', 'monthly', 'all'].includes(rawPeriod) ? rawPeriod : 'weekly';
+    const rawPeriod = url.searchParams.get('period') || 'daily';
+    const period = ['daily', 'weekly', 'monthly', 'all'].includes(rawPeriod) ? rawPeriod : 'daily';
     const limit = Math.min(100, Math.max(5, Number(url.searchParams.get('limit') || 25)));
 
     const cacheKey = `${period}:${limit}`;
@@ -494,14 +496,24 @@ export async function handleApiRequest(req, res) {
     }
 
     const whereClause =
-      period === 'weekly'
-        ? `AND r.created_at >= now() - INTERVAL '7 days'`
-        : period === 'monthly'
-          ? `AND r.created_at >= now() - INTERVAL '30 days'`
-          : '';
+      period === 'daily'
+        ? `AND r.created_at >= (date_trunc('day', now() AT TIME ZONE 'America/Argentina/Buenos_Aires') AT TIME ZONE 'America/Argentina/Buenos_Aires')`
+        : period === 'weekly'
+          ? `AND r.created_at >= now() - INTERVAL '7 days'
+             AND EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest')`
+          : period === 'monthly'
+            ? `AND r.created_at >= now() - INTERVAL '30 days'
+               AND EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest')`
+            : `AND EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest')`;
 
     const rows = await query(
-      `SELECT r.user_id, u.display_name, r.aircraft, r.distance, r.total_score, r.created_at
+      `SELECT r.user_id,
+              u.display_name,
+              NOT EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest') AS is_guest,
+              r.aircraft,
+              r.distance,
+              r.total_score,
+              r.created_at
        FROM flight_runs r
        JOIN users u ON u.id = r.user_id
        WHERE r.verified = true AND u.is_banned = false ${whereClause}

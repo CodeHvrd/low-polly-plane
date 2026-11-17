@@ -131,19 +131,26 @@ export function guardarEnRanking(registro) {
 const MS_DAY = 86_400_000;
 
 /**
- * Devuelve el ranking filtrado por período ('weekly' | 'monthly' | 'all'),
+ * Devuelve el ranking filtrado por período ('daily' | 'weekly' | 'monthly' | 'all'),
  * ordenado de mayor a menor score (o distancia en registros legacy).
+ * 'daily' se reinicia por día calendario (00:00 hs local), no por últimas 24 h corridas.
  *
- * @param {'weekly'|'monthly'|'all'} [period='all']
+ * @param {'daily'|'weekly'|'monthly'|'all'} [period='daily']
  * @param {number} [now=Date.now()]
  * @returns {RunRecord[]}
  */
-export function leerRankingFiltrado(period = 'all', now = Date.now()) {
+export function leerRankingFiltrado(period = 'daily', now = Date.now()) {
   const lista = leerRanking();
-  const cutoff =
-    period === 'weekly' ? now - 7 * MS_DAY
-      : period === 'monthly' ? now - 30 * MS_DAY
-        : 0;
+  let cutoff = 0;
+  if (period === 'daily') {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    cutoff = d.getTime();
+  } else if (period === 'weekly') {
+    cutoff = now - 7 * MS_DAY;
+  } else if (period === 'monthly') {
+    cutoff = now - 30 * MS_DAY;
+  }
   return lista
     .filter((r) => !cutoff || (typeof r.at === 'number' && r.at >= cutoff))
     .sort((a, b) => (b.score ?? b.distance) - (a.score ?? a.distance));

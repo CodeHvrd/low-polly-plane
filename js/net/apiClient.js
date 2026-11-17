@@ -145,11 +145,11 @@ export async function updatePilotDisplayName(displayName) {
   return res;
 }
 
-/** Crea una cuenta nueva (usuario + contraseña). Si `linkCurrentAccount`, conserva datos de invitado. */
-export async function registerLocalUser({ username, password, displayName, linkCurrentAccount = true }) {
+/** Crea una cuenta nueva (mail + usuario + contraseña). Si `linkCurrentAccount`, conserva datos de invitado. */
+export async function registerLocalUser({ email, username, password, displayName, linkCurrentAccount = true }) {
   const res = await apiFetch('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username, password, displayName, linkCurrentAccount }),
+    body: JSON.stringify({ email, username, password, displayName, linkCurrentAccount }),
   });
   if (res.ok && res.token) {
     return { ok: true, session: saveSessionFromResponse(res) };
@@ -157,11 +157,11 @@ export async function registerLocalUser({ username, password, displayName, linkC
   return res;
 }
 
-/** Inicia sesión con usuario + contraseña locales. */
-export async function loginLocalUser({ username, password }) {
+/** Inicia sesión con usuario o mail + contraseña locales. */
+export async function loginLocalUser({ identifier, username, password }) {
   const res = await apiFetch('/api/auth/password-login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ identifier: identifier ?? username, password }),
   });
   if (res.ok && res.token) {
     return { ok: true, session: saveSessionFromResponse(res) };
@@ -237,8 +237,8 @@ export async function submitRemoteRun(payload) {
   }, 6000);
 }
 
-/** Obtiene el ranking global filtrado por período ('weekly' | 'monthly' | 'all'). */
-export async function fetchGlobalLeaderboard(period = 'weekly', limit = 15) {
+/** Obtiene el ranking global filtrado por período ('daily' | 'weekly' | 'monthly' | 'all'). */
+export async function fetchGlobalLeaderboard(period = 'daily', limit = 15) {
   const res = await apiFetch(`/api/leaderboard?period=${encodeURIComponent(period)}&limit=${limit}`);
   if (!res.ok || !Array.isArray(res.entries)) return null;
   return res.entries;
