@@ -1,0 +1,17 @@
+{
+  "name": "papercrash-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "API autoritativa y anti-trampas de PaperCrash (Render + Neon PostgreSQL)",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  }
+}

@@ -224,6 +224,7 @@ export function verifyReplay({
     ringCombos: 0,
     coins: 0,
     coinsCollected: 0,
+    coinsByTier: { 5: 0, 10: 0, 50: 0 },
     boosters: 0,
     nearMisses: 0,
   };
@@ -362,6 +363,8 @@ export function verifyReplay({
       if (picked.kind === 'coin') {
         stats.coins += picked.value;
         stats.coinsCollected++;
+        const tier = picked.value === 50 ? 50 : picked.value === 10 ? 10 : 5;
+        stats.coinsByTier[tier] = (stats.coinsByTier[tier] ?? 0) + 1;
       } else {
         stats.boosters++;
         const bKind = picked.boosterKind ?? 'charge';
@@ -438,6 +441,8 @@ export function verifyReplay({
     distance: dist,
     coins: totalCoins,
     rings: stats.rings,
+    ringCombos: stats.ringCombos,
+    coinsByTier: { ...stats.coinsByTier },
     boosters: stats.boosters,
     nearMisses: stats.nearMisses,
     time: round(stats.time, 1),

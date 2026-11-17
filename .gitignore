@@ -7,8 +7,11 @@
 native/build/
 native/assets/
 
-# Dependencias y perfiles temporales.
+# Dependencias, secretos locales y perfiles temporales.
 node_modules/
+.env
+.env.*
+!.env.example
 *.log
 
 # Basura del sistema.
