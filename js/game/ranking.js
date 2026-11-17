@@ -26,8 +26,8 @@
 import { BUILD } from '../core/version.js';
 
 const CLAVE = 'papercrash.ranking.v1';
-/** Cuántas marcas se guardan. */
-const TOP = 10;
+/** Cuántas marcas se guardan localmente (soporta filtros semanal/mensual/all-time). */
+const TOP = 50;
 
 /**
  * @typedef {object} RunRecord
@@ -65,13 +65,15 @@ export function leerRanking() {
  * @param {object} p.result  resultado de `computeResult()`
  * @returns {RunRecord}
  */
-export function crearRegistro({ seed, ship, upgrades, result }) {
+export function crearRegistro({ seed, ship, upgrades, result, score = null }) {
+  const totalScore = Math.round(score?.totalScore ?? result.totalScore ?? result.distance ?? 0);
   return {
     build: BUILD,
     seed: seed ?? 0,
     ship: ship ?? 'paper',
     upgrades: { ...(upgrades ?? {}) },
     distance: Math.round(result.distance ?? 0),
+    score: totalScore,
     coins: Math.round(result.coins ?? 0),
     rings: Math.round(result.rings ?? 0),
     boosters: Math.round(result.boosters ?? 0),
@@ -115,7 +117,7 @@ export function crearPayloadOnline(registro, challengeToken = null) {
 export function guardarEnRanking(registro) {
   const lista = leerRanking();
   lista.push(registro);
-  lista.sort((a, b) => b.distance - a.distance);
+  lista.sort((a, b) => (b.score ?? b.distance) - (a.score ?? a.distance));
   const recortada = lista.slice(0, TOP);
   const pos = recortada.indexOf(registro);
   try {
@@ -124,6 +126,27 @@ export function guardarEnRanking(registro) {
     // Sin almacenamiento (modo privado): el ranking simplemente no persiste.
   }
   return pos < 0 ? 0 : pos + 1;
+}
+
+const MS_DAY = 86_400_000;
+
+/**
+ * Devuelve el ranking filtrado por período ('weekly' | 'monthly' | 'all'),
+ * ordenado de mayor a menor score (o distancia en registros legacy).
+ *
+ * @param {'weekly'|'monthly'|'all'} [period='all']
+ * @param {number} [now=Date.now()]
+ * @returns {RunRecord[]}
+ */
+export function leerRankingFiltrado(period = 'all', now = Date.now()) {
+  const lista = leerRanking();
+  const cutoff =
+    period === 'weekly' ? now - 7 * MS_DAY
+      : period === 'monthly' ? now - 30 * MS_DAY
+        : 0;
+  return lista
+    .filter((r) => !cutoff || (typeof r.at === 'number' && r.at >= cutoff))
+    .sort((a, b) => (b.score ?? b.distance) - (a.score ?? a.distance));
 }
 
 /** Vacía el ranking. */

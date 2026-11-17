@@ -82,6 +82,8 @@ export class TouchControls {
     this.thrustHeld = false;
     /** Si los mandos están visibles. */
     this.visible = false;
+    /** Si está activo el modo "Control / Seguir al dedo" (oculta las teclas). */
+    this.followMode = false;
     /** Callback para el flanco de la propulsión (una pulsación, un uso). */
     this.onThrust = null;
     /** Callback del botón "volver" (abortar el lanzamiento). */
@@ -172,6 +174,7 @@ export class TouchControls {
     document.body.appendChild(cont);
     this.raiz = cont;
     this.built = true;
+    this.setFollowMode(this.followMode);
     return true;
   }
 
@@ -187,6 +190,7 @@ export class TouchControls {
     if (this.dpad?.raiz) {
       this.dpad.raiz.classList.toggle('hidden', on);
       this.dpad.raiz.style.display = on ? 'none' : '';
+      this.dpad.raiz.setAttribute('aria-hidden', on ? 'true' : 'false');
     }
     this.raiz?.classList.toggle('follow-mode', on);
     if (on) this._resetDpad();
@@ -401,10 +405,15 @@ export class TouchControls {
      *
      * Mostrar sigue siendo idempotente; ocultar siempre limpia.
      */
-    if (visible && this.visible) return;
+    if (visible && this.visible) {
+      this.setFollowMode(this.followMode);
+      return;
+    }
     this.visible = visible;
     document.getElementById('touch-controls')?.classList.toggle('hidden', !visible);
-    if (!visible) {
+    if (visible) {
+      this.setFollowMode(this.followMode);
+    } else {
       // Al ocultarse se sueltan los ejes: si no, un dedo apoyado al terminar el
       // vuelo dejaría el mando apretado en el vuelo siguiente.
       this._resetDpad();

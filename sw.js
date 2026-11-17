@@ -22,7 +22,7 @@
  */
 
 /** Subir esto en cada despliegue que cambie archivos. */
-const VERSION = 'papercrash-alpha-1.1.93';
+const VERSION = 'papercrash-alpha-1.1.94';
 
 /** Archivos del juego. Si falta uno, la instalación falla entera. */
 const NUCLEO = [
@@ -70,6 +70,7 @@ const MODULOS = [
   './js/game/missions.js',
   './js/game/ranking.js',
   './js/game/replay.js',
+  './js/game/score.js',
   './js/game/slingshotBand.js',
   './js/game/state.js',
   './js/game/trail.js',

@@ -303,6 +303,8 @@ export class RunController {
       coins: 0,
       /** Cuántas monedas se recogieron, sin importar el valor. */
       coinsCollected: 0,
+      /** Conteo por tier de moneda (5: amarilla, 10: rosada, 50: dorada). */
+      coinsByTier: { 5: 0, 10: 0, 50: 0 },
       /** Boosters recogidos: cada uno carga una propulsión. */
       boosters: 0,
       /** Boosters AZULES recogidos: empujaron en el acto, no se guardaron. */
@@ -742,6 +744,8 @@ export class RunController {
         if (picked.kind === 'coin') {
           this.stats.coins += picked.value;
           this.stats.coinsCollected++;
+          const tier = picked.value === 50 ? 50 : picked.value === 10 ? 10 : 5;
+          this.stats.coinsByTier[tier] = (this.stats.coinsByTier[tier] ?? 0) + 1;
         } else {
           this.collectBooster(picked);
         }
@@ -1113,6 +1117,7 @@ export class RunController {
       coinsFromPickups: st.coins,
       coinsFromPerformance: performance,
       coinsCollected: st.coinsCollected,
+      coinsByTier: { ...st.coinsByTier },
       boosters: st.boosters,
       thrustsUsed: st.thrustsUsed,
       nearMisses: st.nearMisses ?? 0,

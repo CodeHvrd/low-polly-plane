@@ -22,11 +22,11 @@ import { glbCacheado } from './glbLoader.js';
 const COIN_GLB = 'assets/models/coin_chrome.glb';
 const BOOSTER_GLB = 'assets/models/booster_chrome.glb';
 
-/** Color por valor de moneda. */
+/** Color por valor de moneda (5: amarilla, 10: rosada, 50: dorada de alto contraste). */
 const COIN_COLORS = {
-  5: 0xffb020,
-  10: 0x9be564,
-  50: 0xff4f8b,
+  5: 0xffe042,
+  10: 0xff5ca8,
+  50: 0xffd700,
 };
 
 /** Material compartido por valor: se crea una sola vez. */
@@ -71,12 +71,24 @@ function getCoinGeometry() {
 function getCoinMaterial(value) {
   let mat = coinMaterials.get(value);
   if (!mat) {
-    mat = new THREE.MeshLambertMaterial({
-      color: COIN_COLORS[value] ?? 0xffb020,
-      emissive: COIN_COLORS[value] ?? 0xffb020,
-      emissiveIntensity: 0.45,
-      flatShading: true,
-    });
+    if (value === 50) {
+      // Moneda dorada: alto contraste metálico y brillo cálido para que no se pierda contra el terreno.
+      mat = new THREE.MeshStandardMaterial({
+        color: 0xffdf38,
+        emissive: 0xff9500,
+        emissiveIntensity: 0.78,
+        metalness: 0.48,
+        roughness: 0.22,
+        flatShading: true,
+      });
+    } else {
+      mat = new THREE.MeshLambertMaterial({
+        color: COIN_COLORS[value] ?? 0xffe042,
+        emissive: COIN_COLORS[value] ?? 0xffe042,
+        emissiveIntensity: 0.48,
+        flatShading: true,
+      });
+    }
     coinMaterials.set(value, mat);
   }
   return mat;
@@ -191,7 +203,9 @@ export function buildPickupMeshes(pickups) {
       if (geo.userData?.sharedGLB) {
         // El modelo de moneda mira hacia +Z: media vuelta de cuarto en Y lo enfrenta a +X.
         mesh.rotation.y = Math.PI / 2;
-        mesh.scale.setScalar(1.3);
+        mesh.scale.setScalar(p.value === 50 ? 1.52 : 1.3);
+      } else if (p.value === 50) {
+        mesh.scale.setScalar(1.22);
       }
       mesh.position.set(p.x, p.y, p.z);
       mesh.name = `coin-${p.id}`;

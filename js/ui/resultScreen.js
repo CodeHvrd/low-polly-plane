@@ -14,6 +14,7 @@
 import { UI, setText, show, hide } from './dom.js';
 import { STATE } from '../game/state.js';
 import { formatNumber } from '../core/math.js';
+import { computeRunScoreBreakdown } from '../game/score.js';
 
 /** Título y color según cómo terminó el vuelo. */
 function classify(result) {
@@ -62,14 +63,37 @@ export const ResultScreen = {
     setText(UI.resRings, `${result.rings}`);
     setText(UI.resBoosters, `${result.boosters ?? 0}`);
     setText(UI.resCoinCount, `${result.coinsCollected ?? 0}`);
-    /*
-     * El PUNTAJE es la distancia recorrida.
-     *
-     * Es la medida natural de una buena partida en este juego: no hay combos ni
-     * enemigos derrotados, así que lo que hay que superar es el propio récord.
-     */
-    setText(UI.resScore, formatNumber(Math.round(result.distance)));
+
+    const breakdown = computeRunScoreBreakdown(result, result.missionsCompleted ?? 0);
+    setText(UI.resScore, formatNumber(breakdown.totalScore));
     setText(UI.resCoins, `+${formatNumber(result.coins)}`);
+
+    const elMts = document.getElementById('res-score-mts');
+    if (elMts) elMts.textContent = formatNumber(breakdown.mtsScore);
+
+    const elCoinsScore = document.getElementById('res-score-coins');
+    if (elCoinsScore) elCoinsScore.textContent = formatNumber(breakdown.coinsScore);
+
+    const elCoinsDetail = document.getElementById('res-score-coins-detail');
+    if (elCoinsDetail) {
+      const c = breakdown.coinCounts;
+      elCoinsDetail.textContent = `🟡${c.yellow}×10 · 🩷${c.pink}×25 · 🪙${c.gold}×50`;
+    }
+
+    const elBonusScore = document.getElementById('res-score-bonus');
+    if (elBonusScore) elBonusScore.textContent = formatNumber(breakdown.bonusScore);
+
+    const elMult = document.getElementById('res-score-mult');
+    if (elMult) {
+      elMult.textContent = `x${breakdown.multiplier}`;
+      elMult.classList.toggle('hidden', breakdown.multiplier <= 1);
+    }
+
+    const elBonusDetail = document.getElementById('res-score-bonus-detail');
+    if (elBonusDetail) {
+      const b = breakdown.bonusDetails;
+      elBonusDetail.textContent = `Rozes ${b.nearMisses} · Mis. ${b.missions} · Aros ${b.rings}`;
+    }
 
     // Aviso de récord / récord actual.
     const rec = UI.resRecord;

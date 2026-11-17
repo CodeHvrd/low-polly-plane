@@ -135,13 +135,26 @@
       <button type="button" id="btn-story-back" class="menu-back">← VOLVER</button>
     </section>
 
-    <!-- Modal/Panel de las 3 misiones activas en el lobby -->
+    <!-- Modal/Panel dividido en Objetivos y Misiones / Ranking (semanal, mensual, all times) -->
     <div id="missions-widget" class="missions-widget hidden" data-ui-interactive>
       <div class="missions-widget-header">
-        <span class="missions-widget-title">🎯 MISIONES DIARIAS</span>
+        <div class="missions-tabs" role="tablist">
+          <button type="button" id="tab-missions-obj" class="missions-tab active" role="tab" aria-selected="true">🎯 OBJETIVOS Y MISIONES</button>
+          <button type="button" id="tab-missions-rank" class="missions-tab" role="tab" aria-selected="false">🏆 RANKING</button>
+        </div>
         <button type="button" id="btn-missions-close" class="missions-close-btn" aria-label="Cerrar">✕</button>
       </div>
-      <div id="missions-widget-list" class="missions-list"></div>
+      <div id="missions-tab-pane">
+        <div id="missions-widget-list" class="missions-list"></div>
+      </div>
+      <div id="ranking-tab-pane" class="hidden">
+        <div class="ranking-period-bar" role="tablist">
+          <button type="button" class="ranking-period-btn active" data-period="weekly">SEMANAL</button>
+          <button type="button" class="ranking-period-btn" data-period="monthly">MENSUAL</button>
+          <button type="button" class="ranking-period-btn" data-period="all">ALL TIMES</button>
+        </div>
+        <div id="missions-ranking-list" class="ranking-tab-list"></div>
+      </div>
     </div>
 
     <!-- Panel de premios: se llena en el paso 3. -->
@@ -352,19 +365,35 @@
 
       <h2 id="result-title" data-required>YOU CRASH!</h2>
 
-      <!--
-        ── Puntaje y monedas, nada más ──
-        Se sacaron los números técnicos de la vista: el juego apunta a chicos y al
-        perder lo que importa es el puntaje y lo que juntaste.
-      -->
-      <div id="result-score">
-        <div class="score-cell">
+      <div id="res-record" data-required></div>
+
+      <div id="result-coins-summary">
+        <span class="score-label">COINS GANADAS</span>
+        <strong id="res-coins" data-required>+0</strong>
+      </div>
+
+      <div id="result-score-card">
+        <div class="score-card-header">SCORE</div>
+        <div class="score-breakdown">
+          <div class="score-row">
+            <span class="score-row-label">MTS <small>Distancia exacta</small></span>
+            <strong id="res-score-mts">0</strong>
+          </div>
+          <div class="score-row">
+            <span class="score-row-label">COINS <small id="res-score-coins-detail">🟡×10 · 🩷×25 · 🪙×50</small></span>
+            <strong id="res-score-coins">0</strong>
+          </div>
+          <div class="score-row">
+            <span class="score-row-label">
+              BONUS <em id="res-score-mult" class="score-mult-badge hidden">x1</em>
+              <small id="res-score-bonus-detail">Rozes · Misiones · Aros</small>
+            </span>
+            <strong id="res-score-bonus">0</strong>
+          </div>
+        </div>
+        <div class="score-total-row">
           <span class="score-label">SCORE</span>
           <strong id="res-score" data-required>0</strong>
-        </div>
-        <div class="score-cell">
-          <span class="score-label">COINS</span>
-          <strong id="res-coins" data-required>0</strong>
         </div>
       </div>
 
@@ -380,13 +409,7 @@
         <div class="result-stat"><span>🎯 Aros</span><strong id="res-rings" data-required>0</strong></div>
         <div class="result-stat"><span>⚡ Boosters</span><strong id="res-boosters" data-required>0</strong></div>
         <div class="result-stat"><span>🪙 Monedas</span><strong id="res-coin-count" data-required>0</strong></div>
-        <div class="result-stat coins-earned">
-          <span>💰 Ganaste</span>
-          <strong id="res-coins" data-required>—</strong>
-        </div>
       </div>
-
-      <div id="res-record" data-required></div><!-- versión chica: ver CSS -->
 
       <!-- Progreso de misiones tras el vuelo -->
       <div id="result-missions" class="result-missions-box"></div>

@@ -60,7 +60,8 @@ import {
   nivelesDe,
 } from './state.js';
 import { todosLosLogros } from './achievements.js';
-import { crearRegistro, guardarEnRanking, leerRanking } from './ranking.js';
+import { crearRegistro, guardarEnRanking, leerRanking, leerRankingFiltrado } from './ranking.js';
+import { computeRunScoreBreakdown } from './score.js';
 import { AircraftView } from './AircraftView.js';
 import { AimingSystem } from './aiming.js';
 import { SlingshotBand } from './slingshotBand.js';
@@ -186,6 +187,8 @@ export class Game {
     if (STATE.cursorFollow === null || STATE.cursorFollow === undefined) {
       STATE.cursorFollow = isTouchDevice();
     }
+    this.touch?.setFollowMode(Boolean(STATE.cursorFollow));
+    this.syncOptionsPanel();
     initUpgradeLevels();
     setMuted(STATE.muted ?? false);
     this.syncMuteButton();
@@ -376,7 +379,7 @@ export class Game {
     st.playMs += Math.round((result.time ?? 0) * 1000);
     if (result.distance > st.bestDistance) st.bestDistance = result.distance;
 
-    // Acumular progreso en misiones acumulativas
+    // Acumular progreso en misiones acumulativas y evaluar misiones completadas en este vuelo
     if (STATE.missions?.active) {
       STATE.missions.progress = recordFlightProgress(
         STATE.missions.active,
@@ -384,6 +387,10 @@ export class Game {
         STATE.missions.progress,
       );
     }
+    this.checkMissionsProgress(result);
+    result.missionsCompleted = this._completedThisFlight.size;
+    const scoreData = computeRunScoreBreakdown(result, result.missionsCompleted);
+    result.totalScore = scoreData.totalScore;
     /*
      * ── Ranking local ──
      *
@@ -396,6 +403,7 @@ export class Game {
       ship: STATE.aircraft,
       upgrades: { ...nivelesDe() },
       result,
+      score: scoreData,
     });
     this.rankingPos = guardarEnRanking(registro);
 
@@ -1324,6 +1332,7 @@ export class Game {
        */
       this.lastTime = performance.now();
       setPointerFollow(STATE.cursorFollow);
+      this.touch?.setFollowMode(Boolean(STATE.cursorFollow));
       document.getElementById('pause-missions-box')?.classList.add('hidden');
 
     /*
@@ -1622,6 +1631,68 @@ export class Game {
       mostrarPanel(null);
     });
 
+    let activeRankPeriod = 'weekly';
+    const renderMissionsRanking = () => {
+      const cont = document.getElementById('missions-ranking-list');
+      if (!cont) return;
+      const lista = leerRankingFiltrado(activeRankPeriod).slice(0, 10);
+      if (!lista.length) {
+        const vacio = document.createElement('p');
+        vacio.className = 'ach-desc';
+        vacio.textContent = 'Todavía no hay vuelos en este período.';
+        cont.replaceChildren(vacio);
+        return;
+      }
+      cont.replaceChildren(...lista.map((r, i) => {
+        const row = document.createElement('div');
+        row.className = 'profile-row ranking-row';
+        const puesto = document.createElement('span');
+        puesto.className = 'rank-pos';
+        puesto.textContent = `#${i + 1}`;
+        const nave = document.createElement('span');
+        nave.className = 'rank-ship';
+        nave.textContent = `${r.ship ?? '—'} · ${r.distance} m`;
+        const pts = document.createElement('strong');
+        pts.textContent = `${(r.score ?? r.distance).toLocaleString('es-AR')} pts`;
+        row.append(puesto, nave, pts);
+        return row;
+      }));
+    };
+
+    const setMissionsTab = (tab) => {
+      const isRank = tab === 'ranking';
+      document.getElementById('tab-missions-obj')?.classList.toggle('active', !isRank);
+      document.getElementById('tab-missions-rank')?.classList.toggle('active', isRank);
+      document.getElementById('missions-tab-pane')?.classList.toggle('hidden', isRank);
+      document.getElementById('ranking-tab-pane')?.classList.toggle('hidden', !isRank);
+      if (isRank) renderMissionsRanking();
+      else this.renderMisiones();
+    };
+
+    document.getElementById('tab-missions-obj')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      setMissionsTab('missions');
+    });
+
+    document.getElementById('tab-missions-rank')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      setMissionsTab('ranking');
+    });
+
+    document.querySelectorAll('.ranking-period-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.click();
+        activeRankPeriod = btn.dataset.period || 'all';
+        document.querySelectorAll('.ranking-period-btn').forEach((b) => {
+          b.classList.toggle('active', b === btn);
+        });
+        renderMissionsRanking();
+      });
+    });
+
     document.getElementById('btn-lobby-missions')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
@@ -1629,7 +1700,10 @@ export class Game {
       if (widget) {
         const willShow = widget.classList.contains('hidden');
         widget.classList.toggle('hidden', !willShow);
-        if (willShow) this.renderMisiones();
+        if (willShow) {
+          this.renderMisiones();
+          renderMissionsRanking();
+        }
       }
     });
 

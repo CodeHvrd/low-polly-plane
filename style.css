@@ -2298,8 +2298,30 @@ body.en-vuelo #mode-bar {
  * desplegable de estadísticas.
  */
 #result-stats,
-#total-coins-banner,
+#total-coins-banner {
+  display: none;
+}
+
 #res-record,
+.res-record {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.res-record.is-record {
+  color: var(--gold);
+  background: rgba(255, 215, 64, 0.14);
+  border-color: rgba(255, 215, 64, 0.45);
+}
+
 /* ── Cargador de aros ──
  * Arriba al centro. Segmentos negros (vacíos) que se colorean al pasar aros; el
  * rayo se enciende cuando están los cuatro y se apaga al gastarse. */
@@ -3354,10 +3376,182 @@ body.modo-diagnostico #diag-overlay {
 
 /* Cuando "Seguir al cursor/dedo" está activo en mobile:
    se ocultan las flechas y el botón de boost pasa a la esquina inferior izquierda. */
+#touch-controls.follow-mode .touch-dpad {
+  display: none !important;
+}
+
 #touch-controls.follow-mode #touch-thrust {
   left: max(18px, env(safe-area-inset-left) + 14px);
   right: auto;
   bottom: max(18px, env(safe-area-inset-bottom) + 14px);
+}
+
+/* ── Desglose de Score en Pantalla de Resultado ── */
+#result-coins-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 215, 64, 0.35);
+  background: rgba(255, 215, 64, 0.10);
+}
+
+#result-coins-summary strong {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  color: var(--gold);
+}
+
+#result-score-card {
+  border-radius: 14px;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.05);
+  padding: 10px 14px 12px;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.score-card-header {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--cyan);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.score-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.score-row-label {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+.score-row-label small {
+  font-family: var(--font-body, sans-serif);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.score-row strong {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  color: #fff;
+}
+
+.score-mult-badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 215, 64, 0.2);
+  border: 1px solid rgba(255, 215, 64, 0.5);
+  color: var(--gold);
+  font-style: normal;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.score-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+}
+
+.score-total-row strong {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  color: var(--cyan);
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.35);
+}
+
+/* ── Pestañas Objetivos y Misiones / Ranking ── */
+.missions-tabs {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.missions-tab {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.missions-tab.active {
+  color: var(--cyan);
+  border-color: rgba(0, 229, 255, 0.5);
+  background: rgba(0, 229, 255, 0.12);
+}
+
+.ranking-period-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ranking-period-btn {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.ranking-period-btn.active {
+  color: var(--gold);
+  border-color: rgba(255, 215, 64, 0.5);
+  background: rgba(255, 215, 64, 0.12);
+}
+
+.ranking-tab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
 }
 
 /* En vuelo, ocultar el botón táctil de volver para que no tape el HUD superior */
