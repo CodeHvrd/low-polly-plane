@@ -35,18 +35,35 @@ export async function query(queryText, params = []) {
 }
 
 /**
- * Garantiza que el esquema de `db/schema.sql` exista en Neon.
- * Corre una sola vez por instancia (no-op rápido si `users` ya existe).
+ * Garantiza que el esquema y migraciones incrementales existan en Neon.
+ * Corre una sola vez por instancia.
  */
 export async function ensureSchema() {
   if (!pool) return false;
   if (!schemaReadyPromise) {
     schemaReadyPromise = (async () => {
       const check = await pool.query(`SELECT to_regclass('public.users') AS tbl`);
-      if (check.rows?.[0]?.tbl) return true;
-      const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-      const ddl = readFileSync(join(rootDir, 'db', 'schema.sql'), 'utf8');
-      await pool.query(ddl);
+      if (!check.rows?.[0]?.tbl) {
+        const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+        const ddl = readFileSync(join(rootDir, 'db', 'schema.sql'), 'utf8');
+        await pool.query(ddl);
+      }
+
+      // Migración idempotente para cuentas locales (usuario + contraseña)
+      const colCheck = await pool.query(
+        `SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'auth_identities' AND column_name = 'password_hash'
+         LIMIT 1`,
+      );
+      if (colCheck.rowCount === 0) {
+        await pool.query(`ALTER TABLE auth_identities ADD COLUMN IF NOT EXISTS password_hash TEXT`);
+        await pool.query(`ALTER TABLE auth_identities DROP CONSTRAINT IF EXISTS auth_identities_provider_check`);
+        await pool.query(
+          `ALTER TABLE auth_identities
+           ADD CONSTRAINT auth_identities_provider_check
+           CHECK (provider IN ('google', 'google_play', 'steam', 'guest', 'local'))`,
+        );
+      }
       return true;
     })().catch((err) => {
       schemaReadyPromise = null;

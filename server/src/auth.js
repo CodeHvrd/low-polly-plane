@@ -1,10 +1,13 @@
 /**
- * PAPERCRASH API — Sesiones HMAC-SHA256 e Identidad Multi-Plataforma
+ * PAPERCRASH API — Sesiones HMAC-SHA256, Contraseñas scrypt e Identidad Multi-Plataforma
  *
- * Permite arrancar como invitado (guest) y vincular luego Google,
- * Google Play Games o Steam manteniendo un mismo `user_id` en Neon.
+ * Soporta:
+ *   · Guest instantáneo
+ *   · Cuenta local (usuario + contraseña con scrypt + salt)
+ *   · Google OAuth / Sign-In (verificación de ID Token con tokeninfo + GOOGLE_CLIENT_ID)
+ *   · Google Play Games / Steam (extensible sobre la misma tabla `auth_identities`)
  */
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { query } from './db.js';
 
 const DEV_SECRET = 'papercrash-dev-secret-change-in-production';
@@ -51,18 +54,84 @@ export function readBearerToken(req) {
   return auth.slice(7).trim();
 }
 
+export function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const hash = scryptSync(String(password), salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password, stored) {
+  if (!stored || !stored.includes(':')) return false;
+  const [salt, keyHex] = stored.split(':');
+  const keyBuf = Buffer.from(keyHex, 'hex');
+  const derived = scryptSync(String(password), salt, 64);
+  if (keyBuf.length !== derived.length) return false;
+  return timingSafeEqual(keyBuf, derived);
+}
+
+export function sanitizeDisplayName(name, fallback = 'Piloto') {
+  const clean = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  return clean.length >= 2 ? clean : fallback;
+}
+
+export function normalizeUsername(username) {
+  return String(username || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]/g, '');
+}
+
+async function createUserWithDefaults(displayName, avatarUrl = null) {
+  const safeName = sanitizeDisplayName(displayName);
+  const created = await query(
+    `INSERT INTO users (display_name, avatar_url) VALUES ($1, $2) RETURNING id, display_name`,
+    [safeName, avatarUrl],
+  );
+  const userId = created[0].id;
+  await query(`INSERT INTO player_wallets (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
+  await query(`INSERT INTO player_story_progress (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
+  await query(`INSERT INTO player_missions (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
+  await query(`INSERT INTO player_stats (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
+  return userId;
+}
+
+export async function getUserAccountInfo(userId) {
+  const [uRows, idRows] = await Promise.all([
+    query(`SELECT id, display_name, avatar_url FROM users WHERE id = $1 LIMIT 1`, [userId]),
+    query(`SELECT provider, provider_uid, email FROM auth_identities WHERE user_id = $1`, [userId]),
+  ]);
+  if (!uRows.length) return null;
+  const u = uRows[0];
+  const primaryProvider =
+    idRows.find((r) => r.provider === 'google')?.provider ||
+    idRows.find((r) => r.provider === 'local')?.provider ||
+    idRows[0]?.provider ||
+    'guest';
+  const localRow = idRows.find((r) => r.provider === 'local');
+  const googleRow = idRows.find((r) => r.provider === 'google');
+
+  return {
+    userId: u.id,
+    displayName: u.display_name,
+    avatarUrl: u.avatar_url || null,
+    provider: primaryProvider,
+    username: localRow?.provider_uid || null,
+    email: googleRow?.email || null,
+    providers: idRows.map((r) => r.provider),
+  };
+}
+
 /**
  * Crea o recupera un usuario por identidad (guest | google | google_play | steam).
- * Si se pasa `linkToUserId` y esa identidad no existía, la asocia al usuario actual.
  */
 export async function upsertIdentity({
   provider,
   providerUid,
   displayName = 'Piloto',
   email = null,
+  avatarUrl = null,
   linkToUserId = null,
 }) {
-  const safeName = String(displayName || 'Piloto').trim().slice(0, 32) || 'Piloto';
   const existing = await query(
     `SELECT user_id FROM auth_identities WHERE provider = $1 AND provider_uid = $2 LIMIT 1`,
     [provider, providerUid],
@@ -72,23 +141,29 @@ export async function upsertIdentity({
   if (existing.length > 0) {
     userId = existing[0].user_id;
     await query(
-      `UPDATE auth_identities SET last_login_at = now() WHERE provider = $1 AND provider_uid = $2`,
-      [provider, providerUid],
+      `UPDATE auth_identities SET last_login_at = now(), email = COALESCE($3, email)
+       WHERE provider = $1 AND provider_uid = $2`,
+      [provider, providerUid, email],
     );
-    await query(`UPDATE users SET last_seen_at = now() WHERE id = $1`, [userId]);
+    await query(
+      `UPDATE users
+       SET last_seen_at = now(),
+           avatar_url = COALESCE($2, avatar_url)
+       WHERE id = $1`,
+      [userId, avatarUrl],
+    );
   } else {
-    if (linkToUserId) {
-      userId = linkToUserId;
-    } else {
-      const created = await query(
-        `INSERT INTO users (display_name) VALUES ($1) RETURNING id`,
-        [safeName],
-      );
-      userId = created[0].id;
-      await query(`INSERT INTO player_wallets (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
-      await query(`INSERT INTO player_story_progress (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
-      await query(`INSERT INTO player_missions (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
-      await query(`INSERT INTO player_stats (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
+    userId = linkToUserId || (await createUserWithDefaults(displayName, avatarUrl));
+    if (linkToUserId && displayName) {
+      const safe = sanitizeDisplayName(displayName, '');
+      if (safe) {
+        await query(
+          `UPDATE users SET display_name = CASE WHEN display_name = 'Piloto' THEN $2 ELSE display_name END,
+                            avatar_url = COALESCE($3, avatar_url)
+           WHERE id = $1`,
+          [userId, safe, avatarUrl],
+        );
+      }
     }
     await query(
       `INSERT INTO auth_identities (user_id, provider, provider_uid, email)
@@ -98,8 +173,118 @@ export async function upsertIdentity({
     );
   }
 
+  const info = await getUserAccountInfo(userId);
   return {
-    userId,
+    ...info,
     token: issueSessionToken(userId),
   };
+}
+
+/** Registra una cuenta local (usuario + contraseña). */
+export async function registerLocalAccount({
+  username,
+  password,
+  displayName,
+  linkToUserId = null,
+}) {
+  const cleanUser = normalizeUsername(username);
+  if (cleanUser.length < 3 || cleanUser.length > 24) {
+    throw Object.assign(new Error('El usuario debe tener entre 3 y 24 caracteres (letras/números).'), { status: 400 });
+  }
+  if (!password || String(password).length < 4) {
+    throw Object.assign(new Error('La contraseña debe tener al menos 4 caracteres.'), { status: 400 });
+  }
+
+  const dup = await query(
+    `SELECT 1 FROM auth_identities WHERE provider = 'local' AND provider_uid = $1 LIMIT 1`,
+    [cleanUser],
+  );
+  if (dup.length > 0) {
+    throw Object.assign(new Error('Ese usuario ya está registrado. Probá iniciar sesión.'), { status: 409 });
+  }
+
+  const safeName = sanitizeDisplayName(displayName || cleanUser, cleanUser);
+  let userId = linkToUserId;
+  if (userId) {
+    await query(`UPDATE users SET display_name = $2, last_seen_at = now() WHERE id = $1`, [userId, safeName]);
+  } else {
+    userId = await createUserWithDefaults(safeName);
+  }
+
+  const pwHash = hashPassword(password);
+  await query(
+    `INSERT INTO auth_identities (user_id, provider, provider_uid, password_hash)
+     VALUES ($1, 'local', $2, $3)`,
+    [userId, cleanUser, pwHash],
+  );
+
+  const info = await getUserAccountInfo(userId);
+  return {
+    ...info,
+    token: issueSessionToken(userId),
+  };
+}
+
+/** Inicia sesión con usuario + contraseña locales. */
+export async function loginLocalAccount({ username, password }) {
+  const cleanUser = normalizeUsername(username);
+  if (!cleanUser || !password) {
+    throw Object.assign(new Error('Ingresá usuario y contraseña.'), { status: 400 });
+  }
+
+  const rows = await query(
+    `SELECT user_id, password_hash FROM auth_identities
+     WHERE provider = 'local' AND provider_uid = $1 LIMIT 1`,
+    [cleanUser],
+  );
+  if (!rows.length || !verifyPassword(password, rows[0].password_hash)) {
+    throw Object.assign(new Error('Usuario o contraseña incorrectos.'), { status: 401 });
+  }
+
+  const userId = rows[0].user_id;
+  await query(
+    `UPDATE auth_identities SET last_login_at = now() WHERE provider = 'local' AND provider_uid = $1`,
+    [cleanUser],
+  );
+  await query(`UPDATE users SET last_seen_at = now() WHERE id = $1`, [userId]);
+
+  const info = await getUserAccountInfo(userId);
+  return {
+    ...info,
+    token: issueSessionToken(userId),
+  };
+}
+
+/** Verifica un ID Token de Google Sign-In contra tokeninfo oficial. */
+export async function verifyGoogleIdToken(idToken) {
+  if (!idToken || typeof idToken !== 'string') {
+    throw Object.assign(new Error('Falta idToken de Google.'), { status: 400 });
+  }
+  const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+  if (!resp.ok) {
+    throw Object.assign(new Error('Token de Google inválido o expirado.'), { status: 401 });
+  }
+  const claims = await resp.json();
+  const configuredAud = process.env.GOOGLE_CLIENT_ID?.trim();
+  if (configuredAud && claims.aud !== configuredAud) {
+    throw Object.assign(new Error('El token no corresponde a esta aplicación.'), { status: 401 });
+  }
+  if (!claims.sub) {
+    throw Object.assign(new Error('Token de Google sin identificador sub.'), { status: 401 });
+  }
+  return {
+    sub: String(claims.sub),
+    email: claims.email ? String(claims.email) : null,
+    name: claims.name ? String(claims.name) : 'Piloto',
+    picture: claims.picture ? String(claims.picture) : null,
+  };
+}
+
+export async function updateDisplayName(userId, displayName) {
+  const safe = sanitizeDisplayName(displayName, '');
+  if (!safe) {
+    throw Object.assign(new Error('El nombre debe tener entre 2 y 24 caracteres.'), { status: 400 });
+  }
+  await query(`UPDATE users SET display_name = $2, last_seen_at = now() WHERE id = $1`, [userId, safe]);
+  return safe;
 }

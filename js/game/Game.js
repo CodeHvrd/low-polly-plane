@@ -62,7 +62,21 @@ import {
 import { todosLosLogros } from './achievements.js';
 import { crearPayloadOnline, crearRegistro, guardarEnRanking, leerRanking, leerRankingFiltrado } from './ranking.js';
 import { computeRunScoreBreakdown } from './score.js';
-import { initRemoteBackend, startRemoteRun, submitRemoteRun, fetchGlobalLeaderboard } from '../net/apiClient.js';
+import {
+  initRemoteBackend,
+  startRemoteRun,
+  submitRemoteRun,
+  fetchGlobalLeaderboard,
+  getStoredAuth,
+  getGoogleClientId,
+  updatePilotDisplayName,
+  registerLocalUser,
+  loginLocalUser,
+  loginGoogleIdToken,
+  switchToFreshGuest,
+  fetchCloudProfile,
+  syncCloudProfile,
+} from '../net/apiClient.js';
 import { AircraftView } from './AircraftView.js';
 import { AimingSystem } from './aiming.js';
 import { SlingshotBand } from './slingshotBand.js';
@@ -214,7 +228,17 @@ export class Game {
     this.overlays.set(Screen.STANDBY);
 
     this.running = true;
-    initRemoteBackend().catch(() => {});
+    this._syncAccountUi?.();
+    initRemoteBackend().then((res) => {
+      if (!this.running) return;
+      this._syncAccountUi?.();
+      this._setupGoogleSignIn?.();
+      if (res?.online && res?.user?.provider && res.user.provider !== 'guest') {
+        fetchCloudProfile().then((prof) => {
+          if (prof && this.controller.phase !== PHASE.FLYING) this._applyCloudProfile?.(prof);
+        }).catch(() => {});
+      }
+    }).catch(() => {});
     preloadStoryProps().then(() => {
       if (this.running) this.rebuildStoryProps();
     });
@@ -497,6 +521,10 @@ export class Game {
 
   persist() {
     persistSave(STATE);
+    if (this._cloudSyncTimer) clearTimeout(this._cloudSyncTimer);
+    this._cloudSyncTimer = setTimeout(() => {
+      syncCloudProfile(toSaveObject(STATE)).catch(() => {});
+    }, 1500);
   }
 
   /** Marca el modo activo en la barra de modos. */
@@ -1569,6 +1597,7 @@ export class Game {
     const awardsPanel = document.getElementById('awards-panel');
     const optionsPanel = document.getElementById('options-panel');
     const storyPanel = document.getElementById('story-panel');
+    const accountPanel = document.getElementById('account-panel');
 
     const mostrarPanel = (panel) => {
       menu?.classList.toggle('hidden', Boolean(panel));
@@ -1576,8 +1605,262 @@ export class Game {
       awardsPanel?.classList.toggle('hidden', panel !== awardsPanel);
       optionsPanel?.classList.toggle('hidden', panel !== optionsPanel);
       storyPanel?.classList.toggle('hidden', panel !== storyPanel);
+      accountPanel?.classList.toggle('hidden', panel !== accountPanel);
       if (!panel) HUD.invalidate();
     };
+
+    const setAuthFeedback = (msg, isError = false) => {
+      const fb = document.getElementById('auth-feedback');
+      if (!fb) return;
+      fb.textContent = msg || '';
+      fb.classList.toggle('hidden', !msg);
+      fb.classList.toggle('error', Boolean(isError));
+    };
+
+    this._syncAccountUi = () => {
+      const auth = getStoredAuth();
+      const name = auth.displayName || 'Piloto';
+      const prov = auth.provider || 'guest';
+      const isGuest = prov === 'guest' || !auth.token;
+
+      const badgeLbl = document.getElementById('pilot-name-label');
+      if (badgeLbl) badgeLbl.textContent = name;
+
+      const statusName = document.getElementById('account-status-name');
+      if (statusName) statusName.textContent = name;
+
+      const pill = document.getElementById('account-provider-pill');
+      if (pill) {
+        const labels = { guest: 'INVITADO', local: 'CUENTA', google: 'GOOGLE', google_play: 'PLAY', steam: 'STEAM' };
+        pill.textContent = labels[prov] || 'CUENTA';
+        pill.classList.toggle('verified', !isGuest);
+      }
+
+      const inpName = document.getElementById('inp-pilot-name');
+      if (inpName && document.activeElement !== inpName) inpName.value = name;
+
+      document.getElementById('auth-guest-forms')?.classList.toggle('hidden', !isGuest);
+      document.getElementById('auth-logged-actions')?.classList.toggle('hidden', isGuest);
+
+      const detail = document.getElementById('auth-logged-detail');
+      if (detail) {
+        if (prov === 'local' && auth.username) detail.textContent = `Sesión iniciada como @${auth.username}`;
+        else if (prov === 'google' && auth.email) detail.textContent = `Vinculado con ${auth.email}`;
+        else detail.textContent = 'Sesión conectada en la nube.';
+      }
+    };
+
+    this._applyCloudProfile = (prof) => {
+      if (!prof) return;
+      const cleanSave = clearSave() || loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
+      const w = prof.wallet;
+      const upgradesObj = {};
+      const owned = [];
+      for (const row of prof.inventory || []) {
+        if (row.item_type === 'aircraft') owned.push(row.item_id);
+        else if (row.item_type === 'upgrade' && row.metadata && typeof row.metadata === 'object') {
+          upgradesObj[row.item_id] = row.metadata;
+        }
+      }
+      const nextSave = {
+        ...cleanSave,
+        coins: Number(w?.coins ?? 0),
+        bestDistance: Number(w?.best_distance ?? 0),
+        aircraft: w?.active_aircraft || 'paper',
+        aircraftOwned: owned.length ? owned : ['paper'],
+        upgrades: upgradesObj,
+        story: prof.story ? {
+          unlockedLevel: prof.story.unlocked_level ?? 1,
+          endlessUnlocked: Boolean(prof.story.endless_unlocked),
+          stars: prof.story.stars_by_level || {},
+        } : cleanSave.story,
+        missions: prof.missions ? {
+          active: prof.missions.active_ids || [],
+          completed: prof.missions.completed_ids || [],
+          progress: prof.missions.progress || {},
+        } : cleanSave.missions,
+        stats: prof.stats ? {
+          ...cleanSave.stats,
+          runs: prof.stats.runs ?? 0,
+          totalDistance: Number(prof.stats.total_distance ?? 0),
+          playMs: Number(prof.stats.play_ms ?? 0),
+          rings: prof.stats.rings ?? 0,
+          boosters: prof.stats.boosters ?? 0,
+          coinsCollected: prof.stats.coins_collected ?? 0,
+          nearMisses: prof.stats.near_misses ?? 0,
+          crashes: prof.stats.crashes ?? 0,
+          landings: prof.stats.landings ?? 0,
+        } : cleanSave.stats,
+      };
+      hydrate(nextSave);
+      initUpgradeLevels();
+      initOwnedAircraft();
+      persistSave(STATE);
+      this.view.setType(STATE.aircraft);
+      this.syncCoins();
+      this.selector.sync();
+      this.selector.syncDockLabel();
+      this.shop.sync();
+      this.renderMisiones();
+      this.syncAimCallout();
+    };
+
+    this._setupGoogleSignIn = () => {
+      const clientId = getGoogleClientId();
+      const wrap = document.getElementById('google-signin-wrap');
+      if (!clientId || !wrap) return;
+      wrap.classList.remove('hidden');
+      if (wrap.dataset.initialized === '1') return;
+      wrap.dataset.initialized = '1';
+
+      const renderGsi = () => {
+        if (!window.google?.accounts?.id) return;
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response) => {
+            setAuthFeedback('Conectando con Google…');
+            const res = await loginGoogleIdToken(response.credential, true);
+            if (!res.ok) {
+              setAuthFeedback(res.error || 'No se pudo iniciar con Google', true);
+              return;
+            }
+            this._syncAccountUi();
+            const prof = await fetchCloudProfile();
+            if (prof && (prof.wallet?.coins > 0 || prof.wallet?.best_distance > 0)) {
+              this._applyCloudProfile(prof);
+            } else {
+              await syncCloudProfile(toSaveObject(STATE)).catch(() => {});
+            }
+            setAuthFeedback(`¡Bienvenido, ${res.session.displayName}!`);
+          },
+        });
+        window.google.accounts.id.renderButton(wrap, { theme: 'filled_black', size: 'medium', shape: 'pill', width: 240 });
+      };
+
+      if (window.google?.accounts?.id) {
+        renderGsi();
+      } else {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = renderGsi;
+        document.head.appendChild(script);
+      }
+    };
+
+    document.getElementById('btn-account')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      setAuthFeedback('');
+      this._syncAccountUi();
+      this._setupGoogleSignIn();
+      mostrarPanel(accountPanel);
+    });
+
+    document.getElementById('btn-account-back')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      mostrarPanel(null);
+    });
+
+    document.getElementById('btn-save-pilot-name')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      sfx.click();
+      const inp = document.getElementById('inp-pilot-name');
+      const name = inp?.value?.trim() || '';
+      if (name.length < 2) {
+        setAuthFeedback('Elegí al menos 2 caracteres para tu alias.', true);
+        return;
+      }
+      setAuthFeedback('Guardando alias…');
+      const res = await updatePilotDisplayName(name);
+      if (!res.ok) {
+        setAuthFeedback(res.error || 'No se pudo actualizar', true);
+        return;
+      }
+      this._syncAccountUi();
+      setAuthFeedback(`Alias actualizado a "${res.session.displayName}"`);
+    });
+
+    let authMode = 'login';
+    const setAuthMode = (next) => {
+      authMode = next;
+      const isReg = next === 'register';
+      document.getElementById('tab-auth-login')?.classList.toggle('active', !isReg);
+      document.getElementById('tab-auth-register')?.classList.toggle('active', isReg);
+      document.getElementById('lbl-link-guest')?.classList.toggle('hidden', !isReg);
+      const btn = document.getElementById('btn-auth-submit');
+      if (btn) btn.textContent = isReg ? 'CREAR CUENTA' : 'ENTRAR';
+      const passInp = document.getElementById('inp-auth-pass');
+      if (passInp) passInp.autocomplete = isReg ? 'new-password' : 'current-password';
+      setAuthFeedback('');
+    };
+
+    document.getElementById('tab-auth-login')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      setAuthMode('login');
+    });
+
+    document.getElementById('tab-auth-register')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      setAuthMode('register');
+    });
+
+    document.getElementById('auth-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sfx.click();
+      const username = document.getElementById('inp-auth-user')?.value || '';
+      const password = document.getElementById('inp-auth-pass')?.value || '';
+      const displayName = document.getElementById('inp-pilot-name')?.value || username;
+      const linkCurrent = Boolean(document.getElementById('chk-link-guest')?.checked);
+
+      setAuthFeedback(authMode === 'register' ? 'Creando cuenta…' : 'Iniciando sesión…');
+      const res = authMode === 'register'
+        ? await registerLocalUser({ username, password, displayName, linkCurrentAccount: linkCurrent })
+        : await loginLocalUser({ username, password });
+
+      if (!res.ok) {
+        setAuthFeedback(res.error || 'Error de autenticación', true);
+        return;
+      }
+
+      if (authMode === 'register' && linkCurrent) {
+        await syncCloudProfile(toSaveObject(STATE)).catch(() => {});
+      } else {
+        const prof = await fetchCloudProfile();
+        if (prof) this._applyCloudProfile(prof);
+      }
+
+      const passEl = document.getElementById('inp-auth-pass');
+      if (passEl) passEl.value = '';
+      this._syncAccountUi();
+      setAuthFeedback(`¡Conectado como ${res.session.displayName}!`);
+    });
+
+    document.getElementById('btn-auth-logout')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      sfx.click();
+      setAuthFeedback('Cerrando sesión…');
+      await switchToFreshGuest();
+      const freshSave = clearSave();
+      hydrate(freshSave);
+      initUpgradeLevels();
+      initOwnedAircraft();
+      persistSave(STATE);
+      this.view.setType(STATE.aircraft);
+      this.syncCoins();
+      this.selector.sync();
+      this.selector.syncDockLabel();
+      this.shop.sync();
+      this.renderMisiones();
+      this.syncAimCallout();
+      this._syncAccountUi();
+      setAuthFeedback('Sesión cerrada. Jugando como nuevo invitado.');
+    });
 
     const btnNew = document.getElementById('btn-new-game');
     /*

@@ -6,8 +6,8 @@
  * Principio local-first:
  *   · Si no hay internet o Neon todavía no está conectado, falla en silencio
  *     sin trabar ni retrasar el vuelo ni el menú.
- *   · Cuando está conectado, gestiona sesión guest/OAuth, solicita
- *     challengeToken para runs verificadas y alimenta el Ranking global.
+ *   · Gestiona sesión guest, cuentas locales (usuario + contraseña),
+ *     Google Sign-In, alias de piloto, sync de perfil y Ranking global.
  * ============================================================
  */
 
@@ -16,7 +16,7 @@ const PROD_VERCEL_ORIGIN = 'https://flyorcrash.vercel.app';
 
 function resolveApiBase() {
   if (typeof window === 'undefined') return '';
-  const { hostname, protocol } = window.location;
+  const { hostname } = window.location;
   if (
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
@@ -24,13 +24,10 @@ function resolveApiBase() {
   ) {
     return '';
   }
-  if (protocol === 'https:' || protocol === 'http:') {
-    return PROD_VERCEL_ORIGIN;
-  }
   return PROD_VERCEL_ORIGIN;
 }
 
-function readAuth() {
+export function getStoredAuth() {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return {};
@@ -41,17 +38,29 @@ function readAuth() {
   }
 }
 
-function writeAuth(data) {
+function saveSessionFromResponse(res, fallbackGuestId = null) {
+  const prev = getStoredAuth();
+  const next = {
+    guestId: fallbackGuestId || prev.guestId || null,
+    userId: res.userId ?? prev.userId ?? null,
+    displayName: res.displayName ?? prev.displayName ?? 'Piloto',
+    provider: res.provider ?? prev.provider ?? 'guest',
+    username: res.username ?? null,
+    email: res.email ?? null,
+    avatarUrl: res.avatarUrl ?? null,
+    token: res.token ?? prev.token ?? null,
+  };
   try {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
   } catch { /* modo privado */ }
+  return next;
 }
 
-async function apiFetch(path, opts = {}, timeoutMs = 4500) {
+async function apiFetch(path, opts = {}, timeoutMs = 5000) {
   const base = resolveApiBase();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const auth = readAuth();
+  const auth = getStoredAuth();
   const headers = {
     ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
     ...(auth.token ? { Authorization: `Bearer ${auth.token}` } : {}),
@@ -73,36 +82,139 @@ async function apiFetch(path, opts = {}, timeoutMs = 4500) {
 }
 
 let dbOnline = false;
+let googleClientId = null;
 let sessionPromise = null;
 
 /** Verifica conectividad con Vercel + Neon y autentica usuario guest si hace falta. */
 export async function initRemoteBackend() {
   if (sessionPromise) return sessionPromise;
   sessionPromise = (async () => {
-    const health = await apiFetch('/api/health');
+    const [health, cfg] = await Promise.all([
+      apiFetch('/api/health'),
+      apiFetch('/api/auth/config').catch(() => ({})),
+    ]);
+    if (cfg?.googleClientId) googleClientId = cfg.googleClientId;
+
     if (!health.ok || !health.db?.connected) {
       dbOnline = false;
       return { online: false, reason: health.db?.reason || health.error || 'NO_DB' };
     }
     dbOnline = true;
-    const auth = readAuth();
-    if (!auth.token) {
-      const guestId = auth.guestId || (crypto.randomUUID?.() ?? `g-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-      const login = await apiFetch('/api/auth/guest', {
-        method: 'POST',
-        body: JSON.stringify({ guestId }),
-      });
-      if (login.ok && login.token) {
-        writeAuth({ guestId, userId: login.userId, token: login.token });
+
+    const auth = getStoredAuth();
+    if (auth.token) {
+      const me = await apiFetch('/api/auth/me');
+      if (me.ok && me.user) {
+        saveSessionFromResponse(me.user);
+        return { online: true, user: getStoredAuth() };
       }
     }
-    return { online: true };
+
+    const guestId =
+      auth.guestId ||
+      (crypto.randomUUID?.() ?? `g-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const login = await apiFetch('/api/auth/guest', {
+      method: 'POST',
+      body: JSON.stringify({ guestId, displayName: auth.displayName || 'Piloto' }),
+    });
+    if (login.ok && login.token) {
+      saveSessionFromResponse(login, guestId);
+    }
+    return { online: true, user: getStoredAuth() };
   })();
   return sessionPromise;
 }
 
 export function isRemoteOnline() {
   return dbOnline;
+}
+
+export function getGoogleClientId() {
+  return googleClientId;
+}
+
+/** Cambia el nombre visible del piloto (aparece en el Ranking). */
+export async function updatePilotDisplayName(displayName) {
+  const res = await apiFetch('/api/auth/profile', {
+    method: 'POST',
+    body: JSON.stringify({ displayName }),
+  });
+  if (res.ok && res.user) {
+    return { ok: true, session: saveSessionFromResponse(res.user) };
+  }
+  return res;
+}
+
+/** Crea una cuenta nueva (usuario + contraseña). Si `linkCurrentAccount`, conserva datos de invitado. */
+export async function registerLocalUser({ username, password, displayName, linkCurrentAccount = true }) {
+  const res = await apiFetch('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, password, displayName, linkCurrentAccount }),
+  });
+  if (res.ok && res.token) {
+    return { ok: true, session: saveSessionFromResponse(res) };
+  }
+  return res;
+}
+
+/** Inicia sesión con usuario + contraseña locales. */
+export async function loginLocalUser({ username, password }) {
+  const res = await apiFetch('/api/auth/password-login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+  if (res.ok && res.token) {
+    return { ok: true, session: saveSessionFromResponse(res) };
+  }
+  return res;
+}
+
+/** Inicia sesión o vincula cuenta de Google usando ID Token de Google Identity Services. */
+export async function loginGoogleIdToken(idToken, linkCurrentAccount = true) {
+  const res = await apiFetch('/api/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ idToken, linkCurrentAccount }),
+  });
+  if (res.ok && res.token) {
+    return { ok: true, session: saveSessionFromResponse(res) };
+  }
+  return res;
+}
+
+/** Cierra la sesión actual y abre una sesión Guest limpia en Neon. */
+export async function switchToFreshGuest() {
+  const newGuestId =
+    crypto.randomUUID?.() ?? `g-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  try {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch { /* noop */ }
+  const res = await apiFetch('/api/auth/guest', {
+    method: 'POST',
+    body: JSON.stringify({ guestId: newGuestId, displayName: 'Piloto' }),
+  });
+  if (res.ok && res.token) {
+    return { ok: true, session: saveSessionFromResponse(res, newGuestId) };
+  }
+  return {
+    ok: true,
+    session: saveSessionFromResponse({ displayName: 'Piloto', provider: 'guest', token: null }, newGuestId),
+  };
+}
+
+/** Descarga perfil completo de la nube (wallet, mejoras, naves, historia, misiones, stats). */
+export async function fetchCloudProfile() {
+  if (!dbOnline) return null;
+  const res = await apiFetch('/api/profile');
+  return res.ok ? res : null;
+}
+
+/** Sube un snapshot compacto del progreso local al usuario autenticado actual. */
+export async function syncCloudProfile(snapshot) {
+  if (!dbOnline || !getStoredAuth().token) return null;
+  return await apiFetch('/api/profile/sync', {
+    method: 'POST',
+    body: JSON.stringify(snapshot),
+  });
 }
 
 /** Solicita un challengeToken de un solo uso al empezar a volar. */

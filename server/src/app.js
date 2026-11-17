@@ -5,7 +5,16 @@
  */
 import { randomUUID } from 'node:crypto';
 import { ensureSchema, hasDatabase, pingDatabase, query } from './db.js';
-import { readBearerToken, upsertIdentity, verifySessionToken } from './auth.js';
+import {
+  getUserAccountInfo,
+  loginLocalAccount,
+  readBearerToken,
+  registerLocalAccount,
+  updateDisplayName,
+  upsertIdentity,
+  verifyGoogleIdToken,
+  verifySessionToken,
+} from './auth.js';
 import {
   getCachedLeaderboard,
   invalidateLeaderboardCache,
@@ -56,7 +65,6 @@ function sendJson(res, status, data, extraHeaders = {}) {
 }
 
 function readJsonBody(req) {
-  // Vercel pre-parsea req.body cuando Content-Type es application/json
   if (req.body !== undefined) {
     if (typeof req.body === 'string') {
       try {
@@ -120,6 +128,14 @@ export async function handleApiRequest(req, res) {
     return sendJson(res, 200, { ok: true, service: 'papercrash-api', db });
   }
 
+  // ── GET /api/auth/config ────────────────────────────────────
+  if (req.method === 'GET' && path === '/api/auth/config') {
+    return sendJson(res, 200, {
+      ok: true,
+      googleClientId: process.env.GOOGLE_CLIENT_ID?.trim() || null,
+    });
+  }
+
   if (!hasDatabase()) {
     return sendJson(res, 503, {
       ok: false,
@@ -141,12 +157,54 @@ export async function handleApiRequest(req, res) {
     return sendJson(res, 200, { ok: true, ...session });
   }
 
-  // ── POST /api/auth/login (Google / Google Play / Steam) ─────
+  // ── POST /api/auth/register (Usuario + contraseña local) ────
+  if (req.method === 'POST' && path === '/api/auth/register') {
+    const body = await readJsonBody(req);
+    const existingUid = verifySessionToken(readBearerToken(req));
+    const linkCurrent = Boolean(body.linkCurrentAccount && existingUid);
+    const session = await registerLocalAccount({
+      username: body.username,
+      password: body.password,
+      displayName: body.displayName,
+      linkToUserId: linkCurrent ? existingUid : null,
+    });
+    invalidateLeaderboardCache();
+    return sendJson(res, 200, { ok: true, ...session });
+  }
+
+  // ── POST /api/auth/password-login ───────────────────────────
+  if (req.method === 'POST' && path === '/api/auth/password-login') {
+    const body = await readJsonBody(req);
+    const session = await loginLocalAccount({
+      username: body.username,
+      password: body.password,
+    });
+    return sendJson(res, 200, { ok: true, ...session });
+  }
+
+  // ── POST /api/auth/google ───────────────────────────────────
+  if (req.method === 'POST' && path === '/api/auth/google') {
+    const body = await readJsonBody(req);
+    const g = await verifyGoogleIdToken(body.idToken);
+    const existingUid = verifySessionToken(readBearerToken(req));
+    const session = await upsertIdentity({
+      provider: 'google',
+      providerUid: g.sub,
+      displayName: g.name,
+      email: g.email,
+      avatarUrl: g.picture,
+      linkToUserId: body.linkCurrentAccount && existingUid ? existingUid : null,
+    });
+    invalidateLeaderboardCache();
+    return sendJson(res, 200, { ok: true, ...session });
+  }
+
+  // ── POST /api/auth/login (Google Play / Steam / legacy hook) ─
   if (req.method === 'POST' && path === '/api/auth/login') {
     const body = await readJsonBody(req);
     const provider = String(body.provider || '');
     const providerUid = String(body.providerUid || '').trim();
-    if (!['google', 'google_play', 'steam'].includes(provider) || !providerUid) {
+    if (!['google_play', 'steam'].includes(provider) || !providerUid) {
       return sendJson(res, 400, { ok: false, error: 'Proveedor o identificador inválido' });
     }
     const existingUid = verifySessionToken(readBearerToken(req));
@@ -160,22 +218,156 @@ export async function handleApiRequest(req, res) {
     return sendJson(res, 200, { ok: true, ...session });
   }
 
+  // ── GET /api/auth/me ────────────────────────────────────────
+  if (req.method === 'GET' && path === '/api/auth/me') {
+    const userId = requireUserId(req);
+    const user = await getUserAccountInfo(userId);
+    if (!user) return sendJson(res, 404, { ok: false, error: 'Usuario no encontrado' });
+    return sendJson(res, 200, { ok: true, user });
+  }
+
+  // ── POST /api/auth/profile (Actualizar alias de piloto) ─────
+  if (req.method === 'POST' && path === '/api/auth/profile') {
+    const userId = requireUserId(req);
+    const body = await readJsonBody(req);
+    const displayName = await updateDisplayName(userId, body.displayName);
+    invalidateLeaderboardCache();
+    const user = await getUserAccountInfo(userId);
+    return sendJson(res, 200, { ok: true, displayName, user });
+  }
+
   // ── GET /api/profile ────────────────────────────────────────
   if (req.method === 'GET' && path === '/api/profile') {
     const userId = requireUserId(req);
-    const [walletRows, invRows, storyRows, statsRows] = await Promise.all([
+    const [user, walletRows, invRows, storyRows, missionsRows, statsRows] = await Promise.all([
+      getUserAccountInfo(userId),
       query(`SELECT coins, gems, best_distance, best_score, active_aircraft, version FROM player_wallets WHERE user_id = $1`, [userId]),
       query(`SELECT item_type, item_id, level, quantity, metadata FROM player_inventory WHERE user_id = $1`, [userId]),
       query(`SELECT unlocked_level, endless_unlocked, stars_by_level FROM player_story_progress WHERE user_id = $1`, [userId]),
-      query(`SELECT runs, total_distance, rings, boosters, near_misses, achievements FROM player_stats WHERE user_id = $1`, [userId]),
+      query(`SELECT active_ids, completed_ids, progress FROM player_missions WHERE user_id = $1`, [userId]),
+      query(`SELECT runs, total_distance, play_ms, rings, boosters, coins_collected, near_misses, crashes, landings, achievements FROM player_stats WHERE user_id = $1`, [userId]),
     ]);
     return sendJson(res, 200, {
       ok: true,
+      user,
       wallet: walletRows[0] ?? null,
       inventory: invRows,
       story: storyRows[0] ?? null,
+      missions: missionsRows[0] ?? null,
       stats: statsRows[0] ?? null,
     });
+  }
+
+  // ── POST /api/profile/sync (Guarda progreso del usuario) ────
+  if (req.method === 'POST' && path === '/api/profile/sync') {
+    const userId = requireUserId(req);
+    const body = await readJsonBody(req);
+    const coins = Math.max(0, Math.round(Number(body.coins) || 0));
+    const bestDistance = Math.max(0, Math.round(Number(body.bestDistance) || 0));
+    const activeAircraft = String(body.aircraft || 'paper').slice(0, 24);
+
+    await query(
+      `UPDATE player_wallets
+       SET coins = $2,
+           best_distance = GREATEST(best_distance, $3),
+           active_aircraft = $4,
+           version = version + 1,
+           updated_at = now()
+       WHERE user_id = $1`,
+      [userId, coins, bestDistance, activeAircraft],
+    );
+
+    if (body.upgrades && typeof body.upgrades === 'object') {
+      for (const [shipOrId, val] of Object.entries(body.upgrades)) {
+        if (val && typeof val === 'object') {
+          await query(
+            `INSERT INTO player_inventory (user_id, item_type, item_id, level, quantity, metadata)
+             VALUES ($1, 'upgrade', $2, 1, 1, $3::jsonb)
+             ON CONFLICT (user_id, item_type, item_id)
+             DO UPDATE SET metadata = EXCLUDED.metadata, updated_at = now()`,
+            [userId, String(shipOrId).slice(0, 48), JSON.stringify(val)],
+          );
+        } else {
+          const level = Math.max(0, Math.min(20, Math.round(Number(val) || 0)));
+          await query(
+            `INSERT INTO player_inventory (user_id, item_type, item_id, level, quantity)
+             VALUES ($1, 'upgrade', $2, $3, 1)
+             ON CONFLICT (user_id, item_type, item_id)
+             DO UPDATE SET level = EXCLUDED.level, updated_at = now()`,
+            [userId, String(shipOrId).slice(0, 48), level],
+          );
+        }
+      }
+    }
+
+    if (Array.isArray(body.ownedAircraft)) {
+      for (const shipId of body.ownedAircraft) {
+        await query(
+          `INSERT INTO player_inventory (user_id, item_type, item_id, level, quantity)
+           VALUES ($1, 'aircraft', $2, 1, 1)
+           ON CONFLICT (user_id, item_type, item_id) DO NOTHING`,
+          [userId, String(shipId).slice(0, 48)],
+        );
+      }
+    }
+
+    if (body.story && typeof body.story === 'object') {
+      const unlocked = Math.max(1, Math.min(5, Math.round(Number(body.story.unlockedLevel) || 1)));
+      const endless = Boolean(body.story.endlessUnlocked);
+      const stars = JSON.stringify(body.story.stars || {});
+      await query(
+        `UPDATE player_story_progress
+         SET unlocked_level = $2, endless_unlocked = $3, stars_by_level = $4::jsonb, updated_at = now()
+         WHERE user_id = $1`,
+        [userId, unlocked, endless, stars],
+      );
+    }
+
+    if (body.missions && typeof body.missions === 'object') {
+      await query(
+        `UPDATE player_missions
+         SET active_ids = $2::jsonb, completed_ids = $3::jsonb, progress = $4::jsonb, updated_at = now()
+         WHERE user_id = $1`,
+        [
+          userId,
+          JSON.stringify(body.missions.active || []),
+          JSON.stringify(body.missions.completed || []),
+          JSON.stringify(body.missions.progress || {}),
+        ],
+      );
+    }
+
+    if (body.stats && typeof body.stats === 'object') {
+      const s = body.stats;
+      await query(
+        `UPDATE player_stats
+         SET runs = GREATEST(runs, $2),
+             total_distance = GREATEST(total_distance, $3),
+             play_ms = GREATEST(play_ms, $4),
+             rings = GREATEST(rings, $5),
+             boosters = GREATEST(boosters, $6),
+             coins_collected = GREATEST(coins_collected, $7),
+             near_misses = GREATEST(near_misses, $8),
+             crashes = GREATEST(crashes, $9),
+             landings = GREATEST(landings, $10),
+             updated_at = now()
+         WHERE user_id = $1`,
+        [
+          userId,
+          Math.max(0, Math.round(Number(s.runs) || 0)),
+          Math.max(0, Math.round(Number(s.totalDistance) || 0)),
+          Math.max(0, Math.round(Number(s.playMs) || 0)),
+          Math.max(0, Math.round(Number(s.rings) || 0)),
+          Math.max(0, Math.round(Number(s.boosters) || 0)),
+          Math.max(0, Math.round(Number(s.coinsCollected) || 0)),
+          Math.max(0, Math.round(Number(s.nearMisses) || 0)),
+          Math.max(0, Math.round(Number(s.crashes) || 0)),
+          Math.max(0, Math.round(Number(s.landings) || 0)),
+        ],
+      );
+    }
+
+    return sendJson(res, 200, { ok: true });
   }
 
   // ── POST /api/runs/start ────────────────────────────────────

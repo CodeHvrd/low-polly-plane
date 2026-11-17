@@ -99,6 +99,12 @@
        Solo el título. La tienda (arriba a la derecha) es lo único con lo
        que se interactúa acá. -->
   <div id="idle-overlay">
+    <!-- Botón de Cuenta / Piloto arriba a la izquierda en el lobby -->
+    <button type="button" id="btn-account" data-ui-interactive title="Cuenta de piloto">
+      <span class="pilot-dot" aria-hidden="true"></span>
+      <span id="pilot-name-label">Piloto</span>
+    </button>
+
     <!-- ── MODOS DE JUEGO ──────────────────────────────────────
          Va adentro del overlay inicial, ARRIBA del título: es lo primero que se
          elige y así desaparece solo al empezar a jugar, sin lógica extra. El modo
@@ -211,6 +217,48 @@
         <button type="button" id="btn-options-update" class="menu-toggle">ACTUALIZAR</button>
       </div>
       <button type="button" id="btn-options-back" class="menu-back">← VOLVER</button>
+    </section>
+
+    <!-- Panel de Cuenta de Piloto (Alias + Login / Registro + Google) -->
+    <section id="account-panel" class="menu-panel hidden" data-ui-interactive>
+      <h2>CUENTA DE PILOTO</h2>
+
+      <div class="account-status-row">
+        <span id="account-status-name">Piloto</span>
+        <span id="account-provider-pill" class="account-provider-pill">INVITADO</span>
+      </div>
+
+      <div class="account-name-form">
+        <input type="text" id="inp-pilot-name" maxlength="24" placeholder="Tu alias en el Ranking" autocomplete="nickname" />
+        <button type="button" id="btn-save-pilot-name" class="menu-toggle">GUARDAR</button>
+      </div>
+
+      <div id="auth-guest-forms">
+        <div class="missions-tabs auth-tabs" role="tablist">
+          <button type="button" id="tab-auth-login" class="missions-tab active" role="tab">INICIAR SESIÓN</button>
+          <button type="button" id="tab-auth-register" class="missions-tab" role="tab">CREAR CUENTA</button>
+        </div>
+
+        <form id="auth-form" class="auth-form" autocomplete="on">
+          <input type="text" id="inp-auth-user" maxlength="24" placeholder="Usuario (letras/números)" autocomplete="username" required />
+          <input type="password" id="inp-auth-pass" maxlength="64" placeholder="Contraseña (mín. 4)" autocomplete="current-password" required />
+          <label id="lbl-link-guest" class="auth-check hidden">
+            <input type="checkbox" id="chk-link-guest" checked />
+            <span>Conservar mis monedas y récord actuales</span>
+          </label>
+          <button type="submit" id="btn-auth-submit" class="menu-btn primary">ENTRAR</button>
+        </form>
+
+        <div id="google-signin-wrap" class="google-signin-wrap hidden"></div>
+      </div>
+
+      <div id="auth-logged-actions" class="hidden">
+        <p id="auth-logged-detail" class="ach-desc"></p>
+        <button type="button" id="btn-auth-logout" class="menu-toggle danger">CERRAR SESIÓN</button>
+      </div>
+
+      <p id="auth-feedback" class="auth-feedback hidden"></p>
+      <button type="button" id="btn-account-back" class="menu-back">← VOLVER</button>
     </section>
 
   <div id="idle-hint-block" class="hidden" data-required data-ui-interactive role="button" tabindex="0">
