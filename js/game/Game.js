@@ -72,7 +72,7 @@ import {
   updatePilotDisplayName,
   registerLocalUser,
   loginLocalUser,
-  loginGoogleIdToken,
+  loginGoogleToken,
   switchToFreshGuest,
   fetchCloudProfile,
   syncCloudProfile,
@@ -230,16 +230,27 @@ export class Game {
     this.running = true;
     this._syncAccountUi?.();
     this._syncQuickBar?.();
+
+    // Si aún no inició sesión ni eligió "Jugar como invitado", abrir Gate bloqueante en el frame 1
+    {
+      const stAuth = getStoredAuth();
+      const isGuest = !stAuth?.provider || stAuth.provider === 'guest' || !stAuth.token;
+      let ack = false;
+      try { ack = sessionStorage.getItem('papercrash.guestAck') === '1'; } catch { /* noop */ }
+      if (isGuest && !ack) {
+        this._openAccountGate?.();
+      }
+    }
+
     initRemoteBackend().then((res) => {
       if (!this.running) return;
       this._syncAccountUi?.();
-      this._setupGoogleSignIn?.();
       const isGuest = !res?.user?.provider || res.user.provider === 'guest' || !res.user.token;
       if (isGuest) {
         let ack = false;
         try { ack = sessionStorage.getItem('papercrash.guestAck') === '1'; } catch { /* noop */ }
         if (!ack && this.overlays.current === Screen.STANDBY) {
-          this._openAccountPanel?.();
+          this._openAccountGate?.();
         }
       } else if (res?.online) {
         fetchCloudProfile().then((prof) => {
@@ -1620,10 +1631,28 @@ export class Game {
       if (!panel) HUD.invalidate();
     };
 
-    this._openAccountPanel = () => {
+    const showAuthView = (viewName) => {
+      const views = {
+        gate: document.getElementById('auth-gate-view'),
+        login: document.getElementById('auth-login-view'),
+        register: document.getElementById('auth-register-view'),
+        profile: document.getElementById('auth-profile-view'),
+      };
+      for (const [k, el] of Object.entries(views)) {
+        el?.classList.toggle('hidden', k !== viewName);
+      }
       setAuthFeedback('');
+    };
+
+    this._openAccountGate = () => {
       this._syncAccountUi?.();
-      this._setupGoogleSignIn?.();
+      showAuthView('gate');
+      mostrarPanel(accountPanel);
+    };
+
+    this._openAccountPanel = () => {
+      this._syncAccountUi?.();
+      showAuthView('profile');
       mostrarPanel(accountPanel);
     };
 
@@ -1633,12 +1662,14 @@ export class Game {
       if (btnMus) {
         const off = STATE.musicOff === true;
         btnMus.classList.toggle('off', off);
-        btnMus.querySelector('span').textContent = off ? 'Música OFF' : 'Música';
+        btnMus.textContent = off ? '🎵' : '🎵';
+        btnMus.title = off ? 'Música: OFF' : 'Música: ON';
       }
       if (btnSfx) {
         const off = isMuted();
         btnSfx.classList.toggle('off', off);
-        btnSfx.querySelector('span').textContent = off ? 'Sonidos OFF' : 'Sonidos';
+        btnSfx.textContent = off ? '🔇' : '🔊';
+        btnSfx.title = off ? 'Sonidos: OFF' : 'Sonidos: ON';
       }
     };
 
@@ -1657,13 +1688,6 @@ export class Game {
       this.toggleMute();
       this.syncOptionsPanel();
       this._syncQuickBar();
-    });
-
-    document.getElementById('btn-quick-options')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sfx.click();
-      this.syncOptionsPanel();
-      mostrarPanel(optionsPanel);
     });
 
     const setAuthFeedback = (msg, isError = false) => {
@@ -1696,12 +1720,12 @@ export class Game {
       const inpName = document.getElementById('inp-pilot-name');
       if (inpName && document.activeElement !== inpName) inpName.value = name;
 
-      document.getElementById('auth-guest-forms')?.classList.toggle('hidden', !isGuest);
       document.getElementById('auth-logged-actions')?.classList.toggle('hidden', isGuest);
+      document.getElementById('auth-guest-profile-cta')?.classList.toggle('hidden', !isGuest);
 
       const detail = document.getElementById('auth-logged-detail');
       if (detail) {
-        if (prov === 'local' && auth.username) detail.textContent = `Sesión iniciada como @${auth.username}`;
+        if (prov === 'local' && auth.username) detail.textContent = `@${auth.username}${auth.email ? ` · ${auth.email}` : ''}`;
         else if (prov === 'google' && auth.email) detail.textContent = `Vinculado con ${auth.email}`;
         else detail.textContent = 'Sesión conectada en la nube.';
       }
@@ -1762,53 +1786,55 @@ export class Game {
       this.syncAimCallout();
     };
 
-    this._setupGoogleSignIn = () => {
+    const triggerGoogleAuth = (linkCurrent = true) => {
       const clientId = getGoogleClientId();
-      const wrap = document.getElementById('google-signin-wrap');
-      const hint = document.getElementById('google-config-hint');
-      if (!wrap) return;
       if (!clientId) {
-        wrap.classList.add('hidden');
-        hint?.classList.remove('hidden');
+        setAuthFeedback('Falta configurar GOOGLE_CLIENT_ID en Vercel → Settings → Environment Variables.', true);
         return;
       }
-      hint?.classList.add('hidden');
-      wrap.classList.remove('hidden');
-      if (wrap.dataset.initialized === '1') return;
-      wrap.dataset.initialized = '1';
 
-      const renderGsi = () => {
-        if (!window.google?.accounts?.id) return;
-        window.google.accounts.id.initialize({
+      const startTokenFlow = () => {
+        if (!window.google?.accounts?.oauth2) {
+          setAuthFeedback('No se pudo cargar Google Identity Services.', true);
+          return;
+        }
+        const tokenClient = window.google.accounts.oauth2.initTokenClient({
           client_id: clientId,
-          callback: async (response) => {
+          scope: 'openid email profile',
+          callback: async (tokenResp) => {
+            if (!tokenResp?.access_token) {
+              setAuthFeedback('Inicio de sesión con Google cancelado.', true);
+              return;
+            }
             setAuthFeedback('Conectando con Google…');
-            const res = await loginGoogleIdToken(response.credential, true);
+            const res = await loginGoogleToken({ accessToken: tokenResp.access_token }, linkCurrent);
             if (!res.ok) {
               setAuthFeedback(res.error || 'No se pudo iniciar con Google', true);
               return;
             }
-            this._syncAccountUi();
             const prof = await fetchCloudProfile();
             if (prof && (prof.wallet?.coins > 0 || prof.wallet?.best_distance > 0)) {
               this._applyCloudProfile(prof);
             } else {
               await syncCloudProfile(toSaveObject(STATE)).catch(() => {});
             }
-            setAuthFeedback(`¡Bienvenido, ${res.session.displayName}!`);
+            this._syncAccountUi();
+            mostrarPanel(null);
           },
         });
-        window.google.accounts.id.renderButton(wrap, { theme: 'filled_black', size: 'medium', shape: 'pill', width: 240 });
+        tokenClient.requestAccessToken();
       };
 
-      if (window.google?.accounts?.id) {
-        renderGsi();
+      if (window.google?.accounts?.oauth2) {
+        startTokenFlow();
       } else {
+        setAuthFeedback('Abriendo Google…');
         const script = document.createElement('script');
         script.src = 'https://accounts.google.com/gsi/client';
         script.async = true;
         script.defer = true;
-        script.onload = renderGsi;
+        script.onload = startTokenFlow;
+        script.onerror = () => setAuthFeedback('No se pudo conectar con Google.', true);
         document.head.appendChild(script);
       }
     };
@@ -1816,7 +1842,79 @@ export class Game {
     document.getElementById('btn-account')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      this._openAccountPanel?.();
+      const st = getStoredAuth();
+      const isGuest = !st?.provider || st.provider === 'guest' || !st.token;
+      let ack = false;
+      try { ack = sessionStorage.getItem('papercrash.guestAck') === '1'; } catch { /* noop */ }
+      if (isGuest && !ack) this._openAccountGate?.();
+      else this._openAccountPanel?.();
+    });
+
+    document.getElementById('btn-gate-login')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      showAuthView('login');
+    });
+
+    document.getElementById('btn-gate-register')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      showAuthView('register');
+    });
+
+    document.getElementById('btn-to-register')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      showAuthView('register');
+    });
+
+    document.getElementById('btn-to-login')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      showAuthView('login');
+    });
+
+    document.getElementById('btn-login-to-gate')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      showAuthView('gate');
+    });
+
+    document.getElementById('btn-reg-to-gate')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      showAuthView('gate');
+    });
+
+    document.getElementById('btn-profile-switch-login')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      showAuthView('login');
+    });
+
+    document.getElementById('btn-google-gate')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      triggerGoogleAuth(true);
+    });
+
+    document.getElementById('btn-google-login')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      triggerGoogleAuth(true);
+    });
+
+    document.getElementById('btn-google-register')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      triggerGoogleAuth(Boolean(document.getElementById('chk-link-guest')?.checked));
+    });
+
+    document.getElementById('btn-continue-guest')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      try { sessionStorage.setItem('papercrash.guestAck', '1'); } catch { /* noop */ }
+      mostrarPanel(null);
     });
 
     document.getElementById('btn-account-back')?.addEventListener('click', (e) => {
@@ -1844,96 +1942,79 @@ export class Game {
       setAuthFeedback(`Alias actualizado a "${res.session.displayName}"`);
     });
 
-    let authMode = 'login';
-    const setAuthMode = (next) => {
-      authMode = next;
-      const isReg = next === 'register';
-      document.getElementById('tab-auth-login')?.classList.toggle('active', !isReg);
-      document.getElementById('tab-auth-register')?.classList.toggle('active', isReg);
-      document.getElementById('lbl-link-guest')?.classList.toggle('hidden', !isReg);
-      const emailInp = document.getElementById('inp-auth-email');
-      if (emailInp) {
-        emailInp.classList.toggle('hidden', !isReg);
-        emailInp.required = isReg;
-      }
-      const userInp = document.getElementById('inp-auth-user');
-      if (userInp) {
-        userInp.placeholder = isReg ? 'Usuario de acceso (letras/números)' : 'Usuario o mail';
-      }
-      const btn = document.getElementById('btn-auth-submit');
-      if (btn) btn.textContent = isReg ? 'CREAR CUENTA' : 'ENTRAR';
-      const passInp = document.getElementById('inp-auth-pass');
-      if (passInp) passInp.autocomplete = isReg ? 'new-password' : 'current-password';
-      setAuthFeedback('');
-    };
-
-    document.getElementById('btn-continue-guest')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sfx.click();
-      try { sessionStorage.setItem('papercrash.guestAck', '1'); } catch { /* noop */ }
-      mostrarPanel(null);
-    });
-
-    document.getElementById('tab-auth-login')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sfx.click();
-      setAuthMode('login');
-    });
-
-    document.getElementById('tab-auth-register')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sfx.click();
-      setAuthMode('register');
-    });
-
-    document.getElementById('auth-form')?.addEventListener('submit', async (e) => {
+    document.getElementById('auth-login-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       sfx.click();
-      const email = document.getElementById('inp-auth-email')?.value?.trim() || '';
-      const username = document.getElementById('inp-auth-user')?.value?.trim() || '';
-      const password = document.getElementById('inp-auth-pass')?.value || '';
-      const displayName = document.getElementById('inp-pilot-name')?.value?.trim() || username;
+      const identifier = document.getElementById('inp-login-user')?.value?.trim() || '';
+      const password = document.getElementById('inp-login-pass')?.value || '';
+      if (!identifier || !password) {
+        setAuthFeedback('Ingresá tu usuario y contraseña.', true);
+        return;
+      }
+      setAuthFeedback('Iniciando sesión…');
+      const res = await loginLocalUser({ identifier, password });
+      if (!res.ok) {
+        setAuthFeedback(res.error || 'Usuario o contraseña incorrectos.', true);
+        return;
+      }
+      const prof = await fetchCloudProfile();
+      if (prof) this._applyCloudProfile(prof);
+      const passEl = document.getElementById('inp-login-pass');
+      if (passEl) passEl.value = '';
+      this._syncAccountUi();
+      mostrarPanel(null);
+    });
+
+    document.getElementById('auth-register-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sfx.click();
+      const email = document.getElementById('inp-reg-email')?.value?.trim() || '';
+      const username = document.getElementById('inp-reg-user')?.value?.trim() || '';
+      const password = document.getElementById('inp-reg-pass')?.value || '';
       const linkCurrent = Boolean(document.getElementById('chk-link-guest')?.checked);
 
-      if (authMode === 'register') {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-          setAuthFeedback('Ingresá un correo electrónico válido.', true);
-          return;
-        }
-        if (password.length < 6 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
-          setAuthFeedback('La contraseña debe tener mínimo 6 caracteres con letras y números.', true);
-          return;
-        }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+        setAuthFeedback('Ingresá un correo electrónico válido.', true);
+        return;
       }
-
-      setAuthFeedback(authMode === 'register' ? 'Creando cuenta…' : 'Iniciando sesión…');
-      const res = authMode === 'register'
-        ? await registerLocalUser({ email, username, password, displayName, linkCurrentAccount: linkCurrent })
-        : await loginLocalUser({ identifier: username, password });
-
-      if (!res.ok) {
-        setAuthFeedback(res.error || 'Error de autenticación', true);
+      if (password.length < 6 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        setAuthFeedback('La contraseña debe tener mínimo 6 caracteres con letras y números.', true);
         return;
       }
 
-      if (authMode === 'register' && linkCurrent) {
+      setAuthFeedback('Creando cuenta…');
+      const res = await registerLocalUser({
+        email,
+        username,
+        password,
+        displayName: username,
+        linkCurrentAccount: linkCurrent,
+      });
+      if (!res.ok) {
+        setAuthFeedback(res.error || 'No se pudo crear la cuenta.', true);
+        return;
+      }
+
+      if (linkCurrent) {
         await syncCloudProfile(toSaveObject(STATE)).catch(() => {});
       } else {
         const prof = await fetchCloudProfile();
         if (prof) this._applyCloudProfile(prof);
       }
 
-      const passEl = document.getElementById('inp-auth-pass');
+      const passEl = document.getElementById('inp-reg-pass');
       if (passEl) passEl.value = '';
       this._syncAccountUi();
-      setAuthFeedback(`¡Conectado como ${res.session.displayName}!`);
+      mostrarPanel(null);
     });
 
     document.getElementById('btn-auth-logout')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       sfx.click();
       setAuthFeedback('Cerrando sesión…');
+      try { sessionStorage.removeItem('papercrash.guestAck'); } catch { /* noop */ }
       await switchToFreshGuest();
       const freshSave = clearSave();
       hydrate(freshSave);
@@ -1948,7 +2029,8 @@ export class Game {
       this.renderMisiones();
       this.syncAimCallout();
       this._syncAccountUi();
-      setAuthFeedback('Sesión cerrada. Jugando como nuevo invitado.');
+      showAuthView('gate');
+      setAuthFeedback('Sesión cerrada.');
     });
 
     const btnNew = document.getElementById('btn-new-game');

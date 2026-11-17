@@ -281,29 +281,58 @@ export async function loginLocalAccount({ identifier, username, password }) {
   };
 }
 
-/** Verifica un ID Token de Google Sign-In contra tokeninfo oficial. */
-export async function verifyGoogleIdToken(idToken) {
-  if (!idToken || typeof idToken !== 'string') {
-    throw Object.assign(new Error('Falta idToken de Google.'), { status: 400 });
-  }
-  const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
-  if (!resp.ok) {
-    throw Object.assign(new Error('Token de Google inválido o expirado.'), { status: 401 });
-  }
-  const claims = await resp.json();
+/** Verifica un ID Token o Access Token de Google Sign-In contra endpoints oficiales de Google. */
+export async function verifyGoogleToken({ idToken, accessToken }) {
   const configuredAud = process.env.GOOGLE_CLIENT_ID?.trim();
-  if (configuredAud && claims.aud !== configuredAud) {
-    throw Object.assign(new Error('El token no corresponde a esta aplicación.'), { status: 401 });
+
+  if (idToken && typeof idToken === 'string') {
+    const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    if (!resp.ok) {
+      throw Object.assign(new Error('Token de Google inválido o expirado.'), { status: 401 });
+    }
+    const claims = await resp.json();
+    if (configuredAud && claims.aud !== configuredAud) {
+      throw Object.assign(new Error('El token no corresponde a esta aplicación.'), { status: 401 });
+    }
+    if (!claims.sub) {
+      throw Object.assign(new Error('Token de Google sin identificador sub.'), { status: 401 });
+    }
+    return {
+      sub: String(claims.sub),
+      email: claims.email ? String(claims.email) : null,
+      name: claims.name ? String(claims.name) : 'Piloto',
+      picture: claims.picture ? String(claims.picture) : null,
+    };
   }
-  if (!claims.sub) {
-    throw Object.assign(new Error('Token de Google sin identificador sub.'), { status: 401 });
+
+  if (accessToken && typeof accessToken === 'string') {
+    const infoResp = await fetch(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
+    if (!infoResp.ok) {
+      throw Object.assign(new Error('Sesión de Google inválida o expirada.'), { status: 401 });
+    }
+    const info = await infoResp.json();
+    if (configuredAud && info.aud && info.aud !== configuredAud && info.azp !== configuredAud) {
+      throw Object.assign(new Error('El acceso de Google no corresponde a esta aplicación.'), { status: 401 });
+    }
+    const userResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!userResp.ok) {
+      throw Object.assign(new Error('No se pudo obtener el perfil de Google.'), { status: 401 });
+    }
+    const claims = await userResp.json();
+    if (!claims.sub) {
+      throw Object.assign(new Error('Perfil de Google incompleto.'), { status: 401 });
+    }
+    return {
+      sub: String(claims.sub),
+      email: claims.email ? String(claims.email) : null,
+      name: claims.name ? String(claims.name) : 'Piloto',
+      picture: claims.picture ? String(claims.picture) : null,
+    };
   }
-  return {
-    sub: String(claims.sub),
-    email: claims.email ? String(claims.email) : null,
-    name: claims.name ? String(claims.name) : 'Piloto',
-    picture: claims.picture ? String(claims.picture) : null,
-  };
+
+  throw Object.assign(new Error('Falta token de Google.'), { status: 400 });
 }
 
 export async function updateDisplayName(userId, displayName) {

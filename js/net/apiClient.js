@@ -169,16 +169,20 @@ export async function loginLocalUser({ identifier, username, password }) {
   return res;
 }
 
-/** Inicia sesión o vincula cuenta de Google usando ID Token de Google Identity Services. */
-export async function loginGoogleIdToken(idToken, linkCurrentAccount = true) {
+/** Inicia sesión o vincula cuenta de Google usando ID Token o Access Token de Google Identity Services. */
+export async function loginGoogleToken({ idToken = null, accessToken = null }, linkCurrentAccount = true) {
   const res = await apiFetch('/api/auth/google', {
     method: 'POST',
-    body: JSON.stringify({ idToken, linkCurrentAccount }),
+    body: JSON.stringify({ idToken, accessToken, linkCurrentAccount }),
   });
   if (res.ok && res.token) {
     return { ok: true, session: saveSessionFromResponse(res) };
   }
   return res;
+}
+
+export function loginGoogleIdToken(idToken, linkCurrentAccount = true) {
+  return loginGoogleToken({ idToken }, linkCurrentAccount);
 }
 
 /** Cierra la sesión actual y abre una sesión Guest limpia en Neon. */

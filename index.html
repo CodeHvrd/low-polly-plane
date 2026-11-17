@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>PaperCrash — Low Poly Flight</title>
+  <title>FlyOrCrash — Low Poly Flight</title>
   <meta name="description" content="Lanza un avión de papel con física real, esquivá obstáculos y mejorá tu flota en este juego incremental low poly." />
   <meta name="theme-color" content="#0a0e1a" />
 
@@ -115,7 +115,7 @@
     </div>
 
     <header id="idle-title-block">
-      <h1 id="game-title">PAPER<span>CRASH</span></h1>
+      <h1 id="game-title"><span class="title-fly">FLY</span> <span class="title-or">OR</span> <span class="title-crash">CRASH</span></h1>
     </header>
 
     <!--
@@ -133,11 +133,10 @@
       <button type="button" id="btn-exit" class="menu-btn">EXIT</button>
     </nav>
 
-    <!-- Accesos directos transparentes SOLO en versión PC y SOLO en el menú principal -->
-    <div id="pc-quick-bar" data-ui-interactive aria-label="Accesos rápidos de escritorio">
-      <button type="button" id="btn-quick-music" class="pc-quick-btn" title="Activar o silenciar música">🎵 <span>Música</span></button>
-      <button type="button" id="btn-quick-sfx" class="pc-quick-btn" title="Activar o silenciar sonidos">🔊 <span>Sonidos</span></button>
-      <button type="button" id="btn-quick-options" class="pc-quick-btn" title="Abrir opciones">⚙ <span>Opciones</span></button>
+    <!-- Accesos directos transparentes (solo íconos a la derecha) SOLO en PC y SOLO en menú principal -->
+    <div id="pc-quick-bar" data-ui-interactive aria-label="Accesos de audio">
+      <button type="button" id="btn-quick-music" class="pc-quick-icon" title="Música ON/OFF" aria-label="Música">🎵</button>
+      <button type="button" id="btn-quick-sfx" class="pc-quick-icon" title="Sonidos ON/OFF" aria-label="Sonidos">🔊</button>
     </div>
 
     <!-- Panel de Modo Historia (Niveles 1 a 5) -->
@@ -227,49 +226,108 @@
       <button type="button" id="btn-options-back" class="menu-back">← VOLVER</button>
     </section>
 
-    <!-- Panel de Cuenta de Piloto (Alias + Login / Registro + Google) -->
-    <section id="account-panel" class="menu-panel hidden" data-ui-interactive>
-      <h2>CUENTA DE PILOTO</h2>
+    <!-- Panel de Ingreso / Cuenta de Piloto (Gate obligatorio si aún no elegiste Ingresar o Invitado) -->
+    <section id="account-panel" class="menu-panel auth-card hidden" data-ui-interactive>
+      <!-- 1. Vista Gate Inicial: sin botón Volver, obliga a elegir Ingresar / Google / Invitado -->
+      <div id="auth-gate-view" class="auth-subview">
+        <div class="auth-brand"><span class="title-fly">FLY</span> <span class="title-or">OR</span> <span class="title-crash">CRASH</span></div>
+        <h2 class="auth-heading">Bienvenido piloto</h2>
+        <button type="button" id="btn-gate-login" class="menu-btn primary">INGRESAR</button>
 
-      <div class="account-status-row">
-        <span id="account-status-name">Piloto</span>
-        <span id="account-provider-pill" class="account-provider-pill">INVITADO</span>
-      </div>
+        <div class="auth-divider"><span>o</span></div>
 
-      <div class="account-name-form">
-        <input type="text" id="inp-pilot-name" maxlength="24" placeholder="Tu alias en el Ranking" autocomplete="nickname" />
-        <button type="button" id="btn-save-pilot-name" class="menu-toggle">GUARDAR</button>
-      </div>
+        <button type="button" id="btn-google-gate" class="google-oauth-btn">
+          <svg class="google-g-svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.53 5.53 0 0 1-2.4 3.63v3.01h3.88c2.27-2.09 3.54-5.17 3.54-8.88z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.94-2.91l-3.88-3.01c-1.07.72-2.44 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.95H1.27v3.11A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.28 14.28A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.56.38-2.28V6.61H1.27A12 12 0 0 0 0 12c0 1.94.46 3.77 1.27 5.39l4.01-3.11z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.61l4.01 3.11c.95-2.84 3.6-4.95 6.72-4.95z"/></svg>
+          <span>Continuar con Google</span>
+        </button>
 
-      <div id="auth-guest-forms">
-        <div class="missions-tabs auth-tabs" role="tablist">
-          <button type="button" id="tab-auth-login" class="missions-tab active" role="tab">INICIAR SESIÓN</button>
-          <button type="button" id="tab-auth-register" class="missions-tab" role="tab">CREAR CUENTA</button>
+        <div class="auth-divider"><span>o</span></div>
+
+        <button type="button" id="btn-continue-guest" class="menu-btn guest-choice-btn">JUGAR COMO INVITADO</button>
+        <p class="auth-guest-sub">Solo participa en el Ranking Diario</p>
+
+        <div class="auth-footer-links">
+          <button type="button" id="btn-gate-register" class="auth-link-btn">Crear una cuenta</button>
         </div>
+      </div>
 
-        <form id="auth-form" class="auth-form" autocomplete="on">
-          <input type="email" id="inp-auth-email" maxlength="120" placeholder="Correo electrónico (obligatorio)" autocomplete="email" class="hidden" />
-          <input type="text" id="inp-auth-user" maxlength="48" placeholder="Usuario o mail" autocomplete="username" required />
-          <input type="password" id="inp-auth-pass" maxlength="64" placeholder="Contraseña (mín. 6, letras y números)" autocomplete="current-password" required />
-          <label id="lbl-link-guest" class="auth-check hidden">
+      <!-- 2. Vista Iniciar Sesión (Usuario/Mail + Contraseña + Google, sin aclaraciones de caracteres) -->
+      <div id="auth-login-view" class="auth-subview hidden">
+        <div class="auth-brand"><span class="title-fly">FLY</span> <span class="title-or">OR</span> <span class="title-crash">CRASH</span></div>
+        <h2 class="auth-heading">Iniciar sesión</h2>
+
+        <form id="auth-login-form" class="auth-form" autocomplete="on">
+          <label class="auth-field-label" for="inp-login-user">Usuario o correo</label>
+          <input type="text" id="inp-login-user" maxlength="48" placeholder="Usuario o mail" autocomplete="username" required />
+          <label class="auth-field-label" for="inp-login-pass">Contraseña</label>
+          <input type="password" id="inp-login-pass" maxlength="64" placeholder="Contraseña" autocomplete="current-password" required />
+          <button type="submit" id="btn-login-submit" class="menu-btn primary">Iniciar sesión</button>
+        </form>
+
+        <div class="auth-divider"><span>o</span></div>
+
+        <button type="button" id="btn-google-login" class="google-oauth-btn">
+          <svg class="google-g-svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.53 5.53 0 0 1-2.4 3.63v3.01h3.88c2.27-2.09 3.54-5.17 3.54-8.88z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.94-2.91l-3.88-3.01c-1.07.72-2.44 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.95H1.27v3.11A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.28 14.28A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.56.38-2.28V6.61H1.27A12 12 0 0 0 0 12c0 1.94.46 3.77 1.27 5.39l4.01-3.11z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.61l4.01 3.11c.95-2.84 3.6-4.95 6.72-4.95z"/></svg>
+          <span>Continuar con Google</span>
+        </button>
+
+        <div class="auth-footer-links">
+          <button type="button" id="btn-to-register" class="auth-link-btn">Crear una cuenta</button>
+          <button type="button" id="btn-login-to-gate" class="auth-link-btn muted">← Atrás</button>
+        </div>
+      </div>
+
+      <!-- 3. Vista Crear Cuenta (con aclaración de caracteres SOLO acá + Crear cuenta con Google) -->
+      <div id="auth-register-view" class="auth-subview hidden">
+        <div class="auth-brand"><span class="title-fly">FLY</span> <span class="title-or">OR</span> <span class="title-crash">CRASH</span></div>
+        <h2 class="auth-heading">Crear cuenta</h2>
+
+        <form id="auth-register-form" class="auth-form" autocomplete="on">
+          <input type="email" id="inp-reg-email" maxlength="120" placeholder="Correo electrónico" autocomplete="email" required />
+          <input type="text" id="inp-reg-user" maxlength="24" placeholder="Usuario (3 a 24 caracteres, letras/números)" autocomplete="username" required />
+          <input type="password" id="inp-reg-pass" maxlength="64" placeholder="Contraseña (mín. 6 caracteres, letras y números)" autocomplete="new-password" required />
+          <label id="lbl-link-guest" class="auth-check">
             <input type="checkbox" id="chk-link-guest" checked />
             <span>Conservar mis monedas y récord actuales</span>
           </label>
-          <button type="submit" id="btn-auth-submit" class="menu-btn primary">ENTRAR</button>
+          <button type="submit" id="btn-register-submit" class="menu-btn primary">Crear cuenta</button>
         </form>
 
-        <div id="google-signin-wrap" class="google-signin-wrap hidden"></div>
-        <p id="google-config-hint" class="auth-guest-note hidden">Google Sign-In requiere configurar <code>GOOGLE_CLIENT_ID</code> en Vercel.</p>
-        <button type="button" id="btn-continue-guest" class="menu-toggle guest-btn">JUGAR COMO INVITADO · Solo Ranking Diario</button>
+        <div class="auth-divider"><span>o</span></div>
+
+        <button type="button" id="btn-google-register" class="google-oauth-btn">
+          <svg class="google-g-svg" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47a5.53 5.53 0 0 1-2.4 3.63v3.01h3.88c2.27-2.09 3.54-5.17 3.54-8.88z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.94-2.91l-3.88-3.01c-1.07.72-2.44 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.95H1.27v3.11A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.28 14.28A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.56.38-2.28V6.61H1.27A12 12 0 0 0 0 12c0 1.94.46 3.77 1.27 5.39l4.01-3.11z"/><path fill="#EA4335" d="M12 4.77c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.61l4.01 3.11c.95-2.84 3.6-4.95 6.72-4.95z"/></svg>
+          <span>Crear cuenta con Google</span>
+        </button>
+
+        <div class="auth-footer-links">
+          <button type="button" id="btn-to-login" class="auth-link-btn">Ya tengo cuenta</button>
+          <button type="button" id="btn-reg-to-gate" class="auth-link-btn muted">← Atrás</button>
+        </div>
       </div>
 
-      <div id="auth-logged-actions" class="hidden">
-        <p id="auth-logged-detail" class="ach-desc"></p>
-        <button type="button" id="btn-auth-logout" class="menu-toggle danger">CERRAR SESIÓN</button>
+      <!-- 4. Vista Perfil Conectado (editable alias, cerrar sesión, volver al menú) -->
+      <div id="auth-profile-view" class="auth-subview hidden">
+        <h2>CUENTA DE PILOTO</h2>
+        <div class="account-status-row">
+          <span id="account-status-name">Piloto</span>
+          <span id="account-provider-pill" class="account-provider-pill">INVITADO</span>
+        </div>
+        <div class="account-name-form">
+          <input type="text" id="inp-pilot-name" maxlength="24" placeholder="Alias en el Ranking" autocomplete="nickname" />
+          <button type="button" id="btn-save-pilot-name" class="menu-toggle">GUARDAR</button>
+        </div>
+        <div id="auth-logged-actions" class="hidden">
+          <p id="auth-logged-detail" class="ach-desc"></p>
+          <button type="button" id="btn-auth-logout" class="menu-toggle danger">CERRAR SESIÓN</button>
+        </div>
+        <div id="auth-guest-profile-cta" class="hidden">
+          <button type="button" id="btn-profile-switch-login" class="menu-btn primary">INGRESAR O CREAR CUENTA</button>
+        </div>
+        <button type="button" id="btn-account-back" class="menu-back">← VOLVER</button>
       </div>
 
       <p id="auth-feedback" class="auth-feedback hidden"></p>
-      <button type="button" id="btn-account-back" class="menu-back">← VOLVER</button>
     </section>
 
   <div id="idle-hint-block" class="hidden" data-required data-ui-interactive role="button" tabindex="0">

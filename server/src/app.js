@@ -12,7 +12,7 @@ import {
   registerLocalAccount,
   updateDisplayName,
   upsertIdentity,
-  verifyGoogleIdToken,
+  verifyGoogleToken,
   verifySessionToken,
 } from './auth.js';
 import {
@@ -187,7 +187,7 @@ export async function handleApiRequest(req, res) {
   // ── POST /api/auth/google ───────────────────────────────────
   if (req.method === 'POST' && path === '/api/auth/google') {
     const body = await readJsonBody(req);
-    const g = await verifyGoogleIdToken(body.idToken);
+    const g = await verifyGoogleToken({ idToken: body.idToken, accessToken: body.accessToken });
     const existingUid = verifySessionToken(readBearerToken(req));
     const session = await upsertIdentity({
       provider: 'google',
