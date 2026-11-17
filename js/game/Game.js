@@ -34,7 +34,7 @@ import { paramsFromSpec } from '../physics/flightModel.js';
 import { getSpec, AIRCRAFT_LIST } from '../physics/specs.js';
 import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, TRAJECTORY, WORLD } from '../config.js';
 import { clamp } from '../core/math.js';
-import { sfx, unlock, setMuted, toggleMuted, isMuted } from '../core/audio.js';
+import { sfx, unlock, setMuted, toggleMuted, isMuted, suspendAudio, resumeAudio } from '../core/audio.js';
 import { music, pistaParaTramo } from '../core/music.js';
 import { precargarGLB } from '../world/glbLoader.js';
 import {
@@ -262,8 +262,50 @@ export class Game {
       if (this.running) this.rebuildStoryProps();
     });
 
+    this._wireLifecycle();
     this.lastTime = performance.now();
     requestAnimationFrame((t) => this.frame(t));
+  }
+
+  /** Pausa física, audio y música automáticamente cuando la app pasa a segundo plano (mobile/PWA/pestaña). */
+  _wireLifecycle() {
+    if (this._lifecycleWired) return;
+    this._lifecycleWired = true;
+    this._suspendBg = false;
+
+    const onBackground = () => {
+      this._suspendBg = true;
+      music.suspender();
+      suspendAudio();
+      if (this.controller?.phase === PHASE.FLYING && !this.paused) {
+        this.setPaused(true);
+      }
+    };
+
+    const onForeground = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      this._suspendBg = false;
+      this.lastTime = performance.now();
+      music.reanudar();
+      resumeAudio();
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) onBackground();
+        else onForeground();
+      });
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pagehide', onBackground);
+      window.addEventListener('pageshow', onForeground);
+      window.addEventListener('blur', () => {
+        if (isTouchDevice()) onBackground();
+      });
+      window.addEventListener('focus', () => {
+        if (!document.hidden) onForeground();
+      });
+    }
   }
 
   // ── Ciclo de partida ──────────────────────────────────────
@@ -3349,6 +3391,11 @@ export class Game {
   frame(now) {
     if (!this.running) return;
     requestAnimationFrame((t) => this.frame(t));
+
+    if (this._suspendBg || (typeof document !== 'undefined' && document.hidden)) {
+      this.lastTime = now;
+      return;
+    }
 
     const rawDt = (now - this.lastTime) / 1000;
     this.lastTime = now;

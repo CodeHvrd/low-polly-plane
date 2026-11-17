@@ -40,6 +40,14 @@ export function unlock() {
   unlocked = true;
 }
 
+export function suspendAudio() {
+  if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
+}
+
+export function resumeAudio() {
+  if (unlocked && ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+}
+
 export function setMuted(value) {
   muted = Boolean(value);
   if (masterGain && ctx) {

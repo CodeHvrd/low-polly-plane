@@ -398,6 +398,27 @@ export class MusicEngine {
     }
   }
 
+  /** Pausa el planificador y suspende el AudioContext al pasar a segundo plano. */
+  suspender() {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    if (this.ctx && this.ctx.state === 'running') {
+      this.ctx.suspend?.().catch(() => {});
+    }
+  }
+
+  /** Reanuda la música al volver a primer plano sin disparar ráfaga de notas atrasadas. */
+  reanudar() {
+    if (!this.activo || !this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume?.().catch(() => {});
+    }
+    this.siguientePaso = this.ctx.currentTime + 0.05;
+    if (!this.timer) this._arrancarPlanificador();
+  }
+
   /**
    * Nota de bajo para los aros.
    *
@@ -418,12 +439,14 @@ export class MusicEngine {
   /* ── Planificador ─────────────────────────────────────── */
 
   _arrancarPlanificador() {
+    if (this.timer) clearInterval(this.timer);
     // Cada 25 ms se encolan las notas de los próximos 120 ms.
     this.timer = setInterval(() => this._planificar(), 25);
   }
 
   _planificar() {
     if (!this.activo || !this.ctx) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
     const horizonte = this.ctx.currentTime + 0.12;
     while (this.siguientePaso < horizonte) {
       this._tocarPaso(this.siguientePaso, this.paso);
