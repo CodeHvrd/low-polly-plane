@@ -60,8 +60,9 @@ import {
   nivelesDe,
 } from './state.js';
 import { todosLosLogros } from './achievements.js';
-import { crearRegistro, guardarEnRanking, leerRanking, leerRankingFiltrado } from './ranking.js';
+import { crearPayloadOnline, crearRegistro, guardarEnRanking, leerRanking, leerRankingFiltrado } from './ranking.js';
 import { computeRunScoreBreakdown } from './score.js';
+import { initRemoteBackend, startRemoteRun, submitRemoteRun, fetchGlobalLeaderboard } from '../net/apiClient.js';
 import { AircraftView } from './AircraftView.js';
 import { AimingSystem } from './aiming.js';
 import { SlingshotBand } from './slingshotBand.js';
@@ -213,6 +214,7 @@ export class Game {
     this.overlays.set(Screen.STANDBY);
 
     this.running = true;
+    initRemoteBackend().catch(() => {});
     preloadStoryProps().then(() => {
       if (this.running) this.rebuildStoryProps();
     });
@@ -277,6 +279,17 @@ export class Game {
      * `reset()` limpia el estado de los recolectables y necesita los nuevos.
      */
     this.rerollPickupPaths(this.chunkRange?.from, this.chunkRange?.to);
+    this._remoteChallenge = null;
+    startRemoteRun({
+      modeId: MODE.id,
+      storyLevel: this.activeStoryLevel?.number ?? null,
+    }).then((ch) => {
+      if (!ch || this.controller.phase === PHASE.FLYING) return;
+      this._remoteChallenge = ch;
+      this.pickupSeed = ch.seed;
+      this.controller?.setFlightSeed(ch.seed);
+      this.rerollPickupPaths(this.chunkRange?.from, this.chunkRange?.to, true);
+    }).catch(() => {});
 
     this.overlays.cancelFade();
 
@@ -406,6 +419,14 @@ export class Game {
       score: scoreData,
     });
     this.rankingPos = guardarEnRanking(registro);
+    if (this._remoteChallenge?.challengeToken) {
+      const ch = this._remoteChallenge;
+      this._remoteChallenge = null;
+      submitRemoteRun({
+        ...crearPayloadOnline(registro, ch.challengeToken),
+        missionsCompleted: result.missionsCompleted ?? 0,
+      }).catch(() => {});
+    }
 
     if (result.cause === 'obstacle') st.crashes += 1;
     else if (result.cause === 'ground') st.landings += 1;
@@ -1638,28 +1659,41 @@ export class Game {
 
     const fillRankingContainer = (cont, period, limit = 8) => {
       if (!cont) return;
-      const lista = leerRankingFiltrado(period).slice(0, limit);
-      if (!lista.length) {
-        const vacio = document.createElement('p');
-        vacio.className = 'ach-desc';
-        vacio.textContent = 'Todavía no hay vuelos en este período.';
-        cont.replaceChildren(vacio);
-        return;
-      }
-      cont.replaceChildren(...lista.map((r, i) => {
-        const row = document.createElement('div');
-        row.className = 'profile-row ranking-row';
-        const puesto = document.createElement('span');
-        puesto.className = 'rank-pos';
-        puesto.textContent = `#${i + 1}`;
-        const nave = document.createElement('span');
-        nave.className = 'rank-ship';
-        nave.textContent = `${r.ship ?? '—'} · ${r.distance} m`;
-        const pts = document.createElement('strong');
-        pts.textContent = `${(r.score ?? r.distance).toLocaleString('es-AR')} pts`;
-        row.append(puesto, nave, pts);
-        return row;
-      }));
+      const paintRows = (items, isGlobal = false) => {
+        if (!items.length) {
+          const vacio = document.createElement('p');
+          vacio.className = 'ach-desc';
+          vacio.textContent = 'Todavía no hay vuelos en este período.';
+          cont.replaceChildren(vacio);
+          return;
+        }
+        cont.replaceChildren(...items.map((r, i) => {
+          const row = document.createElement('div');
+          row.className = 'profile-row ranking-row';
+          const puesto = document.createElement('span');
+          puesto.className = 'rank-pos';
+          puesto.textContent = `#${i + 1}`;
+          const nave = document.createElement('span');
+          nave.className = 'rank-ship';
+          const ship = r.aircraft ?? r.ship ?? '—';
+          const namePrefix = isGlobal && r.display_name ? `${r.display_name} · ` : '';
+          nave.textContent = `${namePrefix}${ship} · ${r.distance} m`;
+          const pts = document.createElement('strong');
+          const val = r.total_score ?? r.score ?? r.distance ?? 0;
+          pts.textContent = `${Number(val).toLocaleString('es-AR')} pts`;
+          row.append(puesto, nave, pts);
+          return row;
+        }));
+      };
+
+      const reqId = (cont._rankReqId = (cont._rankReqId || 0) + 1);
+      paintRows(leerRankingFiltrado(period).slice(0, limit), false);
+
+      fetchGlobalLeaderboard(period, limit).then((remote) => {
+        if (remote && remote.length && cont._rankReqId === reqId) {
+          paintRows(remote, true);
+        }
+      }).catch(() => {});
     };
 
     let activeRankPeriod = 'weekly';

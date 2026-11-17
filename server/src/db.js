@@ -2,10 +2,19 @@
  * PAPERCRASH API — Acceso a Neon PostgreSQL (@neondatabase/serverless Pool)
  */
 import { Pool } from '@neondatabase/serverless';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const connectionString = process.env.DATABASE_URL?.trim() || '';
+const connectionString = (
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  ''
+).trim();
 
 const pool = connectionString ? new Pool({ connectionString, max: 5 }) : null;
+
+let schemaReadyPromise = null;
 
 export function hasDatabase() {
   return Boolean(pool);
@@ -19,15 +28,48 @@ export function hasDatabase() {
  */
 export async function query(queryText, params = []) {
   if (!pool) {
-    throw new Error('DATABASE_URL no configurado en las variables de entorno.');
+    throw new Error('DATABASE_URL / POSTGRES_URL no configurado en las variables de entorno.');
   }
   const res = await pool.query(queryText, params);
   return res.rows;
 }
 
-/** Ping rápido para /api/health (también despierta Render + Neon). */
+/**
+ * Garantiza que el esquema de `db/schema.sql` exista en Neon.
+ * Corre una sola vez por instancia (no-op rápido si `users` ya existe).
+ */
+export async function ensureSchema() {
+  if (!pool) return false;
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = (async () => {
+      const check = await pool.query(`SELECT to_regclass('public.users') AS tbl`);
+      if (check.rows?.[0]?.tbl) return true;
+      const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+      const ddl = readFileSync(join(rootDir, 'db', 'schema.sql'), 'utf8');
+      await pool.query(ddl);
+      return true;
+    })().catch((err) => {
+      schemaReadyPromise = null;
+      throw err;
+    });
+  }
+  return schemaReadyPromise;
+}
+
+/** Ping rápido para /api/health (también despierta + verifica tablas en Neon). */
 export async function pingDatabase() {
   if (!pool) return { connected: false, reason: 'NO_DATABASE_URL' };
   const rows = await query('SELECT 1 AS ok');
-  return { connected: rows?.[0]?.ok === 1 };
+  let schemaReady = false;
+  let schemaError = null;
+  try {
+    schemaReady = await ensureSchema();
+  } catch (err) {
+    schemaError = err.message;
+  }
+  return {
+    connected: rows?.[0]?.ok === 1,
+    schemaReady,
+    ...(schemaError ? { schemaError } : {}),
+  };
 }

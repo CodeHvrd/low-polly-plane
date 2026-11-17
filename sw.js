@@ -22,7 +22,7 @@
  */
 
 /** Subir esto en cada despliegue que cambie archivos. */
-const VERSION = 'papercrash-alpha-1.1.97';
+const VERSION = 'papercrash-alpha-1.1.98';
 
 /** Archivos del juego. Si falta uno, la instalación falla entera. */
 const NUCLEO = [
@@ -78,6 +78,7 @@ const MODULOS = [
   './js/modes/frenetic.js',
   './js/modes/index.js',
   './js/modes/storyLevels.js',
+  './js/net/apiClient.js',
   './js/physics/flightModel.js',
   './js/physics/specs.js',
   './js/physics/trajectory.js',
