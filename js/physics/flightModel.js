@@ -405,25 +405,8 @@ export function integrateSubstep(s, p, h) {
      * nada —-15 sigue siendo menor que 2.5— y el tope no tenía efecto.
      */
     let cd = p.cd;
-    if (p.glideDrag > 0 && p.glideSink > 0 && s.vy < 0) {
-      /*
-       * ── Con el morro abajo, la resistencia de picado se reduce mucho ──
-       *
-       * ── El problema que esto arregla ──
-       * Se reportó que la flecha de bajar "te hace caer en el lugar en vez de
-       * respetar la velocidad que traés". Medido: picando desde 60 m/s el avión
-       * quedaba en ~28 m/s de avance y sólo recorría 44 m en 2 s, contra 108 m de
-       * planeo normal. El culpable era este factor: la resistencia de descenso
-       * multiplica `cd` por hasta 10.4 y se come la velocidad.
-       *
-       * Físicamente una picada ACELERA: la altura se convierte en velocidad. Con
-       * el jugador pidiendo descender, la resistencia inducida no debería dominar.
-       *
-       * Se acota a un tercio del tope normal: sigue habiendo resistencia (picar no
-       * es gratis) pero deja de borrar la velocidad que el avión traía.
-       */
-      const topeRatio = s.nose < 0 ? GLIDE_DRAG_MAX_RATIO / 3 : GLIDE_DRAG_MAX_RATIO;
-      const ratio = clamp(s.vy / p.glideSink, -topeRatio, 0);
+    if (p.glideDrag > 0 && p.glideSink > 0 && s.vy < 0 && s.nose >= 0) {
+      const ratio = clamp(s.vy / p.glideSink, -GLIDE_DRAG_MAX_RATIO, 0);
       cd *= 1 + p.glideDrag * ratio * ratio;
     }
 
@@ -586,19 +569,26 @@ export function integrateSubstep(s, p, h) {
     const v = Math.hypot(s.vx, s.vy, s.vz);
     const horiz = Math.hypot(s.vx, s.vz);
     if (v > 1e-4 && horiz > 1e-4) {
-      // Ángulo a rotar: el que produciría la aceleración pedida en este paso.
-      const giro = (s.nose * FLIGHT_CONTROLS.NOSE_DOWN_ACCEL * p.control * h) / v;
-      const cos = Math.cos(giro);
-      const sin = Math.sin(giro);
-      // Rotación en el plano (horizontal, vertical) sin tocar el módulo.
-      const hx = horiz;
-      const nuevoH = hx * cos - s.vy * sin;
-      const nuevoV = hx * sin + s.vy * cos;
-      // Se reescala el componente horizontal conservando su dirección en XZ.
-      const k = nuevoH / hx;
-      s.vx *= k;
-      s.vz *= k;
-      s.vy = nuevoV;
+      // Ángulo a rotar: limitado a un picado máximo de -50° para que bajar el morro
+      // no rote el vector verticalmente hasta anular el avance horizontal (vx → 0).
+      const MAX_DIVE_RAD = -50 * (Math.PI / 180);
+      const currentAngle = Math.atan2(s.vy, horiz);
+      const rawGiro = (s.nose * FLIGHT_CONTROLS.NOSE_DOWN_ACCEL * p.control * h) / v;
+      const targetAngle = Math.max(MAX_DIVE_RAD, currentAngle + rawGiro);
+      const giro = Math.min(0, targetAngle - currentAngle);
+      if (giro < 0) {
+        const cos = Math.cos(giro);
+        const sin = Math.sin(giro);
+        // Rotación en el plano (horizontal, vertical) sin tocar el módulo.
+        const hx = horiz;
+        const nuevoH = hx * cos - s.vy * sin;
+        const nuevoV = hx * sin + s.vy * cos;
+        // Se reescala el componente horizontal conservando su dirección en XZ.
+        const k = nuevoH / hx;
+        s.vx *= k;
+        s.vz *= k;
+        s.vy = nuevoV;
+      }
 
       /*
        * ── La picada GANA velocidad ──

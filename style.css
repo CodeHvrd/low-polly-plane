@@ -2812,6 +2812,14 @@ body.modo-diagnostico #diag-overlay {
   text-align: right;
 }
 
+.fuel-line small.fuel-label {
+  min-width: auto;
+  text-align: left;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.72);
+}
+
 
 /* ══════════════════════════════════════════════════════════
    CARTEL DE PAUSA
