@@ -125,16 +125,17 @@
       capa sin recargar es más rápido y no pierde el estado del juego.
     -->
     <nav id="main-menu" data-ui-interactive>
-      <button type="button" id="btn-new-game" class="menu-btn primary">NUEVA PARTIDA</button>
-      <button type="button" id="btn-story-mode" class="menu-btn"><span class="btn-icon">🗺️</span> MODO HISTORIA</button>
+      <button type="button" id="btn-new-game" class="menu-btn primary">ENDLESS MODE</button>
+      <button type="button" id="btn-story-mode" class="menu-btn"><span class="btn-icon">🗺️</span> CAMPAIGN</button>
       <button type="button" id="btn-lobby-missions" class="menu-btn"><span class="btn-icon">🎯</span> MISIONES / RANKING</button>
       <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
       <button type="button" id="btn-options" class="menu-btn">OPCIONES</button>
-      <button type="button" id="btn-exit" class="menu-btn">EXIT</button>
+      <button type="button" id="btn-exit" class="menu-btn">SALIR</button>
     </nav>
 
-    <!-- Accesos directos transparentes (solo íconos a la derecha) SOLO en PC y SOLO en menú principal -->
-    <div id="pc-quick-bar" data-ui-interactive aria-label="Accesos de audio">
+    <!-- Accesos directos transparentes (Idioma a la izq + Música + Sonidos) -->
+    <div id="pc-quick-bar" data-ui-interactive aria-label="Accesos rápidos">
+      <button type="button" id="btn-quick-lang" class="pc-quick-icon lang-pill" title="Idioma: ES / EN / BR" aria-label="Idioma">ES</button>
       <button type="button" id="btn-quick-music" class="pc-quick-icon" title="Música ON/OFF" aria-label="Música">🎵</button>
       <button type="button" id="btn-quick-sfx" class="pc-quick-icon" title="Sonidos ON/OFF" aria-label="Sonidos">🔊</button>
     </div>
@@ -187,11 +188,15 @@
     <section id="options-panel" class="menu-panel hidden" data-ui-interactive>
       <h2>OPCIONES</h2>
       <div class="options-row">
-        <span>Sonidos</span>
+        <span id="lbl-options-lang">Idioma</span>
+        <button type="button" id="btn-options-lang" class="menu-toggle">ES</button>
+      </div>
+      <div class="options-row">
+        <span id="lbl-options-mute">Sonidos</span>
         <button type="button" id="btn-options-mute" class="menu-toggle">ON</button>
       </div>
       <div class="options-row">
-        <span>Música</span>
+        <span id="lbl-options-music">Música</span>
         <button type="button" id="btn-options-music" class="menu-toggle">ON</button>
       </div>
       <!--
@@ -205,11 +210,11 @@
         <button type="button" id="btn-options-cursor" class="menu-toggle">ON</button>
       </div>
       <div class="options-row">
-        <span>Orientación</span>
+        <span id="lbl-options-orientation">Orientación</span>
         <button type="button" id="btn-options-orientation" class="menu-toggle">AUTO</button>
       </div>
       <div class="options-row">
-        <span>Borrar progreso</span>
+        <span id="lbl-options-reset">Borrar progreso</span>
         <button type="button" id="btn-options-reset" class="menu-toggle danger">BORRAR</button>
       </div>
       <!--
@@ -220,7 +225,7 @@
         recarga. Es la salida de emergencia.
       -->
       <div class="options-row">
-        <span>Forzar actualización</span>
+        <span id="lbl-options-update">Forzar actualización</span>
         <button type="button" id="btn-options-update" class="menu-toggle">ACTUALIZAR</button>
       </div>
       <button type="button" id="btn-options-back" class="menu-back">← VOLVER</button>

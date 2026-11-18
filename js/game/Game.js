@@ -36,6 +36,7 @@ import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, 
 import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted, suspendAudio, resumeAudio } from '../core/audio.js';
 import { music, pistaParaTramo } from '../core/music.js';
+import { applyDomTranslations, cycleLang } from '../core/i18n.js';
 import { precargarGLB } from '../world/glbLoader.js';
 import {
   setPointerFollow,
@@ -228,6 +229,7 @@ export class Game {
     this.overlays.set(Screen.STANDBY);
 
     this.running = true;
+    applyDomTranslations();
     this._syncAccountUi?.();
     this._syncQuickBar?.();
 
@@ -1722,6 +1724,18 @@ export class Game {
         btnSfx.title = off ? 'Sonidos: OFF' : 'Sonidos: ON';
       }
     };
+
+    document.getElementById('btn-quick-lang')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      cycleLang();
+    });
+
+    document.getElementById('btn-options-lang')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      cycleLang();
+    });
 
     document.getElementById('btn-quick-music')?.addEventListener('click', (e) => {
       e.stopPropagation();

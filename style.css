@@ -4114,6 +4114,14 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   transition: border-color 0.2s, background 0.2s, opacity 0.2s, transform 0.12s;
 }
 
+.pc-quick-icon.lang-pill {
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+}
+
 .pc-quick-icon:hover {
   border-color: var(--cyan);
   background: rgba(0, 229, 255, 0.12);
