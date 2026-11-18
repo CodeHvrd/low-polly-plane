@@ -163,20 +163,20 @@
       capa sin recargar es más rápido y no pierde el estado del juego.
     -->
     <nav id="main-menu" data-ui-interactive>
-      <div class="menu-top-row">
+      <div class="menu-btn-slot">
         <button type="button" id="btn-new-game" class="menu-btn primary">MODO SIN FIN</button>
-        <div class="menu-side-icons">
-          <button type="button" id="btn-lobby-missions" class="menu-square-btn" title="Misiones" aria-label="Misiones">🎯</button>
-          <button type="button" id="btn-lobby-ranking" class="menu-square-btn" title="Ranking" aria-label="Ranking">
-            <svg class="podium-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="2" y="13" width="6" height="8" rx="1" fill="currentColor" opacity="0.72"/>
-              <rect x="9" y="7" width="6" height="14" rx="1" fill="currentColor"/>
-              <rect x="16" y="10" width="6" height="11" rx="1" fill="currentColor" opacity="0.85"/>
-            </svg>
-          </button>
-        </div>
+        <button type="button" id="btn-lobby-missions" class="menu-square-btn" title="Misiones" aria-label="Misiones">🎯</button>
       </div>
-      <button type="button" id="btn-story-mode" class="menu-btn"><span class="btn-icon">🗺️</span> MODO CAMPAÑA</button>
+      <div class="menu-btn-slot">
+        <button type="button" id="btn-story-mode" class="menu-btn">MODO CAMPAÑA</button>
+        <button type="button" id="btn-lobby-ranking" class="menu-square-btn" title="Ranking" aria-label="Ranking">
+          <svg class="podium-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2" y="13" width="6" height="8" rx="1" fill="currentColor" opacity="0.72"/>
+            <rect x="9" y="7" width="6" height="14" rx="1" fill="currentColor"/>
+            <rect x="16" y="10" width="6" height="11" rx="1" fill="currentColor" opacity="0.85"/>
+          </svg>
+        </button>
+      </div>
       <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
       <button type="button" id="btn-options" class="menu-btn">OPCIONES</button>
       <button type="button" id="btn-exit" class="menu-btn">SALIR</button>
@@ -189,10 +189,10 @@
       <button type="button" id="btn-quick-sfx" class="pc-quick-icon" title="Sonidos ON/OFF" aria-label="Sonidos">🔊</button>
     </div>
 
-    <!-- Panel de Modo Historia (Niveles 1 a 5) -->
+    <!-- Panel de Modo Historia (Niveles 1 a 6) -->
     <section id="story-panel" class="menu-panel hidden" data-ui-interactive>
       <h2>MODO CAMPAÑA</h2>
-      <p id="story-panel-sub" class="story-panel-sub">Completá los 5 tutoriales progresivos para dominar Fly or Crash</p>
+      <p id="story-panel-sub" class="story-panel-sub">Completá los 6 niveles progresivos para dominar Fly or Crash</p>
       <div id="story-levels-list" class="story-levels-list"></div>
       <button type="button" id="btn-story-back" class="menu-back">← VOLVER</button>
     </section>

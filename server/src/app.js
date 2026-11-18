@@ -317,7 +317,7 @@ export async function handleApiRequest(req, res) {
     }
 
     if (body.story && typeof body.story === 'object') {
-      const unlocked = Math.max(1, Math.min(5, Math.round(Number(body.story.unlockedLevel) || 1)));
+      const unlocked = Math.max(1, Math.min(6, Math.round(Number(body.story.unlockedLevel) || 1)));
       const endless = Boolean(body.story.endlessUnlocked);
       const starsPayload = { ...(body.story.stars || {}) };
       if (Array.isArray(body.story.usedAircraft)) {

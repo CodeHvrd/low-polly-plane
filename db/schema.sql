@@ -66,10 +66,10 @@ CREATE TABLE IF NOT EXISTS player_inventory (
   PRIMARY KEY (user_id, item_type, item_id)
 );
 
--- Progresión del Modo Historia (niveles 1..5 y desbloqueo Endless)
+-- Progresión del Modo Historia (niveles 1..6 y desbloqueo Endless/Ranking)
 CREATE TABLE IF NOT EXISTS player_story_progress (
   user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  unlocked_level   SMALLINT NOT NULL DEFAULT 1 CHECK (unlocked_level BETWEEN 1 AND 5),
+  unlocked_level   SMALLINT NOT NULL DEFAULT 1 CHECK (unlocked_level BETWEEN 1 AND 6),
   endless_unlocked BOOLEAN NOT NULL DEFAULT false,
   stars_by_level   JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()

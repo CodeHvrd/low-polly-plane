@@ -710,7 +710,7 @@ section('13. Sistema de Misiones Tripartitas (Calibradas a 3-4 partidas)');
 // ── 14. Modo Historia (Niveles 1 a 5 progresivos) ─────────────
 section('14. Modo Historia (Niveles 1 a 5)');
 {
-  check('el Modo Historia tiene exactamente 5 niveles', STORY_LEVELS.length === 5);
+  check('el Modo Historia tiene exactamente 6 niveles', STORY_LEVELS.length === 6);
   check(
     'las metas de distancia y recompensa crecen progresivamente',
     STORY_LEVELS.every((l, idx) => idx === 0 || l.targetDistance > STORY_LEVELS[idx - 1].targetDistance),
@@ -727,7 +727,7 @@ section('14. Modo Historia (Niveles 1 a 5)');
   check('el Nivel 4 (Jet) tiene meta de 5.000 m', getStoryLevel(4)?.targetDistance === 5000);
 
   const cleanSave = sanitizeStorySave({ unlockedLevel: 99, endlessUnlocked: 'yes', stars: { 'story-1': 5, fake: 2 } });
-  check('sanitizeStorySave acota nivel máximo, booleano y estrellas (0..3)', cleanSave.unlockedLevel === 5 && cleanSave.endlessUnlocked === false && cleanSave.stars['story-1'] === 3 && !('fake' in cleanSave.stars));
+  check('sanitizeStorySave acota nivel máximo, booleano y estrellas (0..3)', cleanSave.unlockedLevel === 6 && cleanSave.endlessUnlocked === false && cleanSave.stars['story-1'] === 3 && !('fake' in cleanSave.stars));
 
   const storyShips = new Set(STORY_LEVELS.map((l) => l.aircraft).filter(Boolean));
   check('Campaña recorre las 4 naves (paper, passenger, jet, heli)',

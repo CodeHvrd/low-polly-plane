@@ -33,8 +33,12 @@ const DICT = {
     playGuest: 'JUGAR COMO INVITADO',
     guestRankingAlert: 'Usuarios sin cuenta solo se visualizan en el ranking diario',
     endlessLockedTitle: 'Modo Sin Fin bloqueado',
-    endlessLockedHint: 'Completá el Modo Campaña (Nivel 5) para desbloquearlo',
-    storyPanelSub: 'Completá los 5 tutoriales progresivos para dominar Fly or Crash',
+    endlessLockedHint: 'Completá el Modo Campaña (Nivel 6) para desbloquearlo',
+    missionsLockedTitle: 'Misiones bloqueadas',
+    missionsLockedHint: 'Superá el Nivel 3 del Modo Campaña para desbloquearlas',
+    rankingLockedTitle: 'Ranking bloqueado',
+    rankingLockedHint: 'Superá el Nivel 6 del Modo Campaña para desbloquearlo',
+    storyPanelSub: 'Completá los 6 niveles progresivos para dominar Fly or Crash',
     campaignShort: 'Campaña Nv.',
     shipFree: 'GRATIS',
     shipInUse: 'EN USO',
@@ -102,8 +106,12 @@ const DICT = {
     playGuest: 'PLAY AS GUEST',
     guestRankingAlert: 'Users without an account only appear on the daily ranking',
     endlessLockedTitle: 'Endless Mode locked',
-    endlessLockedHint: 'Complete Campaign Mode (Level 5) to unlock it',
-    storyPanelSub: 'Complete all 5 progressive tutorials to master Fly or Crash',
+    endlessLockedHint: 'Complete Campaign Mode (Level 6) to unlock it',
+    missionsLockedTitle: 'Missions locked',
+    missionsLockedHint: 'Beat Campaign Level 3 to unlock Missions',
+    rankingLockedTitle: 'Leaderboard locked',
+    rankingLockedHint: 'Beat Campaign Level 6 to unlock Leaderboard',
+    storyPanelSub: 'Complete all 6 progressive levels to master Fly or Crash',
     campaignShort: 'Campaign Lv.',
     shipFree: 'FREE',
     shipInUse: 'IN USE',
@@ -171,8 +179,12 @@ const DICT = {
     playGuest: 'JOGAR COMO CONVIDADO',
     guestRankingAlert: 'Usuários sem conta aparecem apenas no ranking diário',
     endlessLockedTitle: 'Modo Infinito bloqueado',
-    endlessLockedHint: 'Conclua o Modo Campanha (Nível 5) para desbloquear',
-    storyPanelSub: 'Conclua os 5 tutoriais progressivos para dominar Fly or Crash',
+    endlessLockedHint: 'Conclua o Modo Campanha (Nível 6) para desbloquear',
+    missionsLockedTitle: 'Missões bloqueadas',
+    missionsLockedHint: 'Supere o Nível 3 do Modo Campanha para desbloquear',
+    rankingLockedTitle: 'Ranking bloqueado',
+    rankingLockedHint: 'Supere o Nível 6 do Modo Campanha para desbloquear',
+    storyPanelSub: 'Conclua os 6 níveis progressivos para dominar Fly or Crash',
     campaignShort: 'Campanha Nv.',
     shipFree: 'GRÁTIS',
     shipInUse: 'EM USO',
@@ -283,8 +295,7 @@ export function applyDomTranslations() {
   if (btnNew) {
     btnNew.textContent = btnNew.classList.contains('locked') ? `🔒 ${t('endlessBtn')}` : t('endlessBtn');
   }
-  const campBtn = document.getElementById('btn-story-mode');
-  if (campBtn) campBtn.innerHTML = `<span class="btn-icon">🗺️</span> ${t('campaignBtn')}`;
+  setTxt('#btn-story-mode', t('campaignBtn'));
   setTxt('#btn-awards', t('awards'));
   setTxt('#btn-options', t('options'));
   setTxt('#btn-exit', t('exit'));

@@ -857,7 +857,7 @@ body.en-vuelo #mode-bar {
   #main-menu {
     gap: 7px;
     margin-top: 8px;
-    width: min(290px, 84vw);
+    width: min(268px, 68vw);
   }
 
   .menu-btn {
@@ -866,7 +866,8 @@ body.en-vuelo #mode-bar {
     border-radius: 12px;
   }
 
-  .menu-square-btn {
+  .menu-btn-slot > .menu-square-btn {
+    left: calc(100% + 8px);
     border-radius: 12px;
     font-size: 1.08rem;
   }
@@ -2214,11 +2215,12 @@ body.en-vuelo #mode-bar {
   #main-menu {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    margin-top: 8px;
+    margin-top: 4px;
     gap: 6px;
-    width: min(440px, 88vw);
+    width: min(390px, 76vw);
   }
-  #main-menu .menu-top-row {
+  #main-menu .menu-btn-slot,
+  #main-menu > #btn-exit {
     grid-column: 1 / -1;
   }
   .menu-btn {
@@ -2226,13 +2228,18 @@ body.en-vuelo #mode-bar {
     font-size: 0.78rem;
     border-radius: 10px;
   }
-  .menu-square-btn {
+  .menu-btn-slot > .menu-square-btn {
+    left: calc(100% + 8px);
     border-radius: 10px;
     font-size: 0.98rem;
   }
   .podium-svg {
     width: 17px;
     height: 17px;
+  }
+  #idle-overlay:has(#main-menu:not(.hidden)) #idle-title-block,
+  #idle-overlay:has(#account-panel:not(.hidden)) #idle-title-block {
+    transform: translateY(-10px);
   }
   .menu-panel {
     gap: 6px;
@@ -4016,6 +4023,11 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   backdrop-filter: blur(6px);
 }
 
+#idle-overlay:has(#main-menu:not(.hidden)) #idle-title-block,
+#idle-overlay:has(#account-panel:not(.hidden)) #idle-title-block {
+  transform: translateY(clamp(-96px, -10dvh, -28px));
+}
+
 #idle-overlay:has(#account-panel:not(.hidden)) #idle-title-block {
   margin-bottom: 12px;
 }
@@ -4091,32 +4103,23 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   margin-bottom: 4px !important;
 }
 
-/* ── Fila superior del Menú Principal: Modo Sin Fin + 2 cuadrados armónicos (mismo alto) ── */
-.menu-top-row {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
+/* ── Botones cuadrados a la derecha de Modo Sin Fin (Misiones) y Campaña (Ranking) ── */
+.menu-btn-slot {
+  position: relative;
   width: 100%;
 }
 
-.menu-top-row > #btn-new-game {
-  flex: 1;
-  min-width: 0;
-  padding-inline: 10px;
+.menu-btn-slot > .menu-btn {
+  width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.menu-side-icons {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
 .menu-square-btn {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 0;
   height: 100%;
   aspect-ratio: 1 / 1;
   min-width: 0;
@@ -4133,10 +4136,33 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   transition: border-color 0.2s, background 0.2s, transform 0.12s;
 }
 
-.menu-square-btn:hover {
+.menu-square-btn:hover:not(.locked) {
   border-color: var(--cyan);
   background: rgba(0, 229, 255, 0.14);
   transform: translateY(-1px);
+}
+
+.menu-square-btn.locked {
+  opacity: 0.52;
+  filter: grayscale(0.45);
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.menu-square-btn.locked::after {
+  content: '🔒';
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  font-size: 0.72rem;
+  line-height: 1;
+  filter: none;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.missions-tab.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .podium-svg {

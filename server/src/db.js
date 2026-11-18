@@ -64,6 +64,22 @@ export async function ensureSchema() {
            CHECK (provider IN ('google', 'google_play', 'steam', 'guest', 'local'))`,
         );
       }
+
+      // Migración idempotente: Campaña ampliada de 5 a 6 niveles
+      const storyChk = await pool.query(
+        `SELECT pg_get_constraintdef(oid) AS def
+         FROM pg_constraint
+         WHERE conrelid = 'public.player_story_progress'::regclass
+           AND conname = 'player_story_progress_unlocked_level_check'`,
+      );
+      if (storyChk.rows?.[0]?.def?.includes('5')) {
+        await pool.query(`ALTER TABLE player_story_progress DROP CONSTRAINT IF EXISTS player_story_progress_unlocked_level_check`);
+        await pool.query(
+          `ALTER TABLE player_story_progress
+           ADD CONSTRAINT player_story_progress_unlocked_level_check
+           CHECK (unlocked_level BETWEEN 1 AND 6)`,
+        );
+      }
       return true;
     })().catch((err) => {
       schemaReadyPromise = null;

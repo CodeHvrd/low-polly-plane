@@ -556,13 +556,16 @@ export class Game {
         }
         if (lvl.number === STORY_LEVELS.length) {
           STATE.story.endlessUnlocked = true;
-          this._syncEndlessLockUi?.();
         }
+        this._syncEndlessLockUi?.();
         STATE.coins += ev.rewardCoins;
         sfx.missionComplete();
         const starIcons = '⭐'.repeat(ev.starsEarned);
-        const endlessNote = lvl.number === STORY_LEVELS.length ? ' · ¡Endless Desbloqueado!' : '';
-        this.showToast(`🏆 ¡NIVEL ${lvl.number} SUPERADO!`, `${starIcons} +${ev.rewardCoins} 🪙${endlessNote}`, 'mission');
+        const unlockNotes = [];
+        if (lvl.number === 3 && prev === 0) unlockNotes.push('¡Misiones Desbloqueadas!');
+        if (lvl.number === STORY_LEVELS.length) unlockNotes.push('¡Ranking y Sin Fin Desbloqueados!');
+        const extraNote = unlockNotes.length ? ` · ${unlockNotes.join(' ')}` : '';
+        this.showToast(`🏆 ¡NIVEL ${lvl.number} SUPERADO!`, `${starIcons} +${ev.rewardCoins} 🪙${extraNote}`, 'mission');
       }
     }
 
@@ -574,7 +577,14 @@ export class Game {
     ResultScreen.show(result);
     this.checkMissionsProgress(result);
     this.renderMisiones(result);
-    this._renderResultRanking?.();
+    if (!this._isRankingUnlocked?.()) {
+      document.getElementById('res-pane-obj')?.classList.remove('hidden');
+      document.getElementById('res-pane-rank')?.classList.add('hidden');
+      document.getElementById('res-tab-obj')?.classList.add('active');
+      document.getElementById('res-tab-rank')?.classList.remove('active');
+    } else {
+      this._renderResultRanking?.();
+    }
     if (storySummary && UI.resultMissions) {
       this._prependStoryResult(storySummary.lvl, storySummary.ev);
     }
@@ -1038,6 +1048,7 @@ export class Game {
    * @param {object} [finalStats=null]
    */
   checkMissionsProgress(finalStats = null) {
+    if (!this._isMissionsUnlocked?.()) return;
     if (!STATE.missions?.active) return;
     const fl = this.controller?.flight;
     const runStats = this.controller?.stats;
@@ -1089,6 +1100,13 @@ export class Game {
    * @param {object} [flightStats=null]
    */
   renderMisiones(flightStats = null) {
+    if (!this._isMissionsUnlocked?.()) {
+      UI.missionsWidgetList?.replaceChildren();
+      UI.missionsPanelList?.replaceChildren();
+      UI.pauseMissionsList?.replaceChildren();
+      document.getElementById('result-missions-list')?.replaceChildren();
+      return;
+    }
     if (!STATE.missions?.active) return;
     const list = evaluateMissions(STATE.missions.active, flightStats, STATE.missions.progress);
 
@@ -2158,17 +2176,43 @@ export class Game {
     });
 
     const btnNew = document.getElementById('btn-new-game');
-    this._isEndlessUnlocked = () => Boolean(STATE.story?.endlessUnlocked);
+    const btnMissionsSquare = document.getElementById('btn-lobby-missions');
+    const btnRankingSquare = document.getElementById('btn-lobby-ranking');
+    this._isMissionsUnlocked = () =>
+      Boolean((STATE.story?.stars?.['story-3'] ?? 0) > 0 || (STATE.story?.unlockedLevel ?? 1) >= 4 || STATE.story?.endlessUnlocked);
+    this._isRankingUnlocked = () =>
+      Boolean((STATE.story?.stars?.['story-6'] ?? 0) > 0 || STATE.story?.endlessUnlocked);
+    this._isEndlessUnlocked = () =>
+      Boolean(STATE.story?.endlessUnlocked || (STATE.story?.stars?.['story-6'] ?? 0) > 0);
     this._syncEndlessLockUi = () => {
-      const unlocked = this._isEndlessUnlocked();
+      const endlessUnlocked = this._isEndlessUnlocked();
+      const missionsUnlocked = this._isMissionsUnlocked();
+      const rankingUnlocked = this._isRankingUnlocked();
+
       if (btnNew) {
-        btnNew.classList.toggle('locked', !unlocked);
-        btnNew.setAttribute('aria-disabled', String(!unlocked));
-        btnNew.textContent = unlocked ? t('endlessBtn') : `🔒 ${t('endlessBtn')}`;
-        btnNew.title = unlocked ? '' : t('endlessLockedHint');
+        btnNew.classList.toggle('locked', !endlessUnlocked);
+        btnNew.setAttribute('aria-disabled', String(!endlessUnlocked));
+        btnNew.textContent = endlessUnlocked ? t('endlessBtn') : `🔒 ${t('endlessBtn')}`;
+        btnNew.title = endlessUnlocked ? '' : t('endlessLockedHint');
       }
+      if (btnMissionsSquare) {
+        btnMissionsSquare.classList.toggle('locked', !missionsUnlocked);
+        btnMissionsSquare.setAttribute('aria-disabled', String(!missionsUnlocked));
+        btnMissionsSquare.title = missionsUnlocked ? 'Misiones' : t('missionsLockedHint');
+      }
+      if (btnRankingSquare) {
+        btnRankingSquare.classList.toggle('locked', !rankingUnlocked);
+        btnRankingSquare.setAttribute('aria-disabled', String(!rankingUnlocked));
+        btnRankingSquare.title = rankingUnlocked ? 'Ranking' : t('rankingLockedHint');
+      }
+      document.getElementById('tab-missions-obj')?.classList.toggle('locked', !missionsUnlocked);
+      document.getElementById('tab-missions-rank')?.classList.toggle('locked', !rankingUnlocked);
+      document.getElementById('res-tab-obj')?.classList.toggle('locked', !missionsUnlocked);
+      document.getElementById('res-tab-rank')?.classList.toggle('locked', !rankingUnlocked);
+      document.getElementById('btn-pause-missions')?.classList.toggle('hidden', !missionsUnlocked);
+      document.querySelector('#result-missions .result-tabs')?.classList.toggle('hidden', !missionsUnlocked && !rankingUnlocked);
       if (UI.modeBar) {
-        UI.modeBar.classList.toggle('hidden', !unlocked || !HAS_MODE_CHOICE);
+        UI.modeBar.classList.toggle('hidden', !endlessUnlocked || !HAS_MODE_CHOICE);
       }
     };
     this._syncEndlessLockUi();
@@ -2388,12 +2432,20 @@ export class Game {
     document.getElementById('res-tab-obj')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      if (!this._isMissionsUnlocked?.()) {
+        this.showToast(`🔒 ${t('missionsLockedTitle')}`, t('missionsLockedHint'), 'mission');
+        return;
+      }
       setResultTab('missions');
     });
 
     document.getElementById('res-tab-rank')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      if (!this._isRankingUnlocked?.()) {
+        this.showToast(`🔒 ${t('rankingLockedTitle')}`, t('rankingLockedHint'), 'mission');
+        return;
+      }
       setResultTab('ranking');
     });
 
@@ -2412,12 +2464,20 @@ export class Game {
     document.getElementById('tab-missions-obj')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      if (!this._isMissionsUnlocked?.()) {
+        this.showToast(`🔒 ${t('missionsLockedTitle')}`, t('missionsLockedHint'), 'mission');
+        return;
+      }
       setMissionsTab('missions');
     });
 
     document.getElementById('tab-missions-rank')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      if (!this._isRankingUnlocked?.()) {
+        this.showToast(`🔒 ${t('rankingLockedTitle')}`, t('rankingLockedHint'), 'mission');
+        return;
+      }
       setMissionsTab('ranking');
     });
 
@@ -2451,12 +2511,20 @@ export class Game {
     document.getElementById('btn-lobby-missions')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      if (!this._isMissionsUnlocked?.()) {
+        this.showToast(`🔒 ${t('missionsLockedTitle')}`, t('missionsLockedHint'), 'mission');
+        return;
+      }
       openWidgetTab('missions');
     });
 
     document.getElementById('btn-lobby-ranking')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      if (!this._isRankingUnlocked?.()) {
+        this.showToast(`🔒 ${t('rankingLockedTitle')}`, t('rankingLockedHint'), 'mission');
+        return;
+      }
       openWidgetTab('ranking');
     });
 

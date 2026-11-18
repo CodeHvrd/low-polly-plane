@@ -170,7 +170,7 @@ export const STORY_LEVELS = [
     id: 'story-5',
     number: 5,
     name: 'La Prueba del Horizonte',
-    subtitle: 'Helicóptero · Maestría total — Desbloquea Sin Fin',
+    subtitle: 'Helicóptero · Rumbo al Desafío Final',
     aircraft: 'heli',
     targetDistance: 7500,
     courseLength: 7800,
@@ -178,12 +178,12 @@ export const STORY_LEVELS = [
     groundAmplitude: 0.30,
     obstacleDensity: 1.15,
     allowedObstacles: ['tree', 'rock', 'mesa', 'spire', 'log', 'ring', 'updraft'],
-    hint: 'Combiná aros, vendavales, propulsión y near misses. ¡Superá 7.500 m para desbloquear Endless!',
+    hint: 'Combiná aros, vendavales, propulsión y near misses. ¡Superá 7.500 m para llegar al Nivel 6!',
     rewardCoins: 500,
     stars: [
       {
         id: 'finish',
-        label: 'Cruzá la meta final a 7.500 m',
+        label: 'Cruzá la meta a 7.500 m',
         check: (r) => (r?.distance ?? 0) >= 7500,
       },
       {
@@ -195,6 +195,38 @@ export const STORY_LEVELS = [
         id: 'mastery',
         label: '1 Combo de aros + 3 Near Misses',
         check: (r) => (r?.ringCombos ?? 0) >= 1 && (r?.nearMisses ?? 0) >= 3,
+      },
+    ],
+  },
+  {
+    id: 'story-6',
+    number: 6,
+    name: 'Leyenda del Aire',
+    subtitle: 'Maestría total — Desbloquea Ranking y Sin Fin',
+    aircraft: null, // Libre elección entre las naves adquiridas
+    targetDistance: 10000,
+    courseLength: 10500,
+    paletteIndex: 4,
+    groundAmplitude: 0.34,
+    obstacleDensity: 1.25,
+    allowedObstacles: ['tree', 'rock', 'mesa', 'spire', 'log', 'ring', 'updraft'],
+    hint: 'Elegí tu mejor nave mejorada y combiná aros, boosters y propulsión. ¡Superá los 10.000 m!',
+    rewardCoins: 800,
+    stars: [
+      {
+        id: 'finish',
+        label: 'Cruzá la meta final a 10.000 m',
+        check: (r) => (r?.distance ?? 0) >= 10000,
+      },
+      {
+        id: 'tactical',
+        label: 'Atravesá 8 aros y usá 4 propulsiones',
+        check: (r) => (r?.rings ?? 0) >= 8 && (r?.thrustsUsed ?? 0) >= 4,
+      },
+      {
+        id: 'mastery',
+        label: '1 Combo de aros + 4 Near Misses',
+        check: (r) => (r?.ringCombos ?? 0) >= 1 && (r?.nearMisses ?? 0) >= 4,
       },
     ],
   },
