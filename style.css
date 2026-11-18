@@ -458,11 +458,11 @@ kbd {
   50%      { opacity: 0.45; }
 }
 
-/* Cargador de propulsión.
-   Es la información táctica del vuelo: cuántas unidades quedan para gastar. */
+/* Cargador de propulsión: abajo centrado para dejar libre la zona superior al bioma. */
 #thrust-badge {
   position: fixed;
-  top: 66px;
+  top: auto;
+  bottom: max(16px, env(safe-area-inset-bottom) + 12px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -531,32 +531,63 @@ kbd {
   100% { transform: translateX(-50%) scale(1); }
 }
 
-/* Tramo actual: aparece al entrar a cada uno y queda como referencia. */
+/* Indicador superior de bioma con barra temática 0% → 100%. */
 #stage-badge {
   position: fixed;
-  top: 118px;
+  top: 68px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: min(210px, 54vw);
+  padding: 6px 12px 7px;
+  border-radius: 12px;
+  background: rgba(10, 14, 26, 0.72);
+  border: 1px solid var(--biome-accent, rgba(0, 229, 255, 0.4));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 14px color-mix(in srgb, var(--biome-accent, #00e5ff) 28%, transparent);
+  backdrop-filter: blur(8px);
   font-family: var(--font-display);
   z-index: var(--z-overlay);
   pointer-events: none;
 }
 
+.stage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 #stage-badge strong {
   font-size: 0.68rem;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   color: #fff;
-  text-shadow: 0 0 14px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 10px var(--biome-accent, rgba(0, 229, 255, 0.65));
 }
 
 #stage-badge span {
-  font-size: 0.6rem;
-  color: var(--muted);
-  letter-spacing: 0.1em;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--biome-accent, var(--cyan));
+  font-variant-numeric: tabular-nums;
+}
+
+.stage-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+#stage-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--biome-accent, var(--cyan)), #ffffff);
+  box-shadow: 0 0 8px var(--biome-accent, var(--cyan));
+  transition: width 0.14s linear;
 }
 
 #stage-badge.enter {
@@ -783,16 +814,25 @@ body.en-vuelo #mode-bar {
     line-height: 1.15;
   }
 
-  /*
-   * El cartel de tramo se ancla arriba y a la derecha, debajo de las monedas:
-   * en el centro tapaba justo el horizonte y los boosters que vienen.
-   */
+  /* Bioma arriba centrado sin pisar stats ni viento */
   #stage-badge {
-    top: 58px;
-    right: 10px;
-    left: auto;
-    transform: none;
-    font-size: 0.58rem;
+    top: 56px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    min-width: min(190px, 58vw);
+    padding: 4px 10px 5px;
+  }
+
+  #thrust-badge {
+    bottom: max(12px, env(safe-area-inset-bottom) + 10px);
+    padding: 5px 11px;
+    gap: 6px;
+    max-width: 146px;
+  }
+
+  #thrust-badge em {
+    display: none;
   }
 
   /*
@@ -810,17 +850,10 @@ body.en-vuelo #mode-bar {
 }
 
 @media (orientation: portrait) {
-  /*
-   * ── El viento no puede vivir abajo a la derecha ──
-   *
-   * Ahí está el botón de boost. Medido en 390x844, el indicador de viento caía
-   * encima del botón y lo dejaba ilegible. Se mueve a la franja superior, debajo
-   * del cartel de tramo, donde no compite con ningún mando.
-   */
   #wind-indicator {
     bottom: auto;
     right: 10px;
-    top: 84px;
+    top: 100px;
     padding: 5px 9px;
     font-size: 0.6rem;
   }
@@ -830,24 +863,7 @@ body.en-vuelo #mode-bar {
   }
 }
 
-/* ══════════════════════════════════════════════════════════
-   VERTICAL: el lobby
-   ══════════════════════════════════════════════════════════
-   En retrato la pantalla es angosta y alta: los controles de sistema (sonido,
-   borrar) y la tienda quedan arriba, así que el título necesita su propio espacio
-   debajo. Sin esto el título se cortaba contra las monedas. */
 @media (orientation: portrait) {
-
-  /*
-   * ── El título baja para no chocar con la tienda y las monedas ──
-   *
-   * En la esquina superior derecha viven las monedas y el botón de tienda, que
-   * se dibujan como `fixed` y llegan hasta ~210 px. El título estaba en 78 y
-   * quedaba TAPADO por ellos.
-   *
-   * Además la pista se fuerza al final con `order`: como ahora es hija del
-   * overlay, sin esto aparecía entre el título y el lanzador en vez de debajo.
-   */
   #idle-overlay {
     padding: 58px 12px 10px;
     justify-content: center;
@@ -857,7 +873,8 @@ body.en-vuelo #mode-bar {
   #main-menu {
     gap: 7px;
     margin-top: 8px;
-    width: min(268px, 68vw);
+    width: min(252px, calc(100vw - 98px));
+    margin-right: 48px;
   }
 
   .menu-btn {
@@ -2205,8 +2222,11 @@ body.en-vuelo #mode-bar {
     transform: translateX(-50%);
   }
   #stage-badge {
-    top: 48px;
-    font-size: 0.58rem;
+    top: 46px;
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: min(195px, 46vw);
+    padding: 4px 10px;
   }
   #idle-overlay {
     padding: 46px 12px 10px;
@@ -2217,7 +2237,8 @@ body.en-vuelo #mode-bar {
     grid-template-columns: 1fr 1fr;
     margin-top: 4px;
     gap: 6px;
-    width: min(390px, 76vw);
+    width: min(370px, calc(100vw - 120px));
+    margin-right: 42px;
   }
   #main-menu .menu-btn-slot,
   #main-menu > #btn-exit {
@@ -2782,10 +2803,18 @@ body.en-vuelo #mode-bar {
   letter-spacing: 0.06em;
 }
 
-/* Ranking local: puesto, nave y distancia en una fila compacta. */
-.ranking-row { align-items: center; }
-.rank-pos { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 18px; }
-.rank-ship { flex: 1; text-transform: capitalize; }
+/* Ranking: Posición, Usuario (rango), metros recorridos y puntuación final. */
+.ranking-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+}
+.rank-pos { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 24px; font-weight: 700; }
+.rank-user { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #eef3ff; }
+.rank-user .rank-tier { color: var(--muted); font-size: 0.62rem; font-weight: 600; }
+.rank-dist { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rank-pts { color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
 
 
 /* ══════════════════════════════════════════════════════════
@@ -3873,11 +3902,11 @@ body.en-vuelo #touch-back {
 
 @media (max-width: 560px) {
   #ring-charge {
-    top: 54px;
+    top: 100px;
   }
 
   #stage-badge {
-    top: 84px;
+    top: 56px;
     left: 50%;
     transform: translateX(-50%);
     right: auto;

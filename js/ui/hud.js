@@ -18,6 +18,7 @@ const last = {
       fuel: null,
   stageName: null,
   stageProgress: null,
+  stageAccent: null,
   altitude: null,
   speed: null,
   wind: null,
@@ -152,10 +153,10 @@ export const HUD = {
   },
 
   /**
-   * Tramo actual.
-   * @param {string} name @param {number} progress metros dentro del tramo
+   * Bioma / tramo actual con barra temática de progreso (0% → 100%).
+   * @param {string} name @param {number} pct01 @param {number|null} [accentHex]
    */
-  updateStage(name, progress) {
+  updateStage(name, pct01, accentHex = null) {
     const node = UI.stageBadge;
     if (!node) return;
     if (last.stageName !== name) {
@@ -166,10 +167,16 @@ export const HUD = {
       void node.offsetWidth;
       node.classList.add('enter');
     }
-    const rounded = Math.round(progress);
-    if (last.stageProgress !== rounded) {
-      last.stageProgress = rounded;
-      setText(UI.stageProgress, `${rounded} m`);
+    if (typeof accentHex === 'number' && last.stageAccent !== accentHex) {
+      last.stageAccent = accentHex;
+      const hexStr = `#${accentHex.toString(16).padStart(6, '0')}`;
+      node.style.setProperty('--biome-accent', hexStr);
+    }
+    const pct = Math.max(0, Math.min(100, Math.round((pct01 ?? 0) * 100)));
+    if (last.stageProgress !== pct) {
+      last.stageProgress = pct;
+      setText(UI.stageProgress, `${pct}%`);
+      if (UI.stageFill) UI.stageFill.style.width = `${pct}%`;
     }
   },
 

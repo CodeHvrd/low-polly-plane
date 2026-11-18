@@ -36,6 +36,24 @@ export const BONUS_MULTIPLIER_TIERS = [
   { minDistance: 5000, multiplier: 1 },
 ];
 
+export const PILOT_RANK_TIERS = [
+  { minScore: 30000, id: 'mythic', label: 'Mítico' },
+  { minScore: 15000, id: 'legend', label: 'Leyenda' },
+  { minScore: 7500, id: 'commander', label: 'Comandante' },
+  { minScore: 3000, id: 'ace', label: 'As' },
+  { minScore: 1000, id: 'pilot', label: 'Piloto' },
+  { minScore: 0, id: 'rookie', label: 'Novato' },
+];
+
+/** Devuelve el rango de piloto según puntaje o distancia acumulada. */
+export function getPilotRank(scoreOrDist = 0) {
+  const v = Math.max(0, Number(scoreOrDist) || 0);
+  for (const tier of PILOT_RANK_TIERS) {
+    if (v >= tier.minScore) return tier;
+  }
+  return PILOT_RANK_TIERS[PILOT_RANK_TIERS.length - 1];
+}
+
 /**
  * Devuelve el multiplicador de bonus según la distancia recorrida (m).
  * @param {number} distance

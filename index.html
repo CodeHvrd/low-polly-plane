@@ -474,10 +474,13 @@
       </span>
     </div>
 
-    <!-- Tramo actual: el escenario y la dificultad cambian cada 500 m. -->
+    <!-- Tramo actual: barra temática de progreso del bioma (0% → 100%). -->
     <div id="stage-badge" class="hidden">
-      <strong id="stage-name" data-required>VALLE BAJO</strong>
-      <span id="stage-progress" data-required>0 m</span>
+      <div class="stage-head">
+        <strong id="stage-name" data-required>LLANURA</strong>
+        <span id="stage-progress" data-required>0%</span>
+      </div>
+      <div class="stage-bar"><div id="stage-fill"></div></div>
     </div>
 
     <!--

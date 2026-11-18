@@ -509,17 +509,24 @@ export async function handleApiRequest(req, res) {
             : `AND EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest')`;
 
     const rows = await query(
-      `SELECT r.user_id,
-              u.display_name,
-              NOT EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest') AS is_guest,
-              r.aircraft,
-              r.distance,
-              r.total_score,
-              r.created_at
-       FROM flight_runs r
-       JOIN users u ON u.id = r.user_id
-       WHERE r.verified = true AND u.is_banned = false ${whereClause}
-       ORDER BY r.total_score DESC, r.distance DESC
+      `SELECT best.*
+       FROM (
+         SELECT DISTINCT ON (r.user_id)
+                r.user_id,
+                u.display_name,
+                NOT EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest') AS is_guest,
+                GREATEST(COALESCE(pw.best_score, 0), r.total_score) AS best_score,
+                r.aircraft,
+                r.distance,
+                r.total_score,
+                r.created_at
+         FROM flight_runs r
+         JOIN users u ON u.id = r.user_id
+         LEFT JOIN player_wallets pw ON pw.user_id = r.user_id
+         WHERE r.verified = true AND u.is_banned = false ${whereClause}
+         ORDER BY r.user_id, r.total_score DESC, r.distance DESC, r.created_at DESC
+       ) best
+       ORDER BY best.total_score DESC, best.distance DESC
        LIMIT $1`,
       [limit],
     );

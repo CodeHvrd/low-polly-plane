@@ -15,7 +15,7 @@
 import { adaptQuality, renderer, scene, camera } from '../core/engine.js';
 import { onDrag, onKey, isTypingTarget, readFlightControls } from '../core/input.js';
 import { loadSave, persistSave, clearSave } from '../core/storage.js';
-import { initEnvironment, setStagePalette, stageName } from '../world/environment.js';
+import { initEnvironment, setStagePalette, stageName, stagePalette, updateEnvironmentScenery } from '../world/environment.js';
 import { buildLaunchPad } from '../world/launchpad.js';
 import { buildLauncher } from '../aircraft/launcher.js';
 import { generateCourse, setCourseAltitudeProvider } from '../world/obstacles.js';
@@ -62,7 +62,7 @@ import {
 } from './state.js';
 import { todosLosLogros } from './achievements.js';
 import { crearPayloadOnline, crearRegistro, guardarEnRanking, leerRanking, leerRankingFiltrado } from './ranking.js';
-import { computeRunScoreBreakdown } from './score.js';
+import { computeRunScoreBreakdown, getPilotRank } from './score.js';
 import {
   initRemoteBackend,
   startRemoteRun,
@@ -377,6 +377,7 @@ export class Game {
     }
     this.controller.obstacles = this.obstacles;
     updateTerrainWindow(0, true);
+    updateEnvironmentScenery(0, true);
 
     /*
      * Camino nuevo en cada intento. Va ANTES de reiniciar el controlador porque
@@ -1345,21 +1346,13 @@ export class Game {
   syncStage(stage, x) {
     if (stage !== this.currentStage) {
       this.currentStage = stage;
-      /*
-       * El neutro del control de ángulo sigue al tramo.
-       *
-       * Cada tramo tiene su altura de crucero, así que "no arrastrar nada" tiene
-       * que apuntar distinto en cada uno. Se recalcula acá y no en cada frame
-       * porque el cambio de tramo es un evento, no un continuo.
-       */
       this.syncAimBias(stage);
-      // Sin dt: el cambio de tramo salta directo, no transiciona desde el
-      // anterior (si no, se vería un barrido de color en cada frontera).
       setStagePalette(stage, 0);
-      HUD.updateStage(stageName(stage), x % STAGES.SEGMENT_LENGTH);
-      return;
     }
-    HUD.updateStage(stageName(stage), x % STAGES.SEGMENT_LENGTH);
+    const segLen = Math.max(1, STAGES.SEGMENT_LENGTH);
+    const pct01 = clamp((x % segLen) / segLen, 0, 1);
+    const pal = stagePalette(stage);
+    HUD.updateStage(stageName(stage), pct01, pal?.accent ?? null);
   }
 
   /**
@@ -1522,6 +1515,14 @@ export class Game {
      */
     music.setMudo(STATE.musicOff === true);
     }
+  }
+
+  toggleMusic() {
+    STATE.musicOff = !STATE.musicOff;
+    music.setMudo(STATE.musicOff);
+    this.syncOptionsPanel();
+    this._syncQuickBar?.();
+    this.persist();
   }
 
   toggleMute() {
@@ -1814,11 +1815,7 @@ export class Game {
     document.getElementById('btn-quick-music')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      STATE.musicOff = !STATE.musicOff;
-      music.setMudo(STATE.musicOff);
-      this.syncOptionsPanel();
-      this._syncQuickBar();
-      this.persist();
+      this.toggleMusic();
     });
 
     document.getElementById('btn-quick-sfx')?.addEventListener('click', (e) => {
@@ -2364,7 +2361,7 @@ export class Game {
       if (!cont) return;
       const auth = getStoredAuth();
       const isGuest = !auth.provider || auth.provider === 'guest' || !auth.token;
-      const paintRows = (items, isGlobal = false) => {
+      const paintRows = (items, isGlobal = false, emptyText = null) => {
         const nodes = [];
         if (isGuest) {
           nodes.push(createGuestRankingNotice());
@@ -2372,7 +2369,7 @@ export class Game {
         if (!items.length) {
           const vacio = document.createElement('p');
           vacio.className = 'ach-desc';
-          vacio.textContent = 'Todavía no hay vuelos en este período.';
+          vacio.textContent = emptyText || 'Todavía no hay vuelos en este período.';
           nodes.push(vacio);
           cont.replaceChildren(...nodes);
           measureRankingMarquees(cont);
@@ -2382,19 +2379,36 @@ export class Game {
           const r = items[i];
           const row = document.createElement('div');
           row.className = 'profile-row ranking-row';
+
           const puesto = document.createElement('span');
           puesto.className = 'rank-pos';
           puesto.textContent = `#${i + 1}`;
-          const nave = document.createElement('span');
-          nave.className = 'rank-ship';
-          const ship = r.aircraft ?? r.ship ?? '—';
-          const guestMark = isGlobal && r.is_guest ? ' (Inv.)' : '';
-          const namePrefix = isGlobal && r.display_name ? `${r.display_name}${guestMark} · ` : '';
-          nave.textContent = `${namePrefix}${ship} · ${r.distance} m`;
+
+          const val = Number(r.total_score ?? r.score ?? r.distance ?? 0);
+          const rankBasis = Number(r.best_score ?? val);
+          const rankTier = getPilotRank(rankBasis);
+          const rawName = (isGlobal && r.display_name)
+            ? r.display_name
+            : (auth.displayName || 'Piloto');
+          const guestSuffix = (isGlobal && r.is_guest) ? ' · Inv.' : '';
+
+          const userCell = document.createElement('span');
+          userCell.className = 'rank-user';
+          userCell.textContent = `${rawName}${guestSuffix} `;
+          const rankSpan = document.createElement('span');
+          rankSpan.className = 'rank-tier';
+          rankSpan.textContent = `(${rankTier.label})`;
+          userCell.appendChild(rankSpan);
+
+          const dist = document.createElement('span');
+          dist.className = 'rank-dist';
+          dist.textContent = `${Math.round(Number(r.distance ?? 0)).toLocaleString('es-AR')} m`;
+
           const pts = document.createElement('strong');
-          const val = r.total_score ?? r.score ?? r.distance ?? 0;
-          pts.textContent = `${Number(val).toLocaleString('es-AR')} pts`;
-          row.append(puesto, nave, pts);
+          pts.className = 'rank-pts';
+          pts.textContent = `${val.toLocaleString('es-AR')} pts`;
+
+          row.append(puesto, userCell, dist, pts);
           nodes.push(row);
         }
         cont.replaceChildren(...nodes);
@@ -2402,14 +2416,27 @@ export class Game {
       };
 
       const reqId = (cont._rankReqId = (cont._rankReqId || 0) + 1);
-      const localItems = period === 'daily' || !isGuest ? leerRankingFiltrado(period).slice(0, limit) : [];
-      paintRows(localItems, false);
+      // Los invitados solo participan en el ranking diario: no consultar ni mezclar otros períodos.
+      if (isGuest && period !== 'daily') {
+        paintRows([], true, 'Creá una cuenta para competir en este ranking.');
+        return;
+      }
+
+      paintRows([], true, 'Cargando ranking…');
 
       fetchGlobalLeaderboard(period, limit).then((remote) => {
-        if (remote && cont._rankReqId === reqId) {
-          if (remote.length || period !== 'daily') paintRows(remote, true);
+        if (cont._rankReqId !== reqId) return;
+        if (Array.isArray(remote)) {
+          paintRows(remote, true);
+        } else {
+          const localItems = leerRankingFiltrado(period).slice(0, limit);
+          paintRows(localItems, false);
         }
-      }).catch(() => {});
+      }).catch(() => {
+        if (cont._rankReqId !== reqId) return;
+        const localItems = leerRankingFiltrado(period).slice(0, limit);
+        paintRows(localItems, false);
+      });
     };
 
     window.addEventListener('resize', () => {
@@ -2699,10 +2726,8 @@ export class Game {
       btnMusic.addEventListener('click', (e) => {
         e.stopPropagation();
         sfx.click();
-        STATE.musicOff = !STATE.musicOff;
-        music.setMudo(STATE.musicOff);
+        this.toggleMusic();
         e.currentTarget.textContent = STATE.musicOff ? 'OFF' : 'ON';
-        this.persist();
       });
     }
 
@@ -3210,9 +3235,10 @@ export class Game {
       if (isTypingTarget(e.target)) return;
       unlock();
 
-      // M: silenciar, disponible siempre.
+      // M: activar/desactivar música en todo el juego (PC).
       if (e.code === 'KeyM') {
-        this.toggleMute();
+        e.preventDefault();
+        this.toggleMusic();
         return;
       }
 
@@ -3690,6 +3716,7 @@ export class Game {
        * pasado ese punto el avión volaba sobre el vacío: era la pantalla negra.
        */
       updateTerrainWindow(x);
+      updateEnvironmentScenery(x);
 
       const corrio = this.updateChunkWindow(x);
       if (corrio) {

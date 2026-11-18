@@ -90,6 +90,7 @@ function resolve() {
     stageBadge: must('stage-badge'),
     stageName: must('stage-name'),
     stageProgress: must('stage-progress'),
+    stageFill: optional('stage-fill'),
     glidePct: must('glide-pct'),
     glideFill: must('glide-fill'),
 

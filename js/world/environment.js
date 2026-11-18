@@ -106,59 +106,212 @@ function buildStars() {
  * así que no hay asignaciones ni basura.
  */
 
-// ── Cordillera de fondo ─────────────────────────────────────
-function buildMountains() {
+// ── Escenografía infinita (límites de pista, montañas y costados temáticos) ─
+const BORDER_STEP = 32;
+const BORDER_SLOTS = 36; // cubre ~1150 m en ambos lados sin fin
+const SCENERY_STEP = 40;
+const SCENERY_SLOTS = 42;
+const MOUNTAIN_SPAN = 2600;
+
+const dummy = new THREE.Object3D();
+let lastBorderAnchor = Infinity;
+let lastSceneryAnchor = Infinity;
+let sceneryState = null;
+
+function buildSceneryPool() {
   const rng = createRng(4242);
   const group = new THREE.Group();
   group.name = 'mountains';
 
-  const shades = [0x1a2030, 0x1e2535, 0x18202e, 0x1c2538, 0x212a40];
+  // 1) Límites de pista visibles en ambos bordes (z = ±COURSE_HALF_WIDTH)
+  const stripGeo = new THREE.BoxGeometry(18, 0.36, 1.35);
+  const stripMat = new THREE.MeshBasicMaterial({
+    color: 0xff5252,
+    transparent: true,
+    opacity: 0.78,
+  });
+  const borderStrips = new THREE.InstancedMesh(stripGeo, stripMat, BORDER_SLOTS * 2);
+  borderStrips.frustumCulled = false;
 
-  // Las franjas cubren también el tramo detrás del lanzador: la vista de
-  // lanzamiento mira hacia adelante, pero la de apuntado puede verse desde
-  // cualquier lado y no debe quedar sin fondo.
-  const from = -WORLD.BEHIND_LENGTH * 0.55;
-  const to = WORLD.COURSE_LENGTH + 80;
+  const postGeo = new THREE.CylinderGeometry(0.24, 0.44, 5.4, 6);
+  postGeo.translate(0, 2.7, 0);
+  const postMat = new THREE.MeshLambertMaterial({ color: 0x263248, flatShading: true });
+  const borderPosts = new THREE.InstancedMesh(postGeo, postMat, BORDER_SLOTS * 2);
+  borderPosts.frustumCulled = false;
 
-  const rows = [
-    { z: -78, count: 17, hMin: 26, hMax: 58 },
-    { z: 78, count: 17, hMin: 24, hMax: 54 },
+  const capGeo = new THREE.OctahedronGeometry(0.58, 0);
+  const capMat = new THREE.MeshBasicMaterial({ color: 0xff6d00 });
+  const borderCaps = new THREE.InstancedMesh(capGeo, capMat, BORDER_SLOTS * 2);
+  borderCaps.frustumCulled = false;
+
+  group.add(borderStrips, borderPosts, borderCaps);
+
+  // 2) Cordillera lateral envolvente en doble fila (oculta cualquier horizonte liso)
+  const mtnDefs = [];
+  const rowCfg = [
+    { zBase: -115, count: 22, hMin: 28, hMax: 60 },
+    { zBase: 115, count: 22, hMin: 26, hMax: 58 },
+    { zBase: -188, count: 18, hMin: 48, hMax: 92 },
+    { zBase: 188, count: 18, hMin: 46, hMax: 88 },
   ];
-
-  for (const row of rows) {
+  const mtnGeo = new THREE.ConeGeometry(1, 1, 6);
+  const mtnMat = new THREE.MeshLambertMaterial({ color: 0x232d42, flatShading: true });
+  const totalMtns = rowCfg.reduce((s, r) => s + r.count, 0);
+  const mountainsMesh = new THREE.InstancedMesh(mtnGeo, mtnMat, totalMtns);
+  mountainsMesh.frustumCulled = false;
+  for (const row of rowCfg) {
     for (let i = 0; i < row.count; i++) {
       const h = rng.range(row.hMin, row.hMax);
-      const geo = new THREE.ConeGeometry(h * rng.range(0.7, 1.0), h, rng.int(5, 7));
-      const base = shades[rng.int(0, shades.length - 1)];
-
-      // Gradiente vertical por vértice para que las cumbres se aclaren.
-      const pos = geo.attributes.position;
-      const colors = new Float32Array(pos.count * 3);
-      const cc = new THREE.Color(base);
-      for (let v = 0; v < pos.count; v++) {
-        const t = (pos.getY(v) + h / 2) / h;
-        colors[v * 3] = Math.min(1, cc.r + t * 0.06);
-        colors[v * 3 + 1] = Math.min(1, cc.g + t * 0.04);
-        colors[v * 3 + 2] = Math.min(1, cc.b + t * 0.09);
-      }
-      geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-      geo.deleteAttribute('uv');
-
-      const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(
-        from + (i / (row.count - 1)) * (to - from),
-        h / 2 - 3,
-        row.z + rng.range(-14, 14),
-      );
-      mesh.rotation.y = rng.range(0, Math.PI);
-      group.add(mesh);
+      mtnDefs.push({
+        baseX: (i / row.count) * MOUNTAIN_SPAN - MOUNTAIN_SPAN * 0.25 + rng.range(-25, 25),
+        z: row.zBase + rng.range(-18, 18),
+        r: h * rng.range(0.68, 1.05),
+        h,
+        rotY: rng.range(0, Math.PI * 2),
+      });
     }
   }
+  group.add(mountainsMesh);
+
+  // 3) Vegetación / formaciones temáticas a ambos costados (|z| ∈ [76, 150])
+  const floraGeo = new THREE.ConeGeometry(2.6, 11, 5);
+  floraGeo.translate(0, 5.5, 0);
+  const floraMat = new THREE.MeshLambertMaterial({ color: 0x2f5e34, flatShading: true });
+  const floraMesh = new THREE.InstancedMesh(floraGeo, floraMat, SCENERY_SLOTS * 2);
+  floraMesh.frustumCulled = false;
+
+  const rockGeo = new THREE.DodecahedronGeometry(3.2, 0);
+  const rockMat = new THREE.MeshLambertMaterial({ color: 0x4a4038, flatShading: true });
+  const rocksMesh = new THREE.InstancedMesh(rockGeo, rockMat, SCENERY_SLOTS * 2);
+  rocksMesh.frustumCulled = false;
+
+  const sideSeeds = [];
+  for (let i = 0; i < SCENERY_SLOTS; i++) {
+    sideSeeds.push({
+      zLeft: -(76 + ((i * 37) % 68)),
+      zRight: 76 + ((i * 53 + 19) % 68),
+      scaleA: 0.7 + ((i * 29) % 10) * 0.08,
+      scaleB: 0.65 + ((i * 41) % 10) * 0.09,
+      rockZLeft: -(82 + ((i * 61 + 11) % 80)),
+      rockZRight: 82 + ((i * 47 + 23) % 80),
+      rot: (i * 1.37) % (Math.PI * 2),
+    });
+  }
+  group.add(floraMesh, rocksMesh);
 
   scene.add(group);
   disposables.push(group);
+  sceneryState = {
+    group,
+    borderStrips,
+    borderPosts,
+    borderCaps,
+    mountainsMesh,
+    mtnDefs,
+    floraMesh,
+    rocksMesh,
+    sideSeeds,
+    stripMat,
+    capMat,
+    mtnMat,
+    floraMat,
+    rockMat,
+  };
+  lastBorderAnchor = Infinity;
+  lastSceneryAnchor = Infinity;
+  updateEnvironmentScenery(0, true);
   return group;
+}
+
+/**
+ * Reposiciona los límites de pista y la escenografía lateral alrededor del avión.
+ * @param {number} x
+ * @param {boolean} [force=false]
+ */
+export function updateEnvironmentScenery(x, force = false) {
+  if (!sceneryState) return;
+  const s = sceneryState;
+  const borderAnchor = Math.floor(x / BORDER_STEP) * BORDER_STEP;
+  if (force || borderAnchor !== lastBorderAnchor) {
+    lastBorderAnchor = borderAnchor;
+    const hw = WORLD.COURSE_HALF_WIDTH;
+    const startX = borderAnchor - 280;
+    let idx = 0;
+    for (let i = 0; i < BORDER_SLOTS; i++) {
+      const bx = startX + i * BORDER_STEP;
+      for (const side of [-1, 1]) {
+        const bz = side * hw;
+        const by = terrainHeightAt(bx, bz);
+        const byNext = terrainHeightAt(bx + 12, bz);
+        const slope = Math.atan2(byNext - by, 12);
+
+        dummy.position.set(bx, by + 0.16, bz);
+        dummy.rotation.set(0, 0, slope);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        s.borderStrips.setMatrixAt(idx, dummy.matrix);
+
+        dummy.position.set(bx, by, bz + side * 0.9);
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        s.borderPosts.setMatrixAt(idx, dummy.matrix);
+
+        dummy.position.set(bx, by + 5.75, bz + side * 0.9);
+        dummy.rotation.set(0, bx * 0.05, 0);
+        dummy.updateMatrix();
+        s.borderCaps.setMatrixAt(idx, dummy.matrix);
+        idx++;
+      }
+    }
+    s.borderStrips.instanceMatrix.needsUpdate = true;
+    s.borderPosts.instanceMatrix.needsUpdate = true;
+    s.borderCaps.instanceMatrix.needsUpdate = true;
+  }
+
+  const sceneryAnchor = Math.floor(x / SCENERY_STEP) * SCENERY_STEP;
+  if (force || sceneryAnchor !== lastSceneryAnchor) {
+    lastSceneryAnchor = sceneryAnchor;
+    const minMtnX = x - MOUNTAIN_SPAN * 0.35;
+    for (let i = 0; i < s.mtnDefs.length; i++) {
+      const d = s.mtnDefs[i];
+      const offset = (((d.baseX - minMtnX) % MOUNTAIN_SPAN) + MOUNTAIN_SPAN) % MOUNTAIN_SPAN;
+      const mx = minMtnX + offset;
+      dummy.position.set(mx, d.h * 0.5 - 4, d.z);
+      dummy.rotation.set(0, d.rotY, 0);
+      dummy.scale.set(d.r, d.h, d.r);
+      dummy.updateMatrix();
+      s.mountainsMesh.setMatrixAt(i, dummy.matrix);
+    }
+    s.mountainsMesh.instanceMatrix.needsUpdate = true;
+
+    const startSX = sceneryAnchor - 320;
+    let sIdx = 0;
+    for (let i = 0; i < SCENERY_SLOTS; i++) {
+      const sx = startSX + i * SCENERY_STEP;
+      const sd = s.sideSeeds[i];
+      for (const isLeft of [true, false]) {
+        const z = isLeft ? sd.zLeft : sd.zRight;
+        const sc = isLeft ? sd.scaleA : sd.scaleB;
+        const sy = terrainHeightAt(sx, z);
+        dummy.position.set(sx, sy - 0.3, z);
+        dummy.rotation.set(0, sd.rot + (isLeft ? 0 : 1.1), 0);
+        dummy.scale.set(sc, sc * 1.15, sc);
+        dummy.updateMatrix();
+        s.floraMesh.setMatrixAt(sIdx, dummy.matrix);
+
+        const rz = isLeft ? sd.rockZLeft : sd.rockZRight;
+        const ry = terrainHeightAt(sx + 14, rz);
+        dummy.position.set(sx + 14, ry + sc * 0.5, rz);
+        dummy.rotation.set(sd.rot * 0.4, sd.rot, 0);
+        dummy.scale.set(sc * 1.35, sc * 0.9, sc * 1.2);
+        dummy.updateMatrix();
+        s.rocksMesh.setMatrixAt(sIdx, dummy.matrix);
+        sIdx++;
+      }
+    }
+    s.floraMesh.instanceMatrix.needsUpdate = true;
+    s.rocksMesh.instanceMatrix.needsUpdate = true;
+  }
 }
 
 // ── Tramos: cambio de escenario ─────────────────────────────
@@ -230,10 +383,16 @@ export function setStagePalette(index, dt = 0) {
 
   if (wrapped !== activePalette) {
     activePalette = wrapped;
-    // El acento tiñe las luces: da identidad al tramo sin tocar la geometría.
+    // El acento tiñe las luces y la escenografía lateral: da identidad al tramo.
     accentTarget.setHex(palette.accent);
     sunLight?.color.lerp(accentTarget, 0.3);
     rimLight?.color.lerp(accentTarget, 0.45);
+    if (sceneryState) {
+      sceneryState.capMat.color.setHex(palette.accent);
+      sceneryState.rockMat.color.setHex(palette.rock);
+      sceneryState.floraMat.color.setHex(palette.ground).lerp(accentTarget, 0.28);
+      sceneryState.mtnMat.color.setHex(palette.rock).lerp(skyTarget, 0.45);
+    }
   }
 }
 
@@ -243,6 +402,14 @@ export function stageName(index) {
   if (!palettes.length) return '';
   const wrapped = ((index % palettes.length) + palettes.length) % palettes.length;
   return palettes[wrapped].name;
+}
+
+/** Paleta completa de un tramo. */
+export function stagePalette(index) {
+  const palettes = STAGES.PALETTES;
+  if (!palettes.length) return null;
+  const wrapped = ((index % palettes.length) + palettes.length) % palettes.length;
+  return palettes[wrapped];
 }
 
 // ── API pública ─────────────────────────────────────────────
@@ -262,7 +429,7 @@ export function initEnvironment() {
   buildStars();
   initTerrainMesh();
   updateTerrainWindow(0, true);
-  buildMountains();
+  buildSceneryPool();
   /*
    * ── La paleta se aplica desde el arranque ──
    *
@@ -287,6 +454,11 @@ export function disposeEnvironment() {
     item.material?.dispose?.();
     scene.remove(item);
   }
+  disposeTerrainMesh();
   disposables.length = 0;
+  sceneryState = null;
+  lastBorderAnchor = Infinity;
+  lastSceneryAnchor = Infinity;
   built = false;
+  activePalette = -1;
 }
