@@ -31,7 +31,15 @@ const DICT = {
     welcomePilot: 'Bienvenido piloto',
     enter: 'INGRESAR',
     playGuest: 'JUGAR COMO INVITADO',
-    guestNote: 'Solo participa en el Ranking Diario',
+    guestRankingAlert: 'Usuarios sin cuenta solo se visualizan en el ranking diario',
+    endlessLockedTitle: 'Modo Sin Fin bloqueado',
+    endlessLockedHint: 'Completá el Modo Campaña (Nivel 5) para desbloquearlo',
+    campaignShort: 'Campaña Nv.',
+    shipFree: 'GRATIS',
+    shipInUse: 'EN USO',
+    shipEquip: 'EQUIPAR',
+    shipBuy: 'ADQUIRIR',
+    shipMissing: 'Faltan',
     signInTitle: 'Iniciar sesión',
     loginUserLbl: 'Usuario o correo',
     loginPassLbl: 'Contraseña',
@@ -91,7 +99,15 @@ const DICT = {
     welcomePilot: 'Welcome pilot',
     enter: 'SIGN IN',
     playGuest: 'PLAY AS GUEST',
-    guestNote: 'Daily Leaderboard only',
+    guestRankingAlert: 'Users without an account only appear on the daily ranking',
+    endlessLockedTitle: 'Endless Mode locked',
+    endlessLockedHint: 'Complete Campaign Mode (Level 5) to unlock it',
+    campaignShort: 'Campaign Lv.',
+    shipFree: 'FREE',
+    shipInUse: 'IN USE',
+    shipEquip: 'EQUIP',
+    shipBuy: 'BUY',
+    shipMissing: 'Need',
     signInTitle: 'Sign in',
     loginUserLbl: 'Username or email',
     loginPassLbl: 'Password',
@@ -151,7 +167,15 @@ const DICT = {
     welcomePilot: 'Bem-vindo piloto',
     enter: 'ENTRAR',
     playGuest: 'JOGAR COMO CONVIDADO',
-    guestNote: 'Participa apenas do Ranking Diário',
+    guestRankingAlert: 'Usuários sem conta aparecem apenas no ranking diário',
+    endlessLockedTitle: 'Modo Infinito bloqueado',
+    endlessLockedHint: 'Conclua o Modo Campanha (Nível 5) para desbloquear',
+    campaignShort: 'Campanha Nv.',
+    shipFree: 'GRÁTIS',
+    shipInUse: 'EM USO',
+    shipEquip: 'EQUIPAR',
+    shipBuy: 'COMPRAR',
+    shipMissing: 'Faltam',
     signInTitle: 'Entrar',
     loginUserLbl: 'Usuário ou e-mail',
     loginPassLbl: 'Senha',
@@ -252,7 +276,10 @@ export function applyDomTranslations() {
   setTxt('#lbl-options-lang', t('language'));
 
   // Menú principal
-  setTxt('#btn-new-game', t('endlessBtn'));
+  const btnNew = document.getElementById('btn-new-game');
+  if (btnNew) {
+    btnNew.textContent = btnNew.classList.contains('locked') ? `🔒 ${t('endlessBtn')}` : t('endlessBtn');
+  }
   const campBtn = document.getElementById('btn-story-mode');
   if (campBtn) campBtn.innerHTML = `<span class="btn-icon">🗺️</span> ${t('campaignBtn')}`;
   setTxt('#btn-awards', t('awards'));
@@ -285,7 +312,6 @@ export function applyDomTranslations() {
   setTxt('#auth-gate-view .auth-heading', t('welcomePilot'));
   setTxt('#btn-gate-login', t('enter'));
   setTxt('#btn-continue-guest', t('playGuest'));
-  setTxt('#auth-gate-view .auth-guest-sub', t('guestNote'));
 
   setTxt('#auth-login-view .auth-heading', t('signInTitle'));
   setTxt('label[for="inp-login-user"]', t('loginUserLbl'));

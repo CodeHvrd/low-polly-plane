@@ -21,9 +21,10 @@
  * ============================================================
  */
 import { UI, setText } from './dom.js';
-import { AIRCRAFT_LIST, isUnlocked } from '../physics/specs.js';
+import { AIRCRAFT_LIST, isAircraftUnlocked } from '../physics/specs.js';
 import { STATE, buyAircraft } from '../game/state.js';
 import { formatNumber } from '../core/math.js';
+import { t } from '../core/i18n.js';
 
 /** Las estadísticas que se muestran, con su etiqueta y su unidad. */
 const STAT_ROWS = [
@@ -45,7 +46,7 @@ const STAT_ROWS = [
  * @returns {{ok:boolean, reason:'locked'|'free'|'owned'|'coins'}}
  */
 export function canPickAircraft(spec) {
-  if (!isUnlocked(spec, STATE.bestDistance)) return { ok: false, reason: 'locked' };
+  if (!isAircraftUnlocked(spec, STATE.story, STATE.aircraftOwned)) return { ok: false, reason: 'locked' };
 
   const price = spec.price ?? 0;
   if (price <= 0) return { ok: true, reason: 'free' };
@@ -240,33 +241,35 @@ export class AircraftSelector {
       }
 
       card.root.classList.toggle('locked', !pick.ok);
+      card.price.classList.remove('cant-afford');
 
       /*
        * El texto del botón es la pieza central del pedido:
-       *   bloqueada → cuánto falta para desbloquearla
+       *   bloqueada → nivel de Campaña donde se usa por primera vez
        *   sin comprar → ADQUIRIR (o cuánto falta de monedas)
        *   comprada → EQUIPAR (o EN USO si ya está puesta)
        */
       if (pick.reason === 'locked') {
-        card.price.textContent = '';
-        card.status.textContent = `A ${formatNumber(card.spec.unlockAt)} m`;
+        card.price.textContent = price > 0 ? `💰 ${formatNumber(price)}` : '';
+        const lvlNum = card.spec.unlockStoryLevel;
+        card.status.textContent = lvlNum ? `🔒 ${t('campaignShort')} ${lvlNum}` : '🔒';
         card.status.classList.add('disabled');
       } else if (equipped) {
-        card.price.textContent = price > 0 ? '💰 ' + formatNumber(price) : 'GRATIS';
-        card.status.textContent = 'EN USO';
+        card.price.textContent = price > 0 ? '💰 ' + formatNumber(price) : t('shipFree');
+        card.status.textContent = t('shipInUse');
         card.status.classList.add('disabled');
       } else if (owned) {
-        card.price.textContent = price > 0 ? '💰 ' + formatNumber(price) : 'GRATIS';
-        card.status.textContent = 'EQUIPAR';
+        card.price.textContent = price > 0 ? '💰 ' + formatNumber(price) : t('shipFree');
+        card.status.textContent = t('shipEquip');
         card.status.classList.remove('disabled');
       } else if (pick.ok) {
         card.price.textContent = `💰 ${formatNumber(price)}`;
-        card.status.textContent = 'ADQUIRIR';
+        card.status.textContent = t('shipBuy');
         card.status.classList.remove('disabled');
       } else {
         card.price.textContent = `💰 ${formatNumber(price)}`;
         card.price.classList.add('cant-afford');
-        card.status.textContent = `Faltan ${formatNumber(price - STATE.coins)}`;
+        card.status.textContent = `${t('shipMissing')} ${formatNumber(price - STATE.coins)}`;
         card.status.classList.add('disabled');
       }
     }

@@ -302,8 +302,11 @@ export async function handleApiRequest(req, res) {
       }
     }
 
-    if (Array.isArray(body.ownedAircraft)) {
-      for (const shipId of body.ownedAircraft) {
+    const ownedList = Array.isArray(body.ownedAircraft)
+      ? body.ownedAircraft
+      : (Array.isArray(body.aircraftOwned) ? body.aircraftOwned : null);
+    if (ownedList) {
+      for (const shipId of ownedList) {
         await query(
           `INSERT INTO player_inventory (user_id, item_type, item_id, level, quantity)
            VALUES ($1, 'aircraft', $2, 1, 1)
@@ -316,7 +319,11 @@ export async function handleApiRequest(req, res) {
     if (body.story && typeof body.story === 'object') {
       const unlocked = Math.max(1, Math.min(5, Math.round(Number(body.story.unlockedLevel) || 1)));
       const endless = Boolean(body.story.endlessUnlocked);
-      const stars = JSON.stringify(body.story.stars || {});
+      const starsPayload = { ...(body.story.stars || {}) };
+      if (Array.isArray(body.story.usedAircraft)) {
+        starsPayload._usedAircraft = body.story.usedAircraft;
+      }
+      const stars = JSON.stringify(starsPayload);
       await query(
         `UPDATE player_story_progress
          SET unlocked_level = $2, endless_unlocked = $3, stars_by_level = $4::jsonb, updated_at = now()

@@ -36,7 +36,7 @@ import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, 
 import { clamp } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted, suspendAudio, resumeAudio } from '../core/audio.js';
 import { music, pistaParaTramo } from '../core/music.js';
-import { applyDomTranslations, cycleLang } from '../core/i18n.js';
+import { applyDomTranslations, cycleLang, t } from '../core/i18n.js';
 import { precargarGLB } from '../world/glbLoader.js';
 import {
   setPointerFollow,
@@ -96,7 +96,7 @@ import { Shop } from '../ui/shop.js';
 import { AircraftSelector } from '../ui/aircraftSelector.js';
 import { TouchControls } from '../ui/touchControls.js';
 import { evaluateMissions, advanceCompletedMission, recordFlightProgress } from './missions.js';
-import { STORY_LEVELS, getStoryLevel, evaluateStoryResult } from '../modes/storyLevels.js';
+import { STORY_LEVELS, getStoryLevel, evaluateStoryResult, sanitizeStorySave } from '../modes/storyLevels.js';
 import { preloadStoryProps, buildStoryProps, disposeStoryProps } from '../world/storyProps.js';
 
 export class Game {
@@ -130,9 +130,9 @@ export class Game {
     this.view = new AircraftView();
     this.cameraRig = new CameraRig();
     this.aiming = new AimingSystem(
-      () => getSpec(STATE.aircraft),
+      () => getSpec(this.getActiveAircraftId()),
       () => this._liveParams(),
-      () => getUpgradeMods(),
+      () => getUpgradeMods(this.getActiveAircraftId()),
       /*
        * Cada cambio de puntería recoloca las flechas de dirección.
        *
@@ -152,8 +152,8 @@ export class Game {
       cameraRig: this.cameraRig,
       trail: this.trail,
       effects: this.effects,
-      getMods: () => getUpgradeMods(),
-      getSpec: () => getSpec(STATE.aircraft),
+      getMods: () => getUpgradeMods(this.getActiveAircraftId()),
+      getSpec: () => getSpec(this.getActiveAircraftId()),
       obstacles: this.obstacles,
       pickups: this.pickups,
       /*
@@ -193,8 +193,14 @@ export class Game {
    * El viento queda en cero: la línea punteada predice SIN viento, que es
    * la información honesta (el viento es una perturbación posterior).
    */
+  /** Aeronave activa en vuelo (la asignada por el nivel de Campaña o la equipada en Hangar). */
+  getActiveAircraftId() {
+    return this.activeStoryLevel?.aircraft || STATE.aircraft;
+  }
+
   _liveParams() {
-    return paramsFromSpec(getSpec(STATE.aircraft), getUpgradeMods());
+    const shipId = this.getActiveAircraftId();
+    return paramsFromSpec(getSpec(shipId), getUpgradeMods(shipId));
   }
 
   // ── Arranque ──────────────────────────────────────────────
@@ -230,6 +236,7 @@ export class Game {
 
     this.running = true;
     applyDomTranslations();
+    this._syncEndlessLockUi?.();
     this._syncAccountUi?.();
     this._syncQuickBar?.();
 
@@ -501,10 +508,11 @@ export class Game {
      * el puntaje: es el mismo formato que después va a validar el servidor para el
      * ranking global. Ver game/ranking.js.
      */
+    const activeShip = this.getActiveAircraftId();
     const registro = crearRegistro({
       seed: this.pickupSeed ?? 0,
-      ship: STATE.aircraft,
-      upgrades: { ...nivelesDe() },
+      ship: activeShip,
+      upgrades: { ...nivelesDe(activeShip) },
       result,
       score: scoreData,
     });
@@ -541,6 +549,7 @@ export class Game {
         }
         if (lvl.number === STORY_LEVELS.length) {
           STATE.story.endlessUnlocked = true;
+          this._syncEndlessLockUi?.();
         }
         STATE.coins += ev.rewardCoins;
         sfx.missionComplete();
@@ -719,11 +728,17 @@ export class Game {
     this.controller?.setFinishDistance(lvl.targetDistance);
 
     if (lvl.aircraft) {
-      STATE.aircraft = lvl.aircraft;
-      this.view.setType(lvl.aircraft);
-      this.selector.sync();
-      this.selector.syncDockLabel();
+      if (!Array.isArray(STATE.story.usedAircraft)) STATE.story.usedAircraft = ['paper'];
+      if (!STATE.story.usedAircraft.includes(lvl.aircraft)) {
+        STATE.story.usedAircraft.push(lvl.aircraft);
+      }
     }
+    this.view.setType(this.getActiveAircraftId());
+    this.selector.sync();
+    this.selector.syncDockLabel();
+    this.shop.sync();
+    this.syncAimCallout();
+    this.persist();
 
     this.rebuildForMode();
     this.startRun({ fade: false });
@@ -744,6 +759,8 @@ export class Game {
     if (!this.activeStoryLevel) return;
     this.activeStoryLevel = null;
     this.controller?.setFinishDistance(null);
+    this.view.setType(STATE.aircraft);
+    this.syncAimCallout();
     const banner = UI.storyHintBanner || document.getElementById('story-hint-banner');
     if (banner) banner.classList.add('hidden');
     this.rebuildForMode();
@@ -1129,12 +1146,14 @@ export class Game {
 
   chooseAircraft(id) {
     if (this.controller.phase === PHASE.FLYING) return; // no cambiar en vuelo
+    const spec = getSpec(id);
+    if ((spec.price ?? 0) > 0 && !(STATE.aircraftOwned ?? []).includes(spec.id)) return;
 
     STATE.aircraft = id;
     initOwnedAircraft();
     this.selector.sync();
     this.selector.syncDockLabel();
-    this.view.setType(id);
+    this.view.setType(this.getActiveAircraftId());
     this.view.setVisible(true);
     this.view.setLoadedPosition({ x: LAUNCH_POS.x, y: LAUNCH_POS.y, z: LAUNCH_POS.z });
     this.aiming.refresh();
@@ -1165,6 +1184,7 @@ export class Game {
    */
   enterLaunchMode(opts = {}) {
     if (!this.controller.canAimEditable) return false;
+    if (!this.activeStoryLevel && !this._isEndlessUnlocked?.()) return false;
     music.setModo('aim');
 
     /*
@@ -1344,7 +1364,7 @@ export class Game {
 
   /** Refresca el cartelito con el nombre de la nave activa (modo lanzamiento). */
   syncAimCallout() {
-    const spec = getSpec(STATE.aircraft);
+    const spec = getSpec(this.getActiveAircraftId());
     setText(UI.aimPlaneIcon, spec.icon);
     setText(UI.aimPlaneName, spec.name);
     setText(UI.aimPlaneTag, spec.tag);
@@ -1734,16 +1754,25 @@ export class Game {
       }
     };
 
+    const refreshAfterLangChange = () => {
+      this._syncEndlessLockUi?.();
+      this.selector.sync();
+      this._renderMissionsRanking?.();
+      this._renderResultRanking?.();
+    };
+
     document.getElementById('btn-quick-lang')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
       cycleLang();
+      refreshAfterLangChange();
     });
 
     document.getElementById('btn-options-lang')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
       cycleLang();
+      refreshAfterLangChange();
     });
 
     document.getElementById('btn-quick-music')?.addEventListener('click', (e) => {
@@ -1817,6 +1846,7 @@ export class Game {
           upgradesObj[row.item_id] = row.metadata;
         }
       }
+      const rawStars = prof.story?.stars_by_level || {};
       const nextSave = {
         ...cleanSave,
         coins: Number(w?.coins ?? 0),
@@ -1827,7 +1857,8 @@ export class Game {
         story: prof.story ? {
           unlockedLevel: prof.story.unlocked_level ?? 1,
           endlessUnlocked: Boolean(prof.story.endless_unlocked),
-          stars: prof.story.stars_by_level || {},
+          stars: rawStars,
+          usedAircraft: Array.isArray(rawStars._usedAircraft) ? rawStars._usedAircraft : [],
         } : cleanSave.story,
         missions: prof.missions ? {
           active: prof.missions.active_ids || [],
@@ -1858,6 +1889,7 @@ export class Game {
       this.shop.sync();
       this.renderMisiones();
       this.syncAimCallout();
+      this._syncEndlessLockUi?.();
     };
 
     const triggerGoogleAuth = (linkCurrent = true) => {
@@ -2097,6 +2129,8 @@ export class Game {
         await switchToFreshGuest();
       } catch { /* fallback offline */ }
       clearSave();
+      this.activeStoryLevel = null;
+      this.controller?.setFinishDistance(null);
       const freshSave = loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
       hydrate(freshSave);
       initUpgradeLevels();
@@ -2109,6 +2143,7 @@ export class Game {
       this.shop.sync();
       this.renderMisiones();
       this.syncAimCallout();
+      this._syncEndlessLockUi?.();
       this._syncAccountUi();
       this._refreshRemoteChallenge();
       showAuthView('gate');
@@ -2116,6 +2151,21 @@ export class Game {
     });
 
     const btnNew = document.getElementById('btn-new-game');
+    this._isEndlessUnlocked = () => Boolean(STATE.story?.endlessUnlocked);
+    this._syncEndlessLockUi = () => {
+      const unlocked = this._isEndlessUnlocked();
+      if (btnNew) {
+        btnNew.classList.toggle('locked', !unlocked);
+        btnNew.setAttribute('aria-disabled', String(!unlocked));
+        btnNew.textContent = unlocked ? t('endlessBtn') : `🔒 ${t('endlessBtn')}`;
+        btnNew.title = unlocked ? '' : t('endlessLockedHint');
+      }
+      if (UI.modeBar) {
+        UI.modeBar.classList.toggle('hidden', !unlocked || !HAS_MODE_CHOICE);
+      }
+    };
+    this._syncEndlessLockUi();
+
     /*
      * Se cortan TODOS los eventos de puntero del botón, no sólo el `click`.
      *
@@ -2131,6 +2181,10 @@ export class Game {
     btnNew?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      if (!this._isEndlessUnlocked()) {
+        this.showToast(`🔒 ${t('endlessLockedTitle')}`, t('endlessLockedHint'), 'mission');
+        return;
+      }
       this.exitStoryMode();
       this.enterLaunchMode();
     });
@@ -2193,27 +2247,66 @@ export class Game {
       mostrarPanel(null);
     });
 
+    const measureRankingMarquees = (root) => {
+      if (!root) return;
+      requestAnimationFrame(() => {
+        root.querySelectorAll('.ranking-guest-notice').forEach((banner) => {
+          const box = banner.querySelector('.ranking-guest-marquee');
+          const track = banner.querySelector('.ranking-guest-track');
+          const first = track?.querySelector('.ranking-guest-text');
+          if (!box || !track || !first) return;
+          banner.classList.remove('scrolling');
+          banner.style.removeProperty('--conveyor-dur');
+          track.querySelectorAll('.ranking-guest-clone').forEach((n) => n.remove());
+          const avail = box.clientWidth;
+          const needed = first.scrollWidth;
+          if (avail > 0 && needed > avail + 2) {
+            const clone = first.cloneNode(true);
+            clone.classList.add('ranking-guest-clone');
+            clone.setAttribute('aria-hidden', 'true');
+            track.appendChild(clone);
+            const durSec = Math.max(8, (needed + 42) / 36);
+            banner.style.setProperty('--conveyor-dur', `${durSec.toFixed(1)}s`);
+            banner.classList.add('scrolling');
+          }
+        });
+      });
+    };
+
+    const createGuestRankingNotice = () => {
+      const notice = document.createElement('div');
+      notice.className = 'ranking-guest-notice';
+      notice.setAttribute('role', 'status');
+      const marquee = document.createElement('div');
+      marquee.className = 'ranking-guest-marquee';
+      const track = document.createElement('div');
+      track.className = 'ranking-guest-track';
+      const txt = document.createElement('span');
+      txt.className = 'ranking-guest-text';
+      txt.textContent = t('guestRankingAlert');
+      track.appendChild(txt);
+      marquee.appendChild(track);
+      notice.appendChild(marquee);
+      return notice;
+    };
+
     const fillRankingContainer = (cont, period, limit = 8) => {
       if (!cont) return;
       const auth = getStoredAuth();
       const isGuest = !auth.provider || auth.provider === 'guest' || !auth.token;
       const paintRows = (items, isGlobal = false) => {
+        const nodes = [];
+        if (isGuest) {
+          nodes.push(createGuestRankingNotice());
+        }
         if (!items.length) {
           const vacio = document.createElement('p');
           vacio.className = 'ach-desc';
-          vacio.textContent =
-            period !== 'daily' && isGuest
-              ? 'Invitados solo ranquean en Diario. Creá una cuenta para competir acá.'
-              : 'Todavía no hay vuelos en este período.';
-          cont.replaceChildren(vacio);
+          vacio.textContent = 'Todavía no hay vuelos en este período.';
+          nodes.push(vacio);
+          cont.replaceChildren(...nodes);
+          measureRankingMarquees(cont);
           return;
-        }
-        const nodes = [];
-        if (period !== 'daily' && isGuest) {
-          const aviso = document.createElement('p');
-          aviso.className = 'ach-desc';
-          aviso.textContent = 'Tu sesión invitado solo ranquea en Diario (por día).';
-          nodes.push(aviso);
         }
         for (let i = 0; i < items.length; i++) {
           const r = items[i];
@@ -2235,6 +2328,7 @@ export class Game {
           nodes.push(row);
         }
         cont.replaceChildren(...nodes);
+        measureRankingMarquees(cont);
       };
 
       const reqId = (cont._rankReqId = (cont._rankReqId || 0) + 1);
@@ -2247,6 +2341,11 @@ export class Game {
         }
       }).catch(() => {});
     };
+
+    window.addEventListener('resize', () => {
+      measureRankingMarquees(document.getElementById('missions-ranking-list'));
+      measureRankingMarquees(document.getElementById('result-ranking-list'));
+    });
 
     let activeRankPeriod = 'daily';
     const renderMissionsRanking = () => {
@@ -2609,6 +2708,7 @@ export class Game {
       sfx.click();
       // Salir SÍ descarta el vuelo: se vuelve al menú principal.
       this.setPaused(false);
+      this.exitStoryMode();
       this.controller.forceIdle();
       this.overlays.set(Screen.STANDBY);
     });
@@ -2874,6 +2974,7 @@ export class Game {
     document.getElementById('btn-result-menu')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
+      this.exitStoryMode();
       this.controller.forceIdle();
       this.overlays.set(Screen.STANDBY);
     });
@@ -2882,6 +2983,7 @@ export class Game {
       e.stopPropagation();
       sfx.click();
       hide(UI.resultScreen);
+      this.exitStoryMode();
       this.controller.forceIdle();
       this.overlays.set(Screen.STANDBY);
       this.syncOptionsPanel();
@@ -2913,6 +3015,9 @@ export class Game {
       STATE.upgrades = {};
       // Sin esto quedarían "compradas" las naves de un guardado anterior.
       STATE.aircraftOwned = [];
+      STATE.story = sanitizeStorySave(null);
+      this.activeStoryLevel = null;
+      this.controller?.setFinishDistance(null);
       initOwnedAircraft();
       this.persist();
       this.selector.sync();
@@ -2920,6 +3025,7 @@ export class Game {
       this.view.setType(STATE.aircraft);
       this.shop.sync();
       this.syncCoins();
+      this._syncEndlessLockUi?.();
       this.startRun({ fade: true });
     });
 
@@ -2959,10 +3065,11 @@ export class Game {
        */
       this.gestureStage = this.overlays.current;
 
-      // Si se arrastra desde STANDBY, el mismo gesto entra en modo lanzamiento:
-      // la cámara viaja y el arrastre sigue vivo, así que se puede cargar sin
-      // soltar. Sin esto, arrastrar en standby no haría nada visible.
-      if (this.gestureStage === Screen.STANDBY) this.enterLaunchMode();
+      // Si se arrastra desde STANDBY, solo entra si está en Campaña o Endless ya desbloqueado.
+      if (this.gestureStage === Screen.STANDBY) {
+        if (!this.activeStoryLevel && !this._isEndlessUnlocked?.()) return;
+        this.enterLaunchMode();
+      }
 
       this.controller.beginAim(e.x, e.y);
       if (this.controller.phase === PHASE.AIMING) {
@@ -3107,6 +3214,10 @@ export class Game {
       if (this.controller.canLaunchByKey()) {
         if (this._hasBlockingLobbyPanel?.()) return;
         e.preventDefault();
+        if (this.overlays.current !== Screen.AIM && !this.activeStoryLevel && !this._isEndlessUnlocked?.()) {
+          this.showToast(`🔒 ${t('endlessLockedTitle')}`, t('endlessLockedHint'), 'mission');
+          return;
+        }
         this.aiming.refresh();
         if (this.overlays.current === Screen.AIM) this.launch();
         else this.enterLaunchMode();
@@ -3130,6 +3241,10 @@ export class Game {
   tryLaunchByButton() {
     if (!this.controller.canAimEditable) return;
     if (this._hasBlockingLobbyPanel?.()) return;
+    if (this.overlays.current !== Screen.AIM && !this.activeStoryLevel && !this._isEndlessUnlocked?.()) {
+      this.showToast(`🔒 ${t('endlessLockedTitle')}`, t('endlessLockedHint'), 'mission');
+      return;
+    }
     this.aiming.refresh();
     if (this.overlays.current === Screen.AIM) this.launch();
     else this.enterLaunchMode();

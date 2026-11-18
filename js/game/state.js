@@ -177,7 +177,7 @@ export const STATE = {
   muted: false,
   orientationPref: 'auto',
   missions: { active: getInitialActiveMissions(), completed: [], progress: {} },
-  story: { unlockedLevel: 1, endlessUnlocked: false, stars: {} },
+  story: { unlockedLevel: 1, endlessUnlocked: false, stars: {}, usedAircraft: ['paper'] },
 
   /**
    * Vuelo siguiendo el cursor del mouse (escritorio). APAGADO por defecto.
@@ -298,8 +298,11 @@ export function initOwnedAircraft() {
   for (const spec of AIRCRAFT_LIST) {
     if ((spec.price ?? 0) <= 0) owned.add(spec.id);
   }
-  // La nave en uso debe estar siempre en el inventario.
-  if (STATE.aircraft) owned.add(STATE.aircraft);
+  // Nunca regalar una nave paga por el solo hecho de estar seleccionada.
+  if (!STATE.aircraft || !owned.has(STATE.aircraft)) {
+    STATE.aircraft = DEFAULT_AIRCRAFT;
+    owned.add(DEFAULT_AIRCRAFT);
+  }
   STATE.aircraftOwned = [...owned];
 }
 
@@ -422,6 +425,7 @@ export function toSaveObject() {
     coins: STATE.coins,
     upgrades: { ...STATE.upgrades },
     aircraftOwned: [...STATE.aircraftOwned],
+    ownedAircraft: [...STATE.aircraftOwned],
     bestDistance: STATE.bestDistance,
     runs: STATE.runs,
     aircraft: STATE.aircraft,
@@ -429,6 +433,7 @@ export function toSaveObject() {
     cursorFollow: STATE.cursorFollow,
     orientationPref: STATE.orientationPref,
     missions: sanitizeMissionsSave(STATE.missions),
+    story: sanitizeStorySave(STATE.story),
     stats: { ...STATE.stats },
   };
 }

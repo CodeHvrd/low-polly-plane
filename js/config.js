@@ -1097,7 +1097,7 @@ export const ECONOMY = {
 // ── Persistencia ────────────────────────────────────────────
 export const SAVE = {
   KEY: 'papercrash.save',
-  VERSION: 1,
+  VERSION: 2,
   /** Guardado automático tras cada vuelo y compra. */
   AUTOSAVE: true,
 };

@@ -170,8 +170,8 @@ export const STORY_LEVELS = [
     id: 'story-5',
     number: 5,
     name: 'La Prueba del Horizonte',
-    subtitle: 'Maestría total — Desbloquea Endless',
-    aircraft: null, // Libre elección de nave
+    subtitle: 'Helicóptero · Maestría total — Desbloquea Sin Fin',
+    aircraft: 'heli',
     targetDistance: 7500,
     courseLength: 7800,
     paletteIndex: 4,
@@ -215,9 +215,9 @@ export function getStoryLevel(levelRef) {
 }
 
 /**
- * Sanea el estado guardado del Modo Historia.
+ * Sanea el estado guardado del Modo Historia / Campaña.
  * @param {object} raw
- * @returns {{unlockedLevel: number, endlessUnlocked: boolean, stars: Record<string, number>}}
+ * @returns {{unlockedLevel: number, endlessUnlocked: boolean, stars: Record<string, number>, usedAircraft: string[]}}
  */
 export function sanitizeStorySave(raw) {
   const unlockedLevel =
@@ -235,7 +235,20 @@ export function sanitizeStorySave(raw) {
     }
   }
 
-  return { unlockedLevel, endlessUnlocked, stars };
+  const validShips = new Set(STORY_LEVELS.map((l) => l.aircraft).filter(Boolean));
+  const usedSet = new Set(['paper']);
+  if (Array.isArray(raw?.usedAircraft)) {
+    for (const id of raw.usedAircraft) {
+      if (typeof id === 'string' && validShips.has(id)) usedSet.add(id);
+    }
+  }
+  for (const lvl of STORY_LEVELS) {
+    if (lvl.aircraft && (stars[lvl.id] > 0 || endlessUnlocked)) {
+      usedSet.add(lvl.aircraft);
+    }
+  }
+
+  return { unlockedLevel, endlessUnlocked, stars, usedAircraft: [...usedSet] };
 }
 
 /**

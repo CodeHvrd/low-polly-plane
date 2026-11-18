@@ -83,8 +83,9 @@ export const AIRCRAFT_SPECS = {
     name: 'Pasajeros',
     tag: 'Estable & Pesado',
     icon: '🛫',
-    price: 0,
-    unlockAt: 400,
+    price: 5500,
+    unlockAt: 0,
+    unlockStoryLevel: 3,
     desc: 'Un tanque: el viento no lo mueve y mantiene el rumbo solo, pero le cuesta girar.',
     cl: 0.0030,
     cd: 0.0048,
@@ -109,8 +110,9 @@ export const AIRCRAFT_SPECS = {
     name: 'Jet Caza',
     tag: 'Veloz & Nervioso',
     icon: '🚀',
-    price: 0,
-    unlockAt: 900,
+    price: 12000,
+    unlockAt: 0,
+    unlockStoryLevel: 4,
     desc: 'El más rápido y el que más lejos llega, si lográs domarlo.',
     cl: 0.0034,
     cd: 0.0036,
@@ -134,8 +136,9 @@ export const AIRCRAFT_SPECS = {
     name: 'Helicóptero',
     tag: 'Flota & Maniobrable',
     icon: '🚁',
-    price: 0,
-    unlockAt: 1500,
+    price: 15000,
+    unlockAt: 0,
+    unlockStoryLevel: 5,
     desc: 'Los rotores lo sostienen: casi no cae y gira donde querés. Alcance corto.',
     cl: 0.0034,
     cd: 0.0032,
@@ -183,9 +186,33 @@ export function getSpec(id) {
 }
 
 /**
- * ¿Está desbloqueada esta nave para el récord indicado?
- * @param {FlightSpec} spec @param {number} bestDistance
+ * ¿Está desbloqueada esta nave para comprar/usar?
+ * - Las gratuitas (Papel) empiezan libres.
+ * - Las demás quedan desbloqueadas cuando el jugador ya las usó en Modo Campaña
+ *   (o si ya figuran compradas en su inventario).
+ *
+ * @param {FlightSpec} spec
+ * @param {object|null} [storyState]
+ * @param {string[]} [aircraftOwned]
  */
-export function isUnlocked(spec, bestDistance) {
-  return (spec.unlockAt ?? 0) <= bestDistance;
+export function isAircraftUnlocked(spec, storyState = null, aircraftOwned = []) {
+  if (!spec) return false;
+  if ((spec.price ?? 0) <= 0) return true;
+  if (Array.isArray(aircraftOwned) && aircraftOwned.includes(spec.id)) return true;
+  if (Array.isArray(storyState?.usedAircraft) && storyState.usedAircraft.includes(spec.id)) return true;
+  return false;
+}
+
+/**
+ * Compatibilidad con consultas heredadas por distancia o estado de campaña.
+ * @param {FlightSpec} spec @param {number|object} bestDistanceOrStory
+ */
+export function isUnlocked(spec, bestDistanceOrStory = 0) {
+  if (bestDistanceOrStory && typeof bestDistanceOrStory === 'object') {
+    return isAircraftUnlocked(spec, bestDistanceOrStory);
+  }
+  if ((spec.price ?? 0) > 0 && (spec.unlockStoryLevel ?? 0) > 0) {
+    return false;
+  }
+  return (spec.unlockAt ?? 0) <= bestDistanceOrStory;
 }

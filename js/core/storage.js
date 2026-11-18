@@ -84,7 +84,7 @@ export const DEFAULT_SAVE = {
   muted: false,
   orientation: 'auto',
   missions: { active: getInitialActiveMissions(), completed: [], progress: {} },
-  story: { unlockedLevel: 1, endlessUnlocked: false, stars: {} },
+  story: { unlockedLevel: 1, endlessUnlocked: false, stars: {}, usedAircraft: ['paper'] },
 };
 
 /**
@@ -127,6 +127,12 @@ export function sanitizeSave(raw, upgradeIds, aircraftIds) {
   out.aircraftOwned = [...new Set(
     ownedRaw.filter((id) => typeof id === 'string' && aircraftIds.includes(id)),
   )];
+
+  // Migración v1 -> v2: antes las 4 naves eran gratis y se guardaban todas en aircraftOwned.
+  if (raw.version === 1) {
+    out.aircraftOwned = aircraftIds.includes('paper') ? ['paper'] : [];
+    out.aircraft = aircraftIds.includes('paper') ? 'paper' : DEFAULT_SAVE.aircraft;
+  }
 
   return out;
 }

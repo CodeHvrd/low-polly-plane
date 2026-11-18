@@ -30,6 +30,7 @@ import {
   evaluateStoryResult,
   sanitizeStorySave,
 } from '../js/modes/storyLevels.js';
+import { AIRCRAFT_SPECS, isAircraftUnlocked } from '../js/physics/specs.js';
 
 let passed = 0;
 const failures = [];
@@ -727,6 +728,32 @@ section('14. Modo Historia (Niveles 1 a 5)');
 
   const cleanSave = sanitizeStorySave({ unlockedLevel: 99, endlessUnlocked: 'yes', stars: { 'story-1': 5, fake: 2 } });
   check('sanitizeStorySave acota nivel máximo, booleano y estrellas (0..3)', cleanSave.unlockedLevel === 5 && cleanSave.endlessUnlocked === false && cleanSave.stars['story-1'] === 3 && !('fake' in cleanSave.stars));
+
+  const storyShips = new Set(STORY_LEVELS.map((l) => l.aircraft).filter(Boolean));
+  check('Campaña recorre las 4 naves (paper, passenger, jet, heli)',
+    ['paper', 'passenger', 'jet', 'heli'].every((id) => storyShips.has(id)));
+
+  check('Precios de naves: papel gratis, pasajeros 5500, jet 12000, heli 15000',
+    AIRCRAFT_SPECS.paper.price === 0 &&
+    AIRCRAFT_SPECS.passenger.price === 5500 &&
+    AIRCRAFT_SPECS.jet.price === 12000 &&
+    AIRCRAFT_SPECS.heli.price === 15000);
+
+  const initialStory = sanitizeStorySave(null);
+  check('Papel empieza libre; pasajeros, jet y heli bloqueados hasta usarse en Campaña',
+    isAircraftUnlocked(AIRCRAFT_SPECS.paper, initialStory, ['paper']) &&
+    !isAircraftUnlocked(AIRCRAFT_SPECS.passenger, initialStory, ['paper']) &&
+    !isAircraftUnlocked(AIRCRAFT_SPECS.jet, initialStory, ['paper']) &&
+    !isAircraftUnlocked(AIRCRAFT_SPECS.heli, initialStory, ['paper']));
+
+  const afterPassStory = sanitizeStorySave({ usedAircraft: ['paper', 'passenger'] });
+  check('Tras usar pasajeros en Campaña, queda desbloqueada para comprar',
+    isAircraftUnlocked(AIRCRAFT_SPECS.passenger, afterPassStory, ['paper']) &&
+    !isAircraftUnlocked(AIRCRAFT_SPECS.jet, afterPassStory, ['paper']));
+
+  const migratedV1 = sanitizeSave({ version: 1, aircraft: 'jet', aircraftOwned: ['paper', 'passenger', 'jet', 'heli'] }, ['wings'], ['paper', 'passenger', 'jet', 'heli']);
+  check('Migración v1 → v2 deja solo papel propio por defecto',
+    migratedV1.aircraft === 'paper' && migratedV1.aircraftOwned.length === 1 && migratedV1.aircraftOwned[0] === 'paper');
 }
 
 // ── Resumen ─────────────────────────────────────────────────
