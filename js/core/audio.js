@@ -13,8 +13,21 @@ import { AUDIO } from '../config.js';
 
 let ctx = null;
 let masterGain = null;
+let noiseBuffer = null;
 let muted = AUDIO.DEFAULT_MUTED;
 let unlocked = false;
+
+function getNoiseBuffer(c) {
+  if (noiseBuffer) return noiseBuffer;
+  const frames = Math.max(1, Math.floor(c.sampleRate * 0.8));
+  const buffer = c.createBuffer(1, frames, c.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < frames; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  noiseBuffer = buffer;
+  return buffer;
+}
 
 function ensureContext() {
   if (ctx) return ctx;
@@ -87,20 +100,13 @@ function tone({ freq, toFreq, dur, type = 'sine', gain = 0.2, delay = 0 }) {
   osc.stop(t0 + dur + 0.02);
 }
 
-/** Ráfaga de ruido filtrado (impactos, explosiones). */
+/** Ráfaga de ruido filtrado (impactos, explosiones) usando buffer compartido. */
 function noiseBurst({ dur = 0.3, gain = 0.3, freq = 900, q = 0.7 }) {
   const c = ensureContext();
   if (!c || !masterGain || muted) return;
-  const frames = Math.max(1, Math.floor(c.sampleRate * dur));
-  const buffer = c.createBuffer(1, frames, c.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < frames; i++) {
-    // Decaimiento dentro del propio buffer para evitar otra envolvente.
-    data[i] = (Math.random() * 2 - 1) * (1 - i / frames);
-  }
-
+  const t0 = c.currentTime;
   const src = c.createBufferSource();
-  src.buffer = buffer;
+  src.buffer = getNoiseBuffer(c);
 
   const filter = c.createBiquadFilter();
   filter.type = 'lowpass';
@@ -108,12 +114,13 @@ function noiseBurst({ dur = 0.3, gain = 0.3, freq = 900, q = 0.7 }) {
   filter.Q.value = q;
 
   const env = c.createGain();
-  env.gain.value = gain;
+  env.gain.setValueAtTime(Math.max(0.0001, gain), t0);
+  env.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(0.02, dur));
 
   src.connect(filter);
   filter.connect(env);
   env.connect(masterGain);
-  src.start();
+  src.start(t0, 0, Math.min(0.8, dur + 0.02));
 }
 
 // ── Efectos del juego ───────────────────────────────────────

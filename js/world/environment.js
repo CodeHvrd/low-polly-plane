@@ -109,8 +109,10 @@ function buildStars() {
 // ── Escenografía infinita (límites de pista, montañas y costados temáticos) ─
 const BORDER_STEP = 32;
 const BORDER_SLOTS = 36; // cubre ~1150 m en ambos lados sin fin
+const BORDER_REFRESH_STEP = 128; // reescribe matrices 4x menos seguido sin notarse en pantalla
 const SCENERY_STEP = 40;
 const SCENERY_SLOTS = 42;
+const SCENERY_REFRESH_STEP = 160;
 const MOUNTAIN_SPAN = 2600;
 
 const dummy = new THREE.Object3D();
@@ -231,7 +233,7 @@ function buildSceneryPool() {
 export function updateEnvironmentScenery(x, force = false) {
   if (!sceneryState) return;
   const s = sceneryState;
-  const borderAnchor = Math.floor(x / BORDER_STEP) * BORDER_STEP;
+  const borderAnchor = Math.floor(x / BORDER_REFRESH_STEP) * BORDER_REFRESH_STEP;
   if (force || borderAnchor !== lastBorderAnchor) {
     lastBorderAnchor = borderAnchor;
     const hw = WORLD.COURSE_HALF_WIDTH;
@@ -268,7 +270,7 @@ export function updateEnvironmentScenery(x, force = false) {
     s.borderCaps.instanceMatrix.needsUpdate = true;
   }
 
-  const sceneryAnchor = Math.floor(x / SCENERY_STEP) * SCENERY_STEP;
+  const sceneryAnchor = Math.floor(x / SCENERY_REFRESH_STEP) * SCENERY_REFRESH_STEP;
   if (force || sceneryAnchor !== lastSceneryAnchor) {
     lastSceneryAnchor = sceneryAnchor;
     const minMtnX = x - MOUNTAIN_SPAN * 0.35;

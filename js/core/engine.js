@@ -15,17 +15,22 @@ import { CAMERA, WORLD } from '../config.js';
 
 // ── Renderer ────────────────────────────────────────────────
 export const canvas = document.getElementById('gameCanvas');
+const IS_MOBILE = typeof navigator !== 'undefined' && (
+  /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+  || (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)')?.matches)
+);
+const MAX_DPR = IS_MOBILE ? 1.35 : 2;
 
 export const renderer = new THREE.WebGLRenderer({
   canvas,
-  antialias: true,
+  antialias: !IS_MOBILE,
   alpha: false,
   powerPreference: 'high-performance',
 });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = IS_MOBILE ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
@@ -97,7 +102,8 @@ sunLight.shadow.camera.left = -200;
 sunLight.shadow.camera.right = 200;
 sunLight.shadow.camera.top = 100;
 sunLight.shadow.camera.bottom = -100;
-sunLight.shadow.mapSize.set(1024, 1024);
+const shadowRes = IS_MOBILE ? 512 : 1024;
+sunLight.shadow.mapSize.set(shadowRes, shadowRes);
 scene.add(sunLight);
 
 export const rimLight = new THREE.DirectionalLight(0x00e5ff, 0.4);
@@ -147,9 +153,9 @@ export function adaptQuality(dt) {
   if (fps < 45) slowFrames++;
   else slowFrames = Math.max(0, slowFrames - 1);
 
-  if (slowFrames > 90 && qualityScale > 0.65) {
-    qualityScale -= 0.15;
+  if (slowFrames > 45 && qualityScale > 0.6) {
+    qualityScale = Math.max(0.6, qualityScale - 0.15);
     slowFrames = 0;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * qualityScale);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR) * qualityScale);
   }
 }
