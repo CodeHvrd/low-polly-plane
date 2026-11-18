@@ -34,6 +34,7 @@ const DICT = {
     guestRankingAlert: 'Usuarios sin cuenta solo se visualizan en el ranking diario',
     endlessLockedTitle: 'Modo Sin Fin bloqueado',
     endlessLockedHint: 'Completá el Modo Campaña (Nivel 5) para desbloquearlo',
+    storyPanelSub: 'Completá los 5 tutoriales progresivos para dominar Fly or Crash',
     campaignShort: 'Campaña Nv.',
     shipFree: 'GRATIS',
     shipInUse: 'EN USO',
@@ -102,6 +103,7 @@ const DICT = {
     guestRankingAlert: 'Users without an account only appear on the daily ranking',
     endlessLockedTitle: 'Endless Mode locked',
     endlessLockedHint: 'Complete Campaign Mode (Level 5) to unlock it',
+    storyPanelSub: 'Complete all 5 progressive tutorials to master Fly or Crash',
     campaignShort: 'Campaign Lv.',
     shipFree: 'FREE',
     shipInUse: 'IN USE',
@@ -170,6 +172,7 @@ const DICT = {
     guestRankingAlert: 'Usuários sem conta aparecem apenas no ranking diário',
     endlessLockedTitle: 'Modo Infinito bloqueado',
     endlessLockedHint: 'Conclua o Modo Campanha (Nível 5) para desbloquear',
+    storyPanelSub: 'Conclua os 5 tutoriais progressivos para dominar Fly or Crash',
     campaignShort: 'Campanha Nv.',
     shipFree: 'GRÁTIS',
     shipInUse: 'EM USO',
@@ -295,6 +298,7 @@ export function applyDomTranslations() {
 
   // Paneles secundarios
   setTxt('#story-panel h2', t('campaignBtn'));
+  setTxt('#story-panel-sub', t('storyPanelSub'));
   setTxt('#options-panel h2', t('options'));
   setTxt('#btn-story-back', t('back'));
   setTxt('#btn-awards-back', t('back'));

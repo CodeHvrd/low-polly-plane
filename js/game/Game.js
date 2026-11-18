@@ -216,6 +216,18 @@ export class Game {
     this.syncMuteButton();
     this.applyOrientation(STATE.orientationPref ?? 'auto', false);
 
+    // 1) Abrir primero el Gate/Login antes de revelar el lobby si aún no ingresó.
+    {
+      const stAuth = getStoredAuth();
+      const isGuest = !stAuth?.provider || stAuth.provider === 'guest' || !stAuth.token;
+      let ack = false;
+      try { ack = sessionStorage.getItem('papercrash.guestAck') === '1'; } catch { /* noop */ }
+      if (isGuest && !ack) {
+        this._openAccountGate?.();
+      }
+    }
+
+    // 2) Preparar todo el mundo y UI detrás mientras la pantalla de carga sigue activa.
     this.selector.build();
     this.selector.sync();
     this.selector.syncDockLabel();
@@ -227,9 +239,6 @@ export class Game {
     this.syncAimCallout();
     this.cameraRig.snapToAim();
 
-    // Arranca en la pantalla inicial (título + tienda), que es donde se elige
-    // la nave. `startRun` deja todo listo pero ya no decide la pantalla: de eso
-    // se encarga `overlays.set()`.
     this.startRun({ fade: false });
     this.syncAimBias(0);
     this.overlays.set(Screen.STANDBY);
@@ -240,18 +249,7 @@ export class Game {
     this._syncAccountUi?.();
     this._syncQuickBar?.();
 
-    // Si aún no inició sesión ni eligió "Jugar como invitado", abrir Gate bloqueante en el frame 1
-    {
-      const stAuth = getStoredAuth();
-      const isGuest = !stAuth?.provider || stAuth.provider === 'guest' || !stAuth.token;
-      let ack = false;
-      try { ack = sessionStorage.getItem('papercrash.guestAck') === '1'; } catch { /* noop */ }
-      if (isGuest && !ack) {
-        this._openAccountGate?.();
-      }
-    }
-
-    initRemoteBackend().then((res) => {
+    const remoteBoot = initRemoteBackend().then(async (res) => {
       if (!this.running) return;
       this._syncAccountUi?.();
       const isGuest = !res?.user?.provider || res.user.provider === 'guest' || !res.user.token;
@@ -262,21 +260,30 @@ export class Game {
           this._openAccountGate?.();
         }
       } else if (res?.online) {
-        fetchCloudProfile().then((prof) => {
+        try {
+          const prof = await fetchCloudProfile();
           if (prof && this.controller.phase !== PHASE.FLYING) this._applyCloudProfile?.(prof);
-        }).catch(() => {});
+        } catch { /* noop */ }
       }
       if (res?.online && !this._remoteChallenge?.challengeToken && this.controller.phase !== PHASE.FLYING) {
         this._refreshRemoteChallenge?.();
       }
     }).catch(() => {});
-    preloadStoryProps().then(() => {
+
+    const storyBoot = preloadStoryProps().then(() => {
       if (this.running) this.rebuildStoryProps();
-    });
+    }).catch(() => {});
+
+    // Promesa con tope de seguridad para no colgar la pantalla de carga si no hay red.
+    this.whenReady = Promise.race([
+      Promise.allSettled([remoteBoot, storyBoot]),
+      new Promise((resolve) => setTimeout(resolve, 2600)),
+    ]);
 
     this._wireLifecycle();
     this.lastTime = performance.now();
     requestAnimationFrame((t) => this.frame(t));
+    return this.whenReady;
   }
 
   /** Pausa física, audio y música automáticamente cuando la app pasa a segundo plano (mobile/PWA/pestaña). */

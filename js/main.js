@@ -41,7 +41,70 @@ function waitForThree(timeoutMs = 8000) {
   });
 }
 
+function initPreloader() {
+  const wrap = document.getElementById('boot-preloader');
+  const lbl = document.getElementById('preloader-label');
+  const pctEl = document.getElementById('preloader-pct');
+
+  let lang = 'es';
+  try {
+    lang = localStorage.getItem('papercrash.lang.v1') || 'es';
+  } catch { /* noop */ }
+  const labels = { es: 'Cargando', en: 'Loading', br: 'Carregando' };
+  if (lbl) lbl.textContent = labels[lang] || labels.es;
+
+  let currentPct = 4;
+  let targetPct = 18;
+  let rafId = null;
+
+  const paint = () => {
+    currentPct += (targetPct - currentPct) * 0.16;
+    if (targetPct - currentPct < 0.4) currentPct = targetPct;
+    if (pctEl) pctEl.textContent = `${Math.round(currentPct)}%`;
+    if (currentPct < 100 || targetPct < 100) {
+      rafId = requestAnimationFrame(paint);
+    } else {
+      rafId = null;
+    }
+  };
+  rafId = requestAnimationFrame(paint);
+
+  return {
+    setTarget(v) {
+      targetPct = Math.max(targetPct, Math.min(100, v));
+    },
+    async finish() {
+      targetPct = 100;
+      await new Promise((resolve) => {
+        const waitComplete = () => {
+          if (currentPct >= 99.5) {
+            if (pctEl) pctEl.textContent = '100%';
+            resolve();
+            return;
+          }
+          requestAnimationFrame(waitComplete);
+        };
+        waitComplete();
+      });
+      await new Promise((r) => setTimeout(r, 120));
+      document.body.classList.remove('is-booting');
+      if (wrap) {
+        wrap.classList.add('is-done');
+        setTimeout(() => wrap.classList.add('hidden'), 300);
+      }
+      if (rafId) cancelAnimationFrame(rafId);
+    },
+    dismissImmediate() {
+      if (rafId) cancelAnimationFrame(rafId);
+      document.body.classList.remove('is-booting');
+      wrap?.classList.add('hidden');
+    },
+  };
+}
+
 function boot() {
+  const preloader = initPreloader();
+
   /*
    * La versión del build, abajo a la izquierda.
    *
@@ -54,6 +117,7 @@ function boot() {
   // 1) ¿Está el DOM que la UI necesita?
   const missing = findMissingRequiredDom();
   if (missing.length) {
+    preloader.dismissImmediate();
     showBootError(
       `Faltan elementos en index.html: ${missing.join(', ')}`,
       'Revisá que los nodos con data-required sigan presentes.',
@@ -61,25 +125,26 @@ function boot() {
     return;
   }
 
+  preloader.setTarget(32);
+
   // 2) ¿Está la librería 3D?
   waitForThree()
-    .then(() => {
+    .then(async () => {
+      preloader.setTarget(62);
       // 3) Arrancar. Cualquier fallo se muestra en pantalla en vez de
       //    dejar una pantalla negra muda.
       const game = new Game();
-      game.start();
       // Expuesto para depurar desde la consola; el juego no depende de esto.
       window.__papercrash = game;
-    /*
-     * Diagnóstico de escena desde la consola.
-     *
-     * Para el bug de "desaparecen los objetos en el lanzador": dice grupo por
-     * grupo cuántos hijos tiene y si están visibles. Escribir __escena() en la
-     * consola del navegador.
-     */
-    window.__escena = () => game.estadoEscena();
+      window.__escena = () => game.estadoEscena();
+
+      preloader.setTarget(84);
+      const readyPromise = game.start();
+      await readyPromise;
+      await preloader.finish();
     })
     .catch((err) => {
+      preloader.dismissImmediate();
       reportBootError(err);
     });
 }

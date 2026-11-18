@@ -866,6 +866,16 @@ body.en-vuelo #mode-bar {
     border-radius: 12px;
   }
 
+  .menu-square-btn {
+    border-radius: 12px;
+    font-size: 1.08rem;
+  }
+
+  .podium-svg {
+    width: 19px;
+    height: 19px;
+  }
+
   /* La pista va SIEMPRE última, debajo del título. */
   #idle-hint-block {
     order: 99;
@@ -2215,6 +2225,14 @@ body.en-vuelo #mode-bar {
     padding: 8px 10px;
     font-size: 0.78rem;
     border-radius: 10px;
+  }
+  .menu-square-btn {
+    border-radius: 10px;
+    font-size: 0.98rem;
+  }
+  .podium-svg {
+    width: 17px;
+    height: 17px;
   }
   .menu-panel {
     gap: 6px;
@@ -3993,8 +4011,71 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   display: none !important;
 }
 
+#idle-overlay:has(#account-panel:not(.hidden)) {
+  background: rgba(6, 10, 20, 0.74);
+  backdrop-filter: blur(6px);
+}
+
 #idle-overlay:has(#account-panel:not(.hidden)) #idle-title-block {
   margin-bottom: 12px;
+}
+
+/* ── Preloader liso de arranque (avión de papel orbitando "Cargando") ── */
+.preloader-stage {
+  position: relative;
+  width: 210px;
+  height: 210px;
+  display: grid;
+  place-items: center;
+}
+
+.preloader-orbit {
+  position: absolute;
+  inset: 0;
+  animation: preloaderOrbit 2.3s linear infinite;
+  will-change: transform;
+}
+
+.preloader-plane {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.75));
+}
+
+.preloader-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.preloader-label {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.preloader-pct {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--cyan);
+}
+
+@keyframes preloaderOrbit {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .auth-welcome-title {
@@ -4010,7 +4091,7 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   margin-bottom: 4px !important;
 }
 
-/* ── Fila superior del Menú Principal: Modo Sin Fin + 2 cuadrados (Misiones + Podio Ranking) ── */
+/* ── Fila superior del Menú Principal: Modo Sin Fin + 2 cuadrados armónicos (mismo alto) ── */
 .menu-top-row {
   display: flex;
   align-items: stretch;
@@ -4021,26 +4102,32 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
 .menu-top-row > #btn-new-game {
   flex: 1;
   min-width: 0;
+  padding-inline: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .menu-side-icons {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .menu-square-btn {
-  width: 34px;
-  flex: 1;
-  min-height: 24px;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  padding: 0;
   display: grid;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 14px;
   border: 1px solid var(--border);
   background: rgba(10, 14, 26, 0.78);
   color: var(--cyan);
-  font-size: 0.92rem;
+  font-size: 1.24rem;
   line-height: 1;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s, transform 0.12s;
@@ -4053,8 +4140,8 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
 }
 
 .podium-svg {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   color: var(--gold);
 }
 
