@@ -3903,9 +3903,16 @@ body.en-vuelo #touch-back {
   display: none !important;
 }
 
+/* En Login/Gate ocultar monedas y tienda del fondo para evitar distracciones */
+body:has(#account-panel:not(.hidden)) #global-coins-badge,
+body:has(#account-panel:not(.hidden)) #shop-dock {
+  opacity: 0;
+  pointer-events: none;
+}
+
 #account-panel.auth-card {
-  width: min(368px, 92vw);
-  padding: 18px 18px 14px;
+  width: min(376px, 92vw);
+  padding: 24px 22px 20px;
   background: rgba(11, 16, 28, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.72);
@@ -3915,7 +3922,15 @@ body.en-vuelo #touch-back {
 .auth-subview {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.auth-gate-spacious {
+  gap: 14px;
+}
+
+.auth-subview .auth-form {
+  gap: 10px;
 }
 
 .auth-subview.hidden {
@@ -4111,7 +4126,12 @@ body.en-vuelo #touch-back {
 }
 
 @media (hover: none), (pointer: coarse) {
-  #pc-quick-bar {
+  body:not(:has(#account-panel:not(.hidden))) #pc-quick-bar {
     display: none !important;
+  }
+  body:has(#account-panel:not(.hidden)) #pc-quick-bar {
+    top: max(14px, env(safe-area-inset-top) + 10px);
+    right: max(14px, env(safe-area-inset-right) + 10px);
+    bottom: auto;
   }
 }

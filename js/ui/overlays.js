@@ -132,9 +132,9 @@ export class Overlays {
     this._applyHint();
   }
 
-  /** Muestra u oculta la pista de control según la etapa. */
+  /** Muestra u oculta la pista de control según la etapa (solo en modo lanzamiento). */
   _applyHint() {
-    const onHintScreen = this.current === Screen.STANDBY || this.current === Screen.AIM;
+    const onHintScreen = this.current === Screen.AIM;
     if (this.hintEnabled && onHintScreen) show(UI.hintBlock);
     else hide(UI.hintBlock);
   }

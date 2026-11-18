@@ -1664,13 +1664,21 @@ export class Game {
 
     const mostrarPanel = (panel) => {
       menu?.classList.toggle('hidden', Boolean(panel));
-      document.getElementById('pc-quick-bar')?.classList.toggle('hidden', Boolean(panel));
+      document.getElementById('pc-quick-bar')?.classList.toggle('hidden', Boolean(panel) && panel !== accountPanel);
       document.getElementById('missions-widget')?.classList.toggle('hidden', true);
       awardsPanel?.classList.toggle('hidden', panel !== awardsPanel);
       optionsPanel?.classList.toggle('hidden', panel !== optionsPanel);
       storyPanel?.classList.toggle('hidden', panel !== storyPanel);
       accountPanel?.classList.toggle('hidden', panel !== accountPanel);
       if (!panel) HUD.invalidate();
+    };
+
+    this._hasBlockingLobbyPanel = () => {
+      const ids = ['account-panel', 'options-panel', 'story-panel', 'awards-panel', 'missions-widget', 'shop-panel'];
+      return ids.some((id) => {
+        const el = document.getElementById(id);
+        return el && !el.classList.contains('hidden');
+      });
     };
 
     const showAuthView = (viewName) => {
@@ -1898,12 +1906,6 @@ export class Game {
       showAuthView('login');
     });
 
-    document.getElementById('btn-gate-register')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sfx.click();
-      showAuthView('register');
-    });
-
     document.getElementById('btn-to-register')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
@@ -1932,12 +1934,6 @@ export class Game {
       e.stopPropagation();
       sfx.click();
       showAuthView('login');
-    });
-
-    document.getElementById('btn-google-gate')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sfx.click();
-      triggerGoogleAuth(true);
     });
 
     document.getElementById('btn-google-login')?.addEventListener('click', (e) => {
@@ -2888,8 +2884,9 @@ export class Game {
     // ── Arrastre ──
     onDrag('start', (e) => {
       unlock();
-      // GUARDA CLAVE: solo se empieza a apuntar desde IDLE.
+      // GUARDA CLAVE: solo se empieza a apuntar desde IDLE y sin paneles/login abiertos.
       if (!this.controller.canAim()) return;
+      if (this._hasBlockingLobbyPanel?.()) return;
       // Si el elemento apuntado es un botón/UI, no es un gesto de juego.
       // (core/input.js ya lo filtra, esto es una segunda red de seguridad.)
       if (e.target instanceof Element && e.target.closest('button, [data-ui-interactive]')) return;
@@ -3050,6 +3047,7 @@ export class Game {
       // se llevó el evento más arriba, así que este Enter no dispara nada por
       // su cuenta. Ése era el bug de "se lanzó solo" al reintentar.
       if (this.controller.canLaunchByKey()) {
+        if (this._hasBlockingLobbyPanel?.()) return;
         e.preventDefault();
         this.aiming.refresh();
         if (this.overlays.current === Screen.AIM) this.launch();
@@ -3073,6 +3071,7 @@ export class Game {
    */
   tryLaunchByButton() {
     if (!this.controller.canAimEditable) return;
+    if (this._hasBlockingLobbyPanel?.()) return;
     this.aiming.refresh();
     if (this.overlays.current === Screen.AIM) this.launch();
     else this.enterLaunchMode();
