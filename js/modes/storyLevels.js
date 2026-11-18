@@ -170,7 +170,7 @@ export const STORY_LEVELS = [
     id: 'story-5',
     number: 5,
     name: 'La Prueba del Horizonte',
-    subtitle: 'Helicóptero · Rumbo al Desafío Final',
+    subtitle: 'Helicóptero · Desbloquea Ranking y Sin Fin',
     aircraft: 'heli',
     targetDistance: 7500,
     courseLength: 7800,
@@ -178,7 +178,7 @@ export const STORY_LEVELS = [
     groundAmplitude: 0.30,
     obstacleDensity: 1.15,
     allowedObstacles: ['tree', 'rock', 'mesa', 'spire', 'log', 'ring', 'updraft'],
-    hint: 'Combiná aros, vendavales, propulsión y near misses. ¡Superá 7.500 m para llegar al Nivel 6!',
+    hint: 'Combiná aros, vendavales, propulsión y near misses. ¡Superá 7.500 m para desbloquear Ranking y Modo Sin Fin!',
     rewardCoins: 500,
     stars: [
       {
@@ -202,7 +202,8 @@ export const STORY_LEVELS = [
     id: 'story-6',
     number: 6,
     name: 'Leyenda del Aire',
-    subtitle: 'Maestría total — Desbloquea Ranking y Sin Fin',
+    subtitle: 'Desafío especial en preparación',
+    comingSoon: true,
     aircraft: null, // Libre elección entre las naves adquiridas
     targetDistance: 10000,
     courseLength: 10500,

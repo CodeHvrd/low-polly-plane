@@ -725,6 +725,8 @@ section('14. Modo Historia (Niveles 1 a 5)');
   const passEval = evaluateStoryResult(lvl1, { distance: 620, coinsCollected: 14, boosters: 3 });
   check('si supera meta y criterios, otorga 3 estrellas y monedas', passEval.passed && passEval.starsEarned === 3 && passEval.rewardCoins === lvl1.rewardCoins);
   check('el Nivel 4 (Jet) tiene meta de 5.000 m', getStoryLevel(4)?.targetDistance === 5000);
+  check('el Nivel 5 (Heli) es jugable y el Nivel 6 está marcado Próximamente',
+    !getStoryLevel(5)?.comingSoon && getStoryLevel(6)?.comingSoon === true);
 
   const cleanSave = sanitizeStorySave({ unlockedLevel: 99, endlessUnlocked: 'yes', stars: { 'story-1': 5, fake: 2 } });
   check('sanitizeStorySave acota nivel máximo, booleano y estrellas (0..3)', cleanSave.unlockedLevel === 6 && cleanSave.endlessUnlocked === false && cleanSave.stars['story-1'] === 3 && !('fake' in cleanSave.stars));

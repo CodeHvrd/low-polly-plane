@@ -33,12 +33,16 @@ const DICT = {
     playGuest: 'JUGAR COMO INVITADO',
     guestRankingAlert: 'Usuarios sin cuenta solo se visualizan en el ranking diario',
     endlessLockedTitle: 'Modo Sin Fin bloqueado',
-    endlessLockedHint: 'Completá el Modo Campaña (Nivel 6) para desbloquearlo',
+    endlessLockedHint: 'Superá el Nivel 5 del Modo Campaña para desbloquearlo',
     missionsLockedTitle: 'Misiones bloqueadas',
     missionsLockedHint: 'Superá el Nivel 3 del Modo Campaña para desbloquearlas',
     rankingLockedTitle: 'Ranking bloqueado',
-    rankingLockedHint: 'Superá el Nivel 6 del Modo Campaña para desbloquearlo',
-    storyPanelSub: 'Completá los 6 niveles progresivos para dominar Fly or Crash',
+    rankingLockedHint: 'Superá el Nivel 5 del Modo Campaña para desbloquearlo',
+    comingSoon: 'Próximamente',
+    goToEndless: 'IR AL MODO SIN FIN',
+    nextLevelBtn: 'SIGUIENTE NIVEL',
+    missionsDrawerTitle: '🎯 MISIONES',
+    storyPanelSub: 'Completá los niveles progresivos para dominar Fly or Crash',
     campaignShort: 'Campaña Nv.',
     shipFree: 'GRATIS',
     shipInUse: 'EN USO',
@@ -106,12 +110,16 @@ const DICT = {
     playGuest: 'PLAY AS GUEST',
     guestRankingAlert: 'Users without an account only appear on the daily ranking',
     endlessLockedTitle: 'Endless Mode locked',
-    endlessLockedHint: 'Complete Campaign Mode (Level 6) to unlock it',
+    endlessLockedHint: 'Beat Campaign Level 5 to unlock it',
     missionsLockedTitle: 'Missions locked',
     missionsLockedHint: 'Beat Campaign Level 3 to unlock Missions',
     rankingLockedTitle: 'Leaderboard locked',
-    rankingLockedHint: 'Beat Campaign Level 6 to unlock Leaderboard',
-    storyPanelSub: 'Complete all 6 progressive levels to master Fly or Crash',
+    rankingLockedHint: 'Beat Campaign Level 5 to unlock Leaderboard',
+    comingSoon: 'Coming soon',
+    goToEndless: 'GO TO ENDLESS MODE',
+    nextLevelBtn: 'NEXT LEVEL',
+    missionsDrawerTitle: '🎯 MISSIONS',
+    storyPanelSub: 'Complete the progressive Campaign levels to master Fly or Crash',
     campaignShort: 'Campaign Lv.',
     shipFree: 'FREE',
     shipInUse: 'IN USE',
@@ -179,12 +187,16 @@ const DICT = {
     playGuest: 'JOGAR COMO CONVIDADO',
     guestRankingAlert: 'Usuários sem conta aparecem apenas no ranking diário',
     endlessLockedTitle: 'Modo Infinito bloqueado',
-    endlessLockedHint: 'Conclua o Modo Campanha (Nível 6) para desbloquear',
+    endlessLockedHint: 'Supere o Nível 5 do Modo Campanha para desbloquear',
     missionsLockedTitle: 'Missões bloqueadas',
     missionsLockedHint: 'Supere o Nível 3 do Modo Campanha para desbloquear',
     rankingLockedTitle: 'Ranking bloqueado',
-    rankingLockedHint: 'Supere o Nível 6 do Modo Campanha para desbloquear',
-    storyPanelSub: 'Conclua os 6 níveis progressivos para dominar Fly or Crash',
+    rankingLockedHint: 'Supere o Nível 5 do Modo Campanha para desbloquear',
+    comingSoon: 'Em breve',
+    goToEndless: 'IR AO MODO INFINITO',
+    nextLevelBtn: 'PRÓXIMO NÍVEL',
+    missionsDrawerTitle: '🎯 MISSÕES',
+    storyPanelSub: 'Conclua os níveis progressivos para dominar Fly or Crash',
     campaignShort: 'Campanha Nv.',
     shipFree: 'GRÁTIS',
     shipInUse: 'EM USO',
@@ -354,9 +366,9 @@ export function applyDomTranslations() {
   setTxt('#btn-profile-switch-login', t('switchLogin'));
 
   // Pestañas Misiones / Ranking y períodos
-  setTxt('#tab-missions-obj', t('objMissionsTab'));
+  setTxt('#missions-drawer-title', t('missionsDrawerTitle'));
+  setTxt('#ranking-drawer-title', t('rankingTab'));
   setTxt('#res-tab-obj', t('objMissionsTab'));
-  setTxt('#tab-missions-rank', t('rankingTab'));
   setTxt('#res-tab-rank', t('rankingTab'));
   document.querySelectorAll('[data-period="daily"]').forEach((el) => { el.textContent = t('periodDaily'); });
   document.querySelectorAll('[data-period="weekly"]').forEach((el) => { el.textContent = t('periodWeekly'); });

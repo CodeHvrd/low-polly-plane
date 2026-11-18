@@ -68,6 +68,7 @@ export function buildPassengerPlane() {
     intake.position.set(0.85, -0.35, z);
     grp.add(intake);
   }
+  grp.scale.setScalar(0.85);
 
   return grp;
 }

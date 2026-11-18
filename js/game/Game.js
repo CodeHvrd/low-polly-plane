@@ -550,11 +550,13 @@ export class Game {
       storySummary = { lvl, ev };
       if (ev.passed) {
         const prev = STATE.story.stars[lvl.id] ?? 0;
+        const nextLvl = getStoryLevel(lvl.number + 1);
+        const isFinalPlayable = !nextLvl || nextLvl.comingSoon;
         STATE.story.stars[lvl.id] = Math.max(prev, ev.starsEarned);
-        if (lvl.number >= STATE.story.unlockedLevel && lvl.number < STORY_LEVELS.length) {
-          STATE.story.unlockedLevel = lvl.number + 1;
+        if (lvl.number >= STATE.story.unlockedLevel && nextLvl && !nextLvl.comingSoon) {
+          STATE.story.unlockedLevel = nextLvl.number;
         }
-        if (lvl.number === STORY_LEVELS.length) {
+        if (isFinalPlayable) {
           STATE.story.endlessUnlocked = true;
         }
         this._syncEndlessLockUi?.();
@@ -563,7 +565,7 @@ export class Game {
         const starIcons = '⭐'.repeat(ev.starsEarned);
         const unlockNotes = [];
         if (lvl.number === 3 && prev === 0) unlockNotes.push('¡Misiones Desbloqueadas!');
-        if (lvl.number === STORY_LEVELS.length) unlockNotes.push('¡Ranking y Sin Fin Desbloqueados!');
+        if (isFinalPlayable) unlockNotes.push('¡Ranking y Sin Fin Desbloqueados!');
         const extraNote = unlockNotes.length ? ` · ${unlockNotes.join(' ')}` : '';
         this.showToast(`🏆 ¡NIVEL ${lvl.number} SUPERADO!`, `${starIcons} +${ev.rewardCoins} 🪙${extraNote}`, 'mission');
       }
@@ -593,13 +595,15 @@ export class Game {
     const nextLbl = UI.btnNextLevelLabel || document.getElementById('btn-next-level-label');
     if (storySummary?.ev?.passed && nextBtn) {
       const lvl = storySummary.lvl;
-      if (lvl.number < STORY_LEVELS.length) {
-        if (nextLbl) nextLbl.textContent = `SIGUIENTE NIVEL (${lvl.number + 1})`;
-        this._nextStoryAction = () => this.startStoryLevel(lvl.number + 1);
+      const nextLvl = getStoryLevel(lvl.number + 1);
+      if (nextLvl && !nextLvl.comingSoon) {
+        if (nextLbl) nextLbl.textContent = `${t('nextLevelBtn')} (${nextLvl.number})`;
+        this._nextStoryAction = () => this.startStoryLevel(nextLvl.number);
       } else {
-        if (nextLbl) nextLbl.textContent = 'IR AL MODO ENDLESS';
+        if (nextLbl) nextLbl.textContent = t('goToEndless');
         this._nextStoryAction = () => {
           this.exitStoryMode();
+          this.startRun({ fade: false });
           this.enterLaunchMode();
         };
       }
@@ -737,10 +741,10 @@ export class Game {
     });
   }
 
-  /** Inicia un nivel específico (1..5) del Modo Historia. */
+  /** Inicia un nivel específico (1..6) del Modo Historia. */
   startStoryLevel(levelNumber) {
     const lvl = getStoryLevel(levelNumber);
-    if (!lvl) return;
+    if (!lvl || lvl.comingSoon) return;
     this.activeStoryLevel = lvl;
     this.controller?.setFinishDistance(lvl.targetDistance);
 
@@ -1718,10 +1722,17 @@ export class Game {
     const storyPanel = document.getElementById('story-panel');
     const accountPanel = document.getElementById('account-panel');
 
+    const closeSideDrawers = () => {
+      document.getElementById('missions-drawer')?.classList.add('hidden');
+      document.getElementById('ranking-drawer')?.classList.add('hidden');
+      document.getElementById('btn-lobby-missions')?.classList.remove('active');
+      document.getElementById('btn-lobby-ranking')?.classList.remove('active');
+    };
+
     const mostrarPanel = (panel) => {
       menu?.classList.toggle('hidden', Boolean(panel));
       document.getElementById('pc-quick-bar')?.classList.toggle('hidden', Boolean(panel) && panel !== accountPanel);
-      document.getElementById('missions-widget')?.classList.toggle('hidden', true);
+      closeSideDrawers();
       awardsPanel?.classList.toggle('hidden', panel !== awardsPanel);
       optionsPanel?.classList.toggle('hidden', panel !== optionsPanel);
       storyPanel?.classList.toggle('hidden', panel !== storyPanel);
@@ -1730,7 +1741,7 @@ export class Game {
     };
 
     this._hasBlockingLobbyPanel = () => {
-      const ids = ['account-panel', 'options-panel', 'story-panel', 'awards-panel', 'missions-widget', 'shop-panel'];
+      const ids = ['account-panel', 'options-panel', 'story-panel', 'awards-panel', 'missions-drawer', 'ranking-drawer', 'shop-panel'];
       return ids.some((id) => {
         const el = document.getElementById(id);
         return el && !el.classList.contains('hidden');
@@ -2181,9 +2192,9 @@ export class Game {
     this._isMissionsUnlocked = () =>
       Boolean((STATE.story?.stars?.['story-3'] ?? 0) > 0 || (STATE.story?.unlockedLevel ?? 1) >= 4 || STATE.story?.endlessUnlocked);
     this._isRankingUnlocked = () =>
-      Boolean((STATE.story?.stars?.['story-6'] ?? 0) > 0 || STATE.story?.endlessUnlocked);
+      Boolean((STATE.story?.stars?.['story-5'] ?? 0) > 0 || (STATE.story?.unlockedLevel ?? 1) >= 6 || STATE.story?.endlessUnlocked);
     this._isEndlessUnlocked = () =>
-      Boolean(STATE.story?.endlessUnlocked || (STATE.story?.stars?.['story-6'] ?? 0) > 0);
+      Boolean(STATE.story?.endlessUnlocked || (STATE.story?.stars?.['story-5'] ?? 0) > 0 || (STATE.story?.stars?.['story-6'] ?? 0) > 0);
     this._syncEndlessLockUi = () => {
       const endlessUnlocked = this._isEndlessUnlocked();
       const missionsUnlocked = this._isMissionsUnlocked();
@@ -2205,8 +2216,6 @@ export class Game {
         btnRankingSquare.setAttribute('aria-disabled', String(!rankingUnlocked));
         btnRankingSquare.title = rankingUnlocked ? 'Ranking' : t('rankingLockedHint');
       }
-      document.getElementById('tab-missions-obj')?.classList.toggle('locked', !missionsUnlocked);
-      document.getElementById('tab-missions-rank')?.classList.toggle('locked', !rankingUnlocked);
       document.getElementById('res-tab-obj')?.classList.toggle('locked', !missionsUnlocked);
       document.getElementById('res-tab-rank')?.classList.toggle('locked', !rankingUnlocked);
       document.getElementById('btn-pause-missions')?.classList.toggle('hidden', !missionsUnlocked);
@@ -2247,12 +2256,13 @@ export class Game {
       const starsMap = STATE.story?.stars ?? {};
 
       listEl.replaceChildren(...STORY_LEVELS.map((lvl) => {
-        const isUnlocked = lvl.number <= unlocked;
+        const isComing = Boolean(lvl.comingSoon);
+        const isUnlocked = !isComing && lvl.number <= unlocked;
         const earned = starsMap[lvl.id] ?? 0;
 
         const card = document.createElement('button');
         card.type = 'button';
-        card.className = 'story-level-card' + (isUnlocked ? '' : ' locked');
+        card.className = 'story-level-card' + (isUnlocked ? '' : ' locked') + (isComing ? ' coming-soon' : '');
         card.disabled = !isUnlocked;
 
         const left = document.createElement('div');
@@ -2261,13 +2271,22 @@ export class Game {
 
         const mid = document.createElement('div');
         mid.className = 'story-lvl-body';
+        const head = document.createElement('div');
+        head.className = 'story-lvl-head';
         const title = document.createElement('div');
         title.className = 'story-lvl-name';
         title.textContent = lvl.name;
+        head.appendChild(title);
+        if (isComing) {
+          const badge = document.createElement('span');
+          badge.className = 'story-coming-badge';
+          badge.textContent = t('comingSoon');
+          head.appendChild(badge);
+        }
         const sub = document.createElement('div');
-        sub.className = 'story-lvl-sub';
+        sub.className = 'story-lvl-sub' + (isComing ? ' blurred-text' : '');
         sub.textContent = `${lvl.subtitle} · Meta ${lvl.targetDistance} m`;
-        mid.append(title, sub);
+        mid.append(head, sub);
 
         const right = document.createElement('div');
         right.className = 'story-lvl-stars';
@@ -2409,16 +2428,6 @@ export class Game {
       fillRankingContainer(document.getElementById('result-ranking-list'), activeResRankPeriod, 5);
     };
 
-    const setMissionsTab = (tab) => {
-      const isRank = tab === 'ranking';
-      document.getElementById('tab-missions-obj')?.classList.toggle('active', !isRank);
-      document.getElementById('tab-missions-rank')?.classList.toggle('active', isRank);
-      document.getElementById('missions-tab-pane')?.classList.toggle('hidden', isRank);
-      document.getElementById('ranking-tab-pane')?.classList.toggle('hidden', !isRank);
-      if (isRank) renderMissionsRanking();
-      else this.renderMisiones();
-    };
-
     const setResultTab = (tab) => {
       const isRank = tab === 'ranking';
       document.getElementById('res-tab-obj')?.classList.toggle('active', !isRank);
@@ -2461,26 +2470,6 @@ export class Game {
       });
     });
 
-    document.getElementById('tab-missions-obj')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sfx.click();
-      if (!this._isMissionsUnlocked?.()) {
-        this.showToast(`🔒 ${t('missionsLockedTitle')}`, t('missionsLockedHint'), 'mission');
-        return;
-      }
-      setMissionsTab('missions');
-    });
-
-    document.getElementById('tab-missions-rank')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sfx.click();
-      if (!this._isRankingUnlocked?.()) {
-        this.showToast(`🔒 ${t('rankingLockedTitle')}`, t('rankingLockedHint'), 'mission');
-        return;
-      }
-      setMissionsTab('ranking');
-    });
-
     document.querySelectorAll('.ranking-period-btn:not(.res-period-btn)').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2493,19 +2482,30 @@ export class Game {
       });
     });
 
-    const openWidgetTab = (tab) => {
-      const widget = document.getElementById('missions-widget');
-      if (!widget) return;
-      const wasHidden = widget.classList.contains('hidden');
-      const currentTab = document.getElementById('tab-missions-rank')?.classList.contains('active')
-        ? 'ranking'
-        : 'missions';
-      if (!wasHidden && currentTab === tab) {
-        widget.classList.add('hidden');
+    const toggleSideDrawer = (which) => {
+      const mDrawer = document.getElementById('missions-drawer');
+      const rDrawer = document.getElementById('ranking-drawer');
+      const isMissions = which === 'missions';
+      const target = isMissions ? mDrawer : rDrawer;
+      const other = isMissions ? rDrawer : mDrawer;
+      const targetBtn = document.getElementById(isMissions ? 'btn-lobby-missions' : 'btn-lobby-ranking');
+      const otherBtn = document.getElementById(isMissions ? 'btn-lobby-ranking' : 'btn-lobby-missions');
+      if (!target) return;
+
+      const willOpen = target.classList.contains('hidden');
+      other?.classList.add('hidden');
+      otherBtn?.classList.remove('active');
+
+      if (!willOpen) {
+        target.classList.add('hidden');
+        targetBtn?.classList.remove('active');
         return;
       }
-      widget.classList.remove('hidden');
-      setMissionsTab(tab);
+
+      target.classList.remove('hidden');
+      targetBtn?.classList.add('active');
+      if (isMissions) this.renderMisiones();
+      else renderMissionsRanking();
     };
 
     document.getElementById('btn-lobby-missions')?.addEventListener('click', (e) => {
@@ -2515,7 +2515,7 @@ export class Game {
         this.showToast(`🔒 ${t('missionsLockedTitle')}`, t('missionsLockedHint'), 'mission');
         return;
       }
-      openWidgetTab('missions');
+      toggleSideDrawer('missions');
     });
 
     document.getElementById('btn-lobby-ranking')?.addEventListener('click', (e) => {
@@ -2525,13 +2525,19 @@ export class Game {
         this.showToast(`🔒 ${t('rankingLockedTitle')}`, t('rankingLockedHint'), 'mission');
         return;
       }
-      openWidgetTab('ranking');
+      toggleSideDrawer('ranking');
     });
 
     document.getElementById('btn-missions-close')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      document.getElementById('missions-widget')?.classList.add('hidden');
+      closeSideDrawers();
+    });
+
+    document.getElementById('btn-ranking-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      closeSideDrawers();
     });
 
     /*

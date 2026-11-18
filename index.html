@@ -166,6 +166,13 @@
       <div class="menu-btn-slot">
         <button type="button" id="btn-new-game" class="menu-btn primary">MODO SIN FIN</button>
         <button type="button" id="btn-lobby-missions" class="menu-square-btn" title="Misiones" aria-label="Misiones">🎯</button>
+        <aside id="missions-drawer" class="side-drawer hidden" data-ui-interactive aria-label="Misiones">
+          <div class="missions-widget-header">
+            <span id="missions-drawer-title" class="missions-widget-title">🎯 MISIONES</span>
+            <button type="button" id="btn-missions-close" class="missions-close-btn" aria-label="Cerrar">✕</button>
+          </div>
+          <div id="missions-widget-list" class="missions-list"></div>
+        </aside>
       </div>
       <div class="menu-btn-slot">
         <button type="button" id="btn-story-mode" class="menu-btn">MODO CAMPAÑA</button>
@@ -176,6 +183,19 @@
             <rect x="16" y="10" width="6" height="11" rx="1" fill="currentColor" opacity="0.85"/>
           </svg>
         </button>
+        <aside id="ranking-drawer" class="side-drawer hidden" data-ui-interactive aria-label="Ranking">
+          <div class="missions-widget-header">
+            <span id="ranking-drawer-title" class="missions-widget-title">🏆 RANKING</span>
+            <button type="button" id="btn-ranking-close" class="missions-close-btn" aria-label="Cerrar">✕</button>
+          </div>
+          <div class="ranking-period-bar" role="tablist">
+            <button type="button" class="ranking-period-btn active" data-period="daily">DIARIO</button>
+            <button type="button" class="ranking-period-btn" data-period="weekly">SEMANAL</button>
+            <button type="button" class="ranking-period-btn" data-period="monthly">MENSUAL</button>
+            <button type="button" class="ranking-period-btn" data-period="all">ALL TIMES</button>
+          </div>
+          <div id="missions-ranking-list" class="ranking-tab-list"></div>
+        </aside>
       </div>
       <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
       <button type="button" id="btn-options" class="menu-btn">OPCIONES</button>
@@ -196,29 +216,6 @@
       <div id="story-levels-list" class="story-levels-list"></div>
       <button type="button" id="btn-story-back" class="menu-back">← VOLVER</button>
     </section>
-
-    <!-- Modal/Panel dividido en Objetivos y Misiones / Ranking (semanal, mensual, all times) -->
-    <div id="missions-widget" class="missions-widget hidden" data-ui-interactive>
-      <div class="missions-widget-header">
-        <div class="missions-tabs" role="tablist">
-          <button type="button" id="tab-missions-obj" class="missions-tab active" role="tab" aria-selected="true">🎯 OBJETIVOS Y MISIONES</button>
-          <button type="button" id="tab-missions-rank" class="missions-tab" role="tab" aria-selected="false">🏆 RANKING</button>
-        </div>
-        <button type="button" id="btn-missions-close" class="missions-close-btn" aria-label="Cerrar">✕</button>
-      </div>
-      <div id="missions-tab-pane">
-        <div id="missions-widget-list" class="missions-list"></div>
-      </div>
-      <div id="ranking-tab-pane" class="hidden">
-        <div class="ranking-period-bar" role="tablist">
-          <button type="button" class="ranking-period-btn active" data-period="daily">DIARIO</button>
-          <button type="button" class="ranking-period-btn" data-period="weekly">SEMANAL</button>
-          <button type="button" class="ranking-period-btn" data-period="monthly">MENSUAL</button>
-          <button type="button" class="ranking-period-btn" data-period="all">ALL TIMES</button>
-        </div>
-        <div id="missions-ranking-list" class="ranking-tab-list"></div>
-      </div>
-    </div>
 
     <!-- Panel de premios -->
     <section id="awards-panel" class="menu-panel hidden" data-ui-interactive>

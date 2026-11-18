@@ -70,6 +70,7 @@ export function buildFighterJet() {
     glow.position.set(-3.0, -0.05, z);
     grp.add(glow);
   }
+  grp.scale.setScalar(1.3);
 
   return grp;
 }

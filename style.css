@@ -3340,6 +3340,37 @@ body.modo-diagnostico #diag-overlay {
   cursor: not-allowed;
 }
 
+.story-level-card.coming-soon {
+  opacity: 0.85;
+}
+
+.story-lvl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.story-coming-badge {
+  font-family: var(--font-display);
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 215, 64, 0.16);
+  border: 1px solid rgba(255, 215, 64, 0.45);
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.story-lvl-sub.blurred-text {
+  filter: blur(4px);
+  opacity: 0.55;
+  user-select: none;
+}
+
 .story-lvl-num {
   width: 32px;
   height: 32px;
@@ -4140,6 +4171,74 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   border-color: var(--cyan);
   background: rgba(0, 229, 255, 0.14);
   transform: translateY(-1px);
+}
+
+.menu-square-btn.active {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.22);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.35);
+}
+
+/* ── Ventanas desplegables independientes hacia la derecha (Misiones y Ranking) ── */
+.side-drawer {
+  position: absolute;
+  left: calc(100% + 72px);
+  top: 0;
+  width: min(310px, calc(50vw - 235px));
+  min-width: 240px;
+  max-height: min(360px, 64dvh);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: rgba(10, 14, 26, 0.94);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65), 0 0 18px var(--cyan-dim);
+  pointer-events: auto;
+  z-index: 30;
+  transform-origin: left center;
+  animation: sideDrawerReveal 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.side-drawer.hidden {
+  display: none !important;
+}
+
+@keyframes sideDrawerReveal {
+  from {
+    opacity: 0;
+    transform: translateX(-14px) scaleX(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .side-drawer {
+    position: fixed;
+    left: auto;
+    right: max(10px, env(safe-area-inset-right));
+    top: 108px;
+    width: min(320px, calc(100vw - 20px));
+    max-height: calc(100dvh - 130px);
+    z-index: 45;
+    transform-origin: right center;
+  }
+  @keyframes sideDrawerReveal {
+    from {
+      opacity: 0;
+      transform: translateX(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
 }
 
 .menu-square-btn.locked {

@@ -55,6 +55,7 @@ export function buildPaperPlane() {
     depthWrite: false,
   });
   grp.add(new THREE.Mesh(body.geometry, wireMat));
+  grp.scale.setScalar(1.1);
 
   return grp;
 }
