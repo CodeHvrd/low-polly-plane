@@ -223,7 +223,8 @@ export async function syncCloudProfile(snapshot) {
 
 /** Solicita un challengeToken de un solo uso al empezar a volar. */
 export async function startRemoteRun({ modeId = 'frenetic', storyLevel = null } = {}) {
-  if (!dbOnline) return null;
+  await initRemoteBackend().catch(() => {});
+  if (!dbOnline || !getStoredAuth().token) return null;
   const res = await apiFetch('/api/runs/start', {
     method: 'POST',
     body: JSON.stringify({ modeId, storyLevel }),
@@ -234,6 +235,7 @@ export async function startRemoteRun({ modeId = 'frenetic', storyLevel = null } 
 
 /** Envía la partida + replay para verificación anti-trampas y ranking global. */
 export async function submitRemoteRun(payload) {
+  await initRemoteBackend().catch(() => {});
   if (!dbOnline || !payload?.challengeToken) return null;
   return await apiFetch('/api/runs/finish', {
     method: 'POST',

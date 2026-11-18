@@ -16,8 +16,8 @@ export const LANG_LABELS = {
 
 const DICT = {
   es: {
-    endlessBtn: 'ENDLESS MODE',
-    campaignBtn: 'CAMPAIGN',
+    endlessBtn: 'MODO SIN FIN',
+    campaignBtn: 'MODO CAMPAÑA',
     missionsRanking: 'MISIONES / RANKING',
     awards: 'PREMIOS',
     options: 'OPCIONES',
@@ -136,8 +136,8 @@ const DICT = {
     hudWind: 'CROSSWIND',
   },
   br: {
-    endlessBtn: 'ENDLESS MODE',
-    campaignBtn: 'CAMPAIGN',
+    endlessBtn: 'MODO INFINITO',
+    campaignBtn: 'MODO CAMPANHA',
     missionsRanking: 'MISSÕES / RANKING',
     awards: 'PRÊMIOS',
     options: 'OPÇÕES',
@@ -255,8 +255,6 @@ export function applyDomTranslations() {
   setTxt('#btn-new-game', t('endlessBtn'));
   const campBtn = document.getElementById('btn-story-mode');
   if (campBtn) campBtn.innerHTML = `<span class="btn-icon">🗺️</span> ${t('campaignBtn')}`;
-  const misBtn = document.getElementById('btn-lobby-missions');
-  if (misBtn) misBtn.innerHTML = `<span class="btn-icon">🎯</span> ${t('missionsRanking')}`;
   setTxt('#btn-awards', t('awards'));
   setTxt('#btn-options', t('options'));
   setTxt('#btn-exit', t('exit'));

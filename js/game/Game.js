@@ -259,6 +259,9 @@ export class Game {
           if (prof && this.controller.phase !== PHASE.FLYING) this._applyCloudProfile?.(prof);
         }).catch(() => {});
       }
+      if (res?.online && !this._remoteChallenge?.challengeToken && this.controller.phase !== PHASE.FLYING) {
+        this._refreshRemoteChallenge?.();
+      }
     }).catch(() => {});
     preloadStoryProps().then(() => {
       if (this.running) this.rebuildStoryProps();
@@ -512,6 +515,11 @@ export class Game {
       submitRemoteRun({
         ...crearPayloadOnline(registro, ch.challengeToken),
         missionsCompleted: result.missionsCompleted ?? 0,
+      }).then((res) => {
+        if (res?.ok) {
+          this._renderResultRanking?.();
+          this._renderMissionsRanking?.();
+        }
       }).catch(() => {});
     }
 
@@ -1244,6 +1252,7 @@ export class Game {
     this.syncAimCallout();
     // `set()` ya se encarga de apagar la pista en esta etapa: el cartel tapaba
     // justo el avión y la línea punteada, que es lo que hay que mirar acá.
+    if (!this._remoteChallenge?.challengeToken) this._refreshRemoteChallenge?.();
     this.overlays.set(Screen.AIM);
 
     if (opts.silent) {
@@ -1797,7 +1806,8 @@ export class Game {
 
     this._applyCloudProfile = (prof) => {
       if (!prof) return;
-      const cleanSave = clearSave() || loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
+      clearSave();
+      const cleanSave = loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
       const w = prof.wallet;
       const upgradesObj = {};
       const owned = [];
@@ -1994,6 +2004,20 @@ export class Game {
       setAuthFeedback(`Alias actualizado a "${res.session.displayName}"`);
     });
 
+    this._refreshRemoteChallenge = () => {
+      this._remoteChallenge = null;
+      startRemoteRun({
+        modeId: MODE.id,
+        storyLevel: this.activeStoryLevel?.number ?? null,
+      }).then((ch) => {
+        if (!ch || this.controller.phase === PHASE.FLYING) return;
+        this._remoteChallenge = ch;
+        this.pickupSeed = ch.seed;
+        this.controller?.setFlightSeed(ch.seed);
+        this.rerollPickupPaths(this.chunkRange?.from, this.chunkRange?.to, true);
+      }).catch(() => {});
+    };
+
     document.getElementById('auth-login-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -2015,6 +2039,7 @@ export class Game {
       const passEl = document.getElementById('inp-login-pass');
       if (passEl) passEl.value = '';
       this._syncAccountUi();
+      this._refreshRemoteChallenge();
       mostrarPanel(null);
     });
 
@@ -2059,6 +2084,7 @@ export class Game {
       const passEl = document.getElementById('inp-reg-pass');
       if (passEl) passEl.value = '';
       this._syncAccountUi();
+      this._refreshRemoteChallenge();
       mostrarPanel(null);
     });
 
@@ -2067,8 +2093,11 @@ export class Game {
       sfx.click();
       setAuthFeedback('Cerrando sesión…');
       try { sessionStorage.removeItem('papercrash.guestAck'); } catch { /* noop */ }
-      await switchToFreshGuest();
-      const freshSave = clearSave();
+      try {
+        await switchToFreshGuest();
+      } catch { /* fallback offline */ }
+      clearSave();
+      const freshSave = loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
       hydrate(freshSave);
       initUpgradeLevels();
       initOwnedAircraft();
@@ -2081,8 +2110,9 @@ export class Game {
       this.renderMisiones();
       this.syncAimCallout();
       this._syncAccountUi();
+      this._refreshRemoteChallenge();
       showAuthView('gate');
-      setAuthFeedback('Sesión cerrada.');
+      setAuthFeedback('');
     });
 
     const btnNew = document.getElementById('btn-new-game');
@@ -2222,6 +2252,7 @@ export class Game {
     const renderMissionsRanking = () => {
       fillRankingContainer(document.getElementById('missions-ranking-list'), activeRankPeriod, 8);
     };
+    this._renderMissionsRanking = renderMissionsRanking;
 
     let activeResRankPeriod = 'daily';
     this._renderResultRanking = () => {
@@ -2296,18 +2327,31 @@ export class Game {
       });
     });
 
+    const openWidgetTab = (tab) => {
+      const widget = document.getElementById('missions-widget');
+      if (!widget) return;
+      const wasHidden = widget.classList.contains('hidden');
+      const currentTab = document.getElementById('tab-missions-rank')?.classList.contains('active')
+        ? 'ranking'
+        : 'missions';
+      if (!wasHidden && currentTab === tab) {
+        widget.classList.add('hidden');
+        return;
+      }
+      widget.classList.remove('hidden');
+      setMissionsTab(tab);
+    };
+
     document.getElementById('btn-lobby-missions')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      const widget = document.getElementById('missions-widget');
-      if (widget) {
-        const willShow = widget.classList.contains('hidden');
-        widget.classList.toggle('hidden', !willShow);
-        if (willShow) {
-          this.renderMisiones();
-          renderMissionsRanking();
-        }
-      }
+      openWidgetTab('missions');
+    });
+
+    document.getElementById('btn-lobby-ranking')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      openWidgetTab('ranking');
     });
 
     document.getElementById('btn-missions-close')?.addEventListener('click', (e) => {

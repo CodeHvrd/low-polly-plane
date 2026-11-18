@@ -2208,7 +2208,7 @@ body.en-vuelo #mode-bar {
     gap: 6px;
     width: min(440px, 88vw);
   }
-  #main-menu .menu-btn.primary {
+  #main-menu .menu-top-row {
     grid-column: 1 / -1;
   }
   .menu-btn {
@@ -3897,17 +3897,80 @@ body.en-vuelo #touch-back {
   display: none;
 }
 
-/* Ocultar título y pill del lobby mientras el card de Login/Cuenta está abierto (evita scroll en mobile) */
-#idle-overlay:has(#account-panel:not(.hidden)) #idle-title-block,
-#idle-overlay:has(#account-panel:not(.hidden)) #btn-account {
-  display: none !important;
-}
-
-/* En Login/Gate ocultar monedas y tienda del fondo para evitar distracciones */
+/* En Login/Gate ocultar monedas y tienda del fondo, pero mantener FLY OR CRASH arriba visible */
 body:has(#account-panel:not(.hidden)) #global-coins-badge,
 body:has(#account-panel:not(.hidden)) #shop-dock {
   opacity: 0;
   pointer-events: none;
+}
+
+#idle-overlay:has(#account-panel:not(.hidden)) #btn-account {
+  display: none !important;
+}
+
+#idle-overlay:has(#account-panel:not(.hidden)) #idle-title-block {
+  margin-bottom: 12px;
+}
+
+.auth-welcome-title {
+  text-align: center !important;
+  font-size: clamp(1.42rem, 4.4vw, 1.82rem) !important;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #ffffff !important;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.85),
+    0 6px 18px rgba(0, 229, 255, 0.38),
+    0 12px 28px rgba(0, 0, 0, 0.65);
+  margin-bottom: 4px !important;
+}
+
+/* ── Fila superior del Menú Principal: Modo Sin Fin + 2 cuadrados (Misiones + Podio Ranking) ── */
+.menu-top-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.menu-top-row > #btn-new-game {
+  flex: 1;
+  min-width: 0;
+}
+
+.menu-side-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.menu-square-btn {
+  width: 34px;
+  flex: 1;
+  min-height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: rgba(10, 14, 26, 0.78);
+  color: var(--cyan);
+  font-size: 0.92rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.12s;
+}
+
+.menu-square-btn:hover {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.podium-svg {
+  width: 16px;
+  height: 16px;
+  color: var(--gold);
 }
 
 #account-panel.auth-card {

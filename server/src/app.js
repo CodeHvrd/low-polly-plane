@@ -422,6 +422,7 @@ export async function handleApiRequest(req, res) {
       upgrades: upgrades && typeof upgrades === 'object' ? upgrades : {},
       replay,
       claimed: claimed && typeof claimed === 'object' ? claimed : null,
+      toleranceMeters: 25,
     });
 
     if (!check.verified) {
@@ -489,12 +490,6 @@ export async function handleApiRequest(req, res) {
     const period = ['daily', 'weekly', 'monthly', 'all'].includes(rawPeriod) ? rawPeriod : 'daily';
     const limit = Math.min(100, Math.max(5, Number(url.searchParams.get('limit') || 25)));
 
-    const cacheKey = `${period}:${limit}`;
-    const cached = getCachedLeaderboard(cacheKey);
-    if (cached) {
-      return sendJson(res, 200, cached, { 'Cache-Control': 'public, max-age=15' });
-    }
-
     const whereClause =
       period === 'daily'
         ? `AND r.created_at >= (date_trunc('day', now() AT TIME ZONE 'America/Argentina/Buenos_Aires') AT TIME ZONE 'America/Argentina/Buenos_Aires')`
@@ -523,8 +518,7 @@ export async function handleApiRequest(req, res) {
     );
 
     const payload = { ok: true, period, entries: rows };
-    setCachedLeaderboard(cacheKey, payload);
-    return sendJson(res, 200, payload, { 'Cache-Control': 'public, max-age=15' });
+    return sendJson(res, 200, payload, { 'Cache-Control': 'no-store' });
   }
 
   return sendJson(res, 404, { ok: false, error: 'Ruta no encontrada' });
