@@ -186,6 +186,7 @@ export const STATE = {
    * tener que desactivarlo en cada sesión.
    */
   cursorFollow: false,
+  invertY: false,
 
   /*
    * ── Estadísticas acumuladas de la vida del jugador ──
@@ -266,6 +267,7 @@ export function hydrate(save) {
    * explícitamente vuela con el teclado, que es lo que ya conoce.
    */
   STATE.cursorFollow = typeof save.cursorFollow === 'boolean' ? save.cursorFollow : null;
+  STATE.invertY = typeof save.invertY === 'boolean' ? save.invertY : false;
   STATE.missions = sanitizeMissionsSave(save.missions);
   STATE.story = sanitizeStorySave(save.story);
   /*
@@ -431,6 +433,7 @@ export function toSaveObject() {
     aircraft: STATE.aircraft,
     muted: STATE.muted,
     cursorFollow: STATE.cursorFollow,
+    invertY: Boolean(STATE.invertY),
     orientationPref: STATE.orientationPref,
     missions: sanitizeMissionsSave(STATE.missions),
     story: sanitizeStorySave(STATE.story),

@@ -3502,16 +3502,72 @@ body.modo-diagnostico #diag-overlay {
   display: none !important;
 }
 
-/* Cuando "Seguir al cursor/dedo" está activo en mobile:
-   se ocultan las flechas y el botón de boost pasa a la esquina inferior izquierda. */
+/* Joystick flotante en mobile (retícula dinámica centrada donde toca el pulgar) */
 #touch-controls.follow-mode .touch-dpad {
   display: none !important;
 }
 
 #touch-controls.follow-mode #touch-thrust {
-  left: max(18px, env(safe-area-inset-left) + 14px);
-  right: auto;
-  bottom: max(18px, env(safe-area-inset-bottom) + 14px);
+  right: max(18px, env(safe-area-inset-right) + 14px);
+  left: auto;
+  bottom: max(22px, env(safe-area-inset-bottom) + 18px);
+}
+
+#touch-thrust {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+#touch-thrust.empty {
+  opacity: 0.48;
+  border-color: var(--border-soft);
+}
+
+#touch-thrust.ready {
+  box-shadow: 0 0 24px rgba(0, 229, 255, 0.45);
+}
+
+.touch-thrust-badge {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+
+.floating-joy {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.floating-joy.hidden {
+  display: none !important;
+}
+
+.floating-joy-ring {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid rgba(0, 229, 255, 0.42);
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.1) 0%, rgba(10, 14, 26, 0.18) 100%);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.22);
+}
+
+.floating-joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, #ffffff 0%, var(--cyan) 70%);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.85);
 }
 
 /* ── Desglose de Score en Pantalla de Resultado ── */

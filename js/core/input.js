@@ -391,6 +391,19 @@ export function setPointerPosition(clientX, clientY) {
 }
 
 const touchFollowAnchor = { x: 0, y: 0 };
+let touchInvertY = false;
+
+/** Activa/desactiva inversión vertical del joystick flotante móvil. */
+export function setTouchInvertY(invert) {
+  touchInvertY = Boolean(invert);
+}
+
+function getTouchJoystickRange() {
+  if (typeof window === 'undefined') return 42;
+  const minDim = Math.min(window.innerWidth || 360, window.innerHeight || 360);
+  // Radio compacto (~36-48 px): da autoridad completa con un movimiento corto de pulgar.
+  return Math.max(36, Math.min(48, minDim * 0.115));
+}
 
 /**
  * Fija el punto de origen al apoyar el dedo en pantalla (joystick flotante).
@@ -401,30 +414,70 @@ export function setTouchAnchor(clientX, clientY) {
   touchFollowAnchor.y = clientY;
   pointerFollow.steer = 0;
   pointerFollow.nose = 0;
+  return {
+    anchorX: clientX,
+    anchorY: clientY,
+    knobX: clientX,
+    knobY: clientY,
+    range: getTouchJoystickRange(),
+    steer: 0,
+    nose: 0,
+  };
 }
 
 /**
- * Calcula el desvío y cabeceo relativos al punto donde se apoyó el dedo.
+ * Joystick flotante dinámico:
+ * - Si el dedo pasa el radio máximo (`range * 1.15`), el ancla desliza suavemente
+ *   detrás del pulgar para permitir cambios de dirección instantáneos sin recorrido muerto.
+ * - Eje vertical levemente amplificado (1.28x) para que subir el morro resulte inmediato.
+ * - Curva de respuesta exponencial (0.62) para agilidad tipo teclado sin perder precisión.
  */
 export function setTouchRelativePosition(clientX, clientY) {
-  if (typeof window === 'undefined') return;
-  const minDim = Math.min(window.innerWidth || 360, window.innerHeight || 360);
-  const range = Math.max(52, minDim * 0.22);
+  if (typeof window === 'undefined') return null;
+  const range = getTouchJoystickRange();
+  const maxFollow = range * 1.15;
 
-  const nx = clampUnit((clientX - touchFollowAnchor.x) / range);
-  const ny = clampUnit(-(clientY - touchFollowAnchor.y) / range);
+  let dx = clientX - touchFollowAnchor.x;
+  let dy = clientY - touchFollowAnchor.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > maxFollow && dist > 1e-4) {
+    const excess = dist - maxFollow;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    touchFollowAnchor.x += ux * excess;
+    touchFollowAnchor.y += uy * excess;
+    dx = clientX - touchFollowAnchor.x;
+    dy = clientY - touchFollowAnchor.y;
+  }
 
-  const ZONA = 0.08;
+  const nx = clampUnit(dx / range);
+  const ySign = touchInvertY ? 1 : -1;
+  const ny = clampUnit((ySign * dy * 1.28) / range);
+
+  const ZONA = 0.055;
   const aplicar = (v) => {
     const mag = Math.abs(v);
     if (mag <= ZONA) return 0;
-    return Math.sign(v) * Math.min(1, (mag - ZONA) / (1 - ZONA));
+    const norm = Math.min(1, (mag - ZONA) / (1 - ZONA));
+    return Math.sign(v) * Math.pow(norm, 0.62);
   };
 
   pointerFollow.steer = aplicar(nx);
   pointerFollow.nose = aplicar(ny);
   pointerFollow.at = performance.now();
   pointerFollow.eventos += 1;
+
+  const visDist = Math.min(dist, range);
+  const visScale = dist > 1e-4 ? visDist / dist : 0;
+  return {
+    anchorX: touchFollowAnchor.x,
+    anchorY: touchFollowAnchor.y,
+    knobX: touchFollowAnchor.x + dx * visScale,
+    knobY: touchFollowAnchor.y + dy * visScale,
+    range,
+    steer: pointerFollow.steer,
+    nose: pointerFollow.nose,
+  };
 }
 
 /** Recorta a [-1, 1]. */

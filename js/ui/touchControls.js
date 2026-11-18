@@ -124,37 +124,33 @@ export class TouchControls {
     const prop = document.createElement('button');
     prop.type = 'button';
     prop.id = 'touch-thrust';
-    prop.innerHTML = '<span aria-hidden="true">⚡</span>';
+    prop.innerHTML = '<span aria-hidden="true">⚡</span><small id="touch-thrust-count" class="touch-thrust-badge">0</small>';
     prop.setAttribute('aria-label', 'Propulsión');
+    this.thrustBtn = prop;
+    this.thrustCountEl = prop.querySelector('#touch-thrust-count');
     this._engancharBoton(prop, () => {
-      /*
-       * La propulsión se dispara en el FLANCO (al tocar), igual que el Espacio
-       * del teclado. Acá además se marca como "sostenida" para que el eje de
-       * propulsión acompañe mientras el dedo esté apoyado.
-       *
-       * ── Por qué se llama a `_aplicar()` y no a `setTouchAxes({thrust:true})` ──
-       *
-       * ── El bug que esto arregla ──
-       * `setTouchAxes` hace `nose = ejes.nose ?? 0` y `steer = ejes.steer ?? 0`:
-       * un objeto PARCIAL pone en cero los ejes que no vienen. Al apretar el boost
-       * se enviaba sólo `{ thrust: true }`, así que **se borraban el morro y el
-       * rumbo** de las flechas que el jugador tenía apoyadas.
-       *
-       * Ésa era la razón de que ▲ + boost "no funcionara": la propulsión cancelaba
-       * justo la flecha que se estaba sosteniendo. Con dos dedos, el último en
-       * tocarse ganaba y el otro se perdía.
-       *
-       * `_aplicar()` manda SIEMPRE los tres ejes juntos, así que ninguna entrada
-       * pisa a la otra.
-       */
       this.thrustHeld = true;
       this._aplicar();
+      try { navigator.vibrate?.(12); } catch { /* noop */ }
       this.onThrust?.();
     }, () => {
       this.thrustHeld = false;
       this._aplicar();
     });
     cont.appendChild(prop);
+
+    // Retícula visual del joystick flotante (sólo aparece mientras el dedo toca en followMode)
+    const joy = document.createElement('div');
+    joy.className = 'floating-joy hidden';
+    joy.setAttribute('aria-hidden', 'true');
+    const ring = document.createElement('div');
+    ring.className = 'floating-joy-ring';
+    const knob = document.createElement('div');
+    knob.className = 'floating-joy-knob';
+    ring.appendChild(knob);
+    joy.appendChild(ring);
+    cont.appendChild(joy);
+    this.floatingJoy = { root: joy, ring, knob };
 
     /*
      * Botón de abortar, chico y en el borde inferior izquierdo.
@@ -194,6 +190,50 @@ export class TouchControls {
     }
     this.raiz?.classList.toggle('follow-mode', on);
     if (on) this._resetDpad();
+    else this.hideFloatingStick();
+  }
+
+  /** Muestra la retícula del joystick flotante bajo el dedo. */
+  showFloatingStick(x, y, range = 42) {
+    if (!this.floatingJoy || !this.followMode) return;
+    const { root, ring, knob } = this.floatingJoy;
+    const diam = Math.round(range * 2);
+    ring.style.width = `${diam}px`;
+    ring.style.height = `${diam}px`;
+    ring.style.left = `${x}px`;
+    ring.style.top = `${y}px`;
+    knob.style.transform = 'translate(-50%, -50%)';
+    root.classList.remove('hidden');
+  }
+
+  /** Actualiza la posición de la base y la perilla del joystick flotante. */
+  moveFloatingStick(sample) {
+    if (!this.floatingJoy || !this.followMode || !sample) return;
+    const { root, ring, knob } = this.floatingJoy;
+    const diam = Math.round(sample.range * 2);
+    ring.style.width = `${diam}px`;
+    ring.style.height = `${diam}px`;
+    ring.style.left = `${sample.anchorX}px`;
+    ring.style.top = `${sample.anchorY}px`;
+    const ox = sample.knobX - sample.anchorX;
+    const oy = sample.knobY - sample.anchorY;
+    knob.style.transform = `translate(calc(-50% + ${ox.toFixed(1)}px), calc(-50% + ${oy.toFixed(1)}px))`;
+    root.classList.remove('hidden');
+  }
+
+  /** Oculta la retícula del joystick flotante al soltar el dedo. */
+  hideFloatingStick() {
+    this.floatingJoy?.root?.classList.add('hidden');
+  }
+
+  /** Actualiza el contador y estado visual de cargas en el botón táctil de boost. */
+  updateThrustCharges(charges = 0) {
+    const n = Math.max(0, Math.floor(Number(charges) || 0));
+    if (this.thrustCountEl) this.thrustCountEl.textContent = String(n);
+    if (this.thrustBtn) {
+      this.thrustBtn.classList.toggle('empty', n <= 0);
+      this.thrustBtn.classList.toggle('ready', n > 0);
+    }
   }
 
   /**
@@ -417,6 +457,7 @@ export class TouchControls {
       // Al ocultarse se sueltan los ejes: si no, un dedo apoyado al terminar el
       // vuelo dejaría el mando apretado en el vuelo siguiente.
       this._resetDpad();
+      this.hideFloatingStick();
       this.thrustHeld = false;
       releaseTouchAxes();
     }

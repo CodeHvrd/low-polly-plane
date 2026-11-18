@@ -83,6 +83,7 @@ export const DEFAULT_SAVE = {
   aircraft: 'paper',
   muted: false,
   orientation: 'auto',
+  invertY: false,
   missions: { active: getInitialActiveMissions(), completed: [], progress: {} },
   story: { unlockedLevel: 1, endlessUnlocked: false, stars: {}, usedAircraft: ['paper'] },
 };
@@ -113,6 +114,7 @@ export function sanitizeSave(raw, upgradeIds, aircraftIds) {
     : DEFAULT_SAVE.aircraft;
 
   out.cursorFollow = typeof raw.cursorFollow === 'boolean' ? raw.cursorFollow : null;
+  out.invertY = typeof raw.invertY === 'boolean' ? raw.invertY : false;
   out.missions = sanitizeMissionsSave(raw.missions);
   out.story = sanitizeStorySave(raw.story);
   out.stats = raw.stats && typeof raw.stats === 'object' ? { ...raw.stats } : undefined;
@@ -154,6 +156,7 @@ export function persistSave(state) {
     muted: state.muted,
     orientation: state.orientationPref ?? 'auto',
     cursorFollow: typeof state.cursorFollow === 'boolean' ? state.cursorFollow : null,
+    invertY: Boolean(state.invertY),
     missions: state.missions ? sanitizeMissionsSave(state.missions) : undefined,
     story: state.story ? sanitizeStorySave(state.story) : undefined,
     stats: state.stats ? { ...state.stats } : undefined,

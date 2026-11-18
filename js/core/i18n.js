@@ -78,6 +78,10 @@ const DICT = {
     periodAll: 'ALL TIMES',
     sounds: 'Sonidos',
     music: 'Música',
+    cursorFollow: 'Joystick / Cursor',
+    invertY: 'Eje vertical (Y)',
+    invertYNormal: 'NORMAL',
+    invertYInverted: 'INVERTIDO',
     orientation: 'Orientación',
     resetSave: 'Borrar progreso',
     forceUpdate: 'Forzar actualización',
@@ -155,6 +159,10 @@ const DICT = {
     periodAll: 'ALL TIME',
     sounds: 'Sound FX',
     music: 'Music',
+    cursorFollow: 'Floating Stick / Cursor',
+    invertY: 'Vertical axis (Y)',
+    invertYNormal: 'NORMAL',
+    invertYInverted: 'INVERTED',
     orientation: 'Orientation',
     resetSave: 'Reset progress',
     forceUpdate: 'Force update',
@@ -232,6 +240,10 @@ const DICT = {
     periodAll: 'GERAL',
     sounds: 'Sons',
     music: 'Música',
+    cursorFollow: 'Joystick / Cursor',
+    invertY: 'Eixo vertical (Y)',
+    invertYNormal: 'NORMAL',
+    invertYInverted: 'INVERTIDO',
     orientation: 'Orientação',
     resetSave: 'Apagar progresso',
     forceUpdate: 'Forçar atualização',
@@ -331,6 +343,8 @@ export function applyDomTranslations() {
   // Opciones
   setTxt('#lbl-options-mute', t('sounds'));
   setTxt('#lbl-options-music', t('music'));
+  setTxt('#lbl-options-cursor', t('cursorFollow'));
+  setTxt('#lbl-options-invert-y', t('invertY'));
   setTxt('#lbl-options-orientation', t('orientation'));
   setTxt('#lbl-options-reset', t('resetSave'));
   setTxt('#lbl-options-update', t('forceUpdate'));

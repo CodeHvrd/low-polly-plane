@@ -43,6 +43,7 @@ import {
   setPointerPosition,
   setTouchAnchor,
   setTouchRelativePosition,
+  setTouchInvertY,
   pointerFollowInfo,
   isTouchDevice,
 } from '../core/input.js';
@@ -209,6 +210,7 @@ export class Game {
     if (STATE.cursorFollow === null || STATE.cursorFollow === undefined) {
       STATE.cursorFollow = isTouchDevice();
     }
+    setTouchInvertY(Boolean(STATE.invertY));
     this.touch?.setFollowMode(Boolean(STATE.cursorFollow));
     this.syncOptionsPanel();
     initUpgradeLevels();
@@ -1551,10 +1553,13 @@ export class Game {
     this._syncQuickBar?.();
 
     const lblCur = document.getElementById('lbl-options-cursor');
-    if (lblCur) lblCur.textContent = isTouchDevice() ? 'Control' : 'Seguir el cursor';
+    if (lblCur && isTouchDevice()) lblCur.textContent = t('cursorFollow');
 
     const btnCur = document.getElementById('btn-options-cursor');
     if (btnCur) btnCur.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
+
+    const btnInvY = document.getElementById('btn-options-invert-y');
+    if (btnInvY) btnInvY.textContent = STATE.invertY ? t('invertYInverted') : t('invertYNormal');
 
     const btnOri = document.getElementById('btn-options-orientation');
     if (btnOri) {
@@ -1793,6 +1798,7 @@ export class Game {
 
     const refreshAfterLangChange = () => {
       this._syncEndlessLockUi?.();
+      this.syncOptionsPanel?.();
       this.selector.sync();
       this._renderMissionsRanking?.();
       this._renderResultRanking?.();
@@ -1912,6 +1918,9 @@ export class Game {
         } : cleanSave.stats,
       };
       hydrate(nextSave);
+      setTouchInvertY(Boolean(STATE.invertY));
+      this.touch?.setFollowMode(Boolean(STATE.cursorFollow));
+      this.syncOptionsPanel();
       initUpgradeLevels();
       initOwnedAircraft();
       persistSave(STATE);
@@ -2166,6 +2175,9 @@ export class Game {
       this.controller?.setFinishDistance(null);
       const freshSave = loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
       hydrate(freshSave);
+      setTouchInvertY(Boolean(STATE.invertY));
+      this.touch?.setFollowMode(Boolean(STATE.cursorFollow));
+      this.syncOptionsPanel();
       initUpgradeLevels();
       initOwnedAircraft();
       persistSave(STATE);
@@ -2839,6 +2851,19 @@ export class Game {
       });
     }
 
+    const btnInvertY = document.getElementById('btn-options-invert-y');
+    if (btnInvertY) {
+      btnInvertY.textContent = STATE.invertY ? t('invertYInverted') : t('invertYNormal');
+      btnInvertY.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.click();
+        STATE.invertY = !STATE.invertY;
+        setTouchInvertY(STATE.invertY);
+        btnInvertY.textContent = STATE.invertY ? t('invertYInverted') : t('invertYNormal');
+        this.persist();
+      });
+    }
+
     const btnOrientation = document.getElementById('btn-options-orientation');
     if (btnOrientation) {
       const ciclo = { auto: 'portrait', portrait: 'landscape', landscape: 'auto' };
@@ -3011,13 +3036,15 @@ export class Game {
       if (e.target?.closest?.('#touch-controls, [data-ui-interactive]')) return;
       if (this._followTouchId === null) {
         this._followTouchId = e.pointerId;
-        setTouchAnchor(e.clientX, e.clientY);
+        const sample = setTouchAnchor(e.clientX, e.clientY);
+        this.touch?.showFloatingStick(sample.anchorX, sample.anchorY, sample.range);
       }
     }, { capture: true });
     window.addEventListener('pointermove', (e) => {
       if (e.pointerType === 'touch') {
         if (e.pointerId === this._followTouchId && this.controller.phase === PHASE.FLYING && STATE.cursorFollow) {
-          setTouchRelativePosition(e.clientX, e.clientY);
+          const sample = setTouchRelativePosition(e.clientX, e.clientY);
+          if (sample) this.touch?.moveFloatingStick(sample);
         }
         return;
       }
@@ -3026,6 +3053,7 @@ export class Game {
     const soltarDedoSeguir = (e) => {
       if (e.pointerType === 'touch' && e.pointerId === this._followTouchId) {
         this._followTouchId = null;
+        this.touch?.hideFloatingStick();
         if (this.controller.phase === PHASE.FLYING && STATE.cursorFollow) {
           setPointerFollow(true); // vuelve a neutro al levantar el dedo
         }
@@ -3122,6 +3150,9 @@ export class Game {
       // Sin esto quedarían "compradas" las naves de un guardado anterior.
       STATE.aircraftOwned = [];
       STATE.story = sanitizeStorySave(null);
+      STATE.invertY = false;
+      setTouchInvertY(false);
+      this.syncOptionsPanel();
       this.activeStoryLevel = null;
       this.controller?.setFinishDistance(null);
       initOwnedAircraft();
@@ -3445,6 +3476,8 @@ export class Game {
           // lanzamiento ya saldría girando hacia donde quedó el mouse.
           // Se apaga durante el reposo y se vuelve a aplicar al lanzar.
           setPointerFollow(false);
+          this._followTouchId = null;
+          this.touch?.hideFloatingStick();
           /*
            * La música NO se corta al terminar: sigue sonando en el resultado y en el
            * menú. Es la banda sonora de la sesión, no del vuelo.
@@ -3468,6 +3501,7 @@ export class Game {
         HUD.update(payload);
         HUD.updateGlide(payload.state.glideBudget, PROPULSION.GLIDE_MAX);
         HUD.updateCharges(payload.charges ?? 0, PROPULSION.MAX_CHARGES);
+        this.touch?.updateThrustCharges(payload.charges ?? 0);
         /*
          * Combustible: es el recurso que alarga el quemado.
          *
@@ -3598,6 +3632,7 @@ export class Game {
         // El booster ya no empuja: CARGA una propulsión. El aviso es la carga,
         // no un impulso.
         HUD.updateCharges(payload.charges, PROPULSION.MAX_CHARGES, true);
+        this.touch?.updateThrustCharges(payload.charges);
         this.checkMissionsProgress();
         break;
 
@@ -3605,6 +3640,7 @@ export class Game {
         sfx.thrust();
         this.cameraRig.triggerShake(0.28);
         HUD.updateCharges(payload.charges, PROPULSION.MAX_CHARGES, false);
+        this.touch?.updateThrustCharges(payload.charges);
         // El empujón de morro arriba tiene su propio aviso: el jugador tiene que
         // notar que la combinación hizo algo distinto.
         if (payload.climbed) this.overlays.flash(0.18);
