@@ -290,7 +290,8 @@ export function updateEnvironmentScenery(x, force = false) {
     let sIdx = 0;
     for (let i = 0; i < SCENERY_SLOTS; i++) {
       const sx = startSX + i * SCENERY_STEP;
-      const sd = s.sideSeeds[i];
+      const worldSlot = Math.round(sx / SCENERY_STEP);
+      const sd = s.sideSeeds[((worldSlot % SCENERY_SLOTS) + SCENERY_SLOTS) % SCENERY_SLOTS];
       for (const isLeft of [true, false]) {
         const z = isLeft ? sd.zLeft : sd.zRight;
         const sc = isLeft ? sd.scaleA : sd.scaleB;

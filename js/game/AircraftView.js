@@ -166,19 +166,13 @@ export class AircraftView {
     }
 
     /*
-     * Si todavía no está, se oculta el procedural YA.
-     *
-     * Se prefiere un instante sin nave a un instante con la nave equivocada: la
-     * primera se lee como carga, la segunda como error. Si la descarga falla, el
-     * procedural vuelve.
+     * Mantener visible el modelo procedural de respaldo mientras descarga el .glb:
+     * si el modelo se ocultaba antes de tiempo y la red fallaba/tardaba, el
+     * lanzador parecía vacío sin aeronave.
      */
-    model.visible = false;
+    model.visible = true;
     cargarGLB(rutaModelo).then((resultado) => {
-      if (!resultado) {
-        // Falló: se devuelve la geometría procedural.
-        if (tipoPedido === this.tipoActual) model.visible = true;
-        return;
-      }
+      if (!resultado) return;
       aplicar(resultado);
     });
   }

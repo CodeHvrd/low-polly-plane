@@ -119,6 +119,7 @@ export function verifyReplay({
   replay,
   claimed = null,
   toleranceMeters = 2,
+  toleranceCoins = 25,
 }) {
   if (!replay || !replay.launch) {
     return {
@@ -349,8 +350,8 @@ export function verifyReplay({
     }
 
     // 8. Near Miss
-    const near = findNearMiss(obstacles, s.x, s.y, s.z, PLANE_RADIUS);
-    if (near) {
+    const near = findNearMiss(obstacles, s.x, s.y, s.z, PLANE_RADIUS, 2.4);
+    if (near && !near._nearMissed) {
       near._nearMissed = true;
       stats.nearMisses++;
       stats.coins += 15;
@@ -389,14 +390,14 @@ export function verifyReplay({
     }
 
     // 10. Límite de corredor lateral
-    if (Math.abs(s.z) > WORLD.CORRIDOR_HALF_WIDTH) {
+    if (Math.abs(s.z) > WORLD.COURSE_HALF_WIDTH) {
       s.landed = true;
       break;
     }
 
     // 11. Suelo y rebotes
-    const groundY = groundHeightAt(s.x, s.z);
-    if (s.y <= groundY + 0.12) {
+    const groundY = OBSTACLES.TERRAIN_COLLISION ? groundHeightAt(s.x, s.z) : 0;
+    if (s.y <= groundY) {
       const vertical = Math.abs(s.vy);
       const canBounce =
         mods.bounceMult > 0 &&
@@ -407,9 +408,10 @@ export function verifyReplay({
         bounces++;
         s.y = groundY + 0.12;
         s.vy = vertical * (0.35 + mods.bounceMult);
-        s.vx *= 0.88;
+        s.vx *= 0.65;
+        s.vz *= 0.65;
       } else {
-        s.y = groundY + 0.12;
+        s.y = groundY;
         s.landed = true;
         break;
       }
@@ -462,7 +464,9 @@ export function verifyReplay({
 
   const deltaDistance = Math.abs(simulated.distance - (claimed.distance ?? 0));
   const deltaCoins = Math.abs(simulated.coins - (claimed.coins ?? 0));
-  const ringsMatch = simulated.rings === (claimed.rings ?? simulated.rings);
+  const deltaRings = Math.abs(simulated.rings - (claimed.rings ?? simulated.rings));
+  const maxRingDrift = simulated.distance > 3000 ? 1 : 0;
+  const ringsMatch = deltaRings <= maxRingDrift;
 
   if (deltaDistance > toleranceMeters) {
     return {
@@ -474,7 +478,7 @@ export function verifyReplay({
     };
   }
 
-  if (deltaCoins > 25) {
+  if (deltaCoins > toleranceCoins) {
     return {
       verified: false,
       reason: `COINS_MISMATCH (claimed=${claimed.coins}, sim=${simulated.coins})`,

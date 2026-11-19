@@ -1159,6 +1159,7 @@ export class RunController {
     this.impact = null;
     this.accumulator = 0;
     this.phase = PHASE.IDLE;
+    this.view.setVisible(true);
     this.view.setLoadedPosition({ x: LAUNCH_POS.x, y: LAUNCH_POS.y, z: LAUNCH_POS.z });
     this.onEvent('phase', { phase: this.phase });
     return this;

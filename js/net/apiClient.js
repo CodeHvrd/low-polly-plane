@@ -213,11 +213,12 @@ export async function fetchCloudProfile() {
 }
 
 /** Sube un snapshot compacto del progreso local al usuario autenticado actual. */
-export async function syncCloudProfile(snapshot) {
+export async function syncCloudProfile(snapshot, opts = {}) {
   if (!dbOnline || !getStoredAuth().token) return null;
   return await apiFetch('/api/profile/sync', {
     method: 'POST',
     body: JSON.stringify(snapshot),
+    keepalive: Boolean(opts.keepalive),
   });
 }
 

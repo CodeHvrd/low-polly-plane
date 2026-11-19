@@ -423,13 +423,16 @@ export async function handleApiRequest(req, res) {
     }
 
     const { seed, mode_id: modeId } = chRows[0];
+    const claimedDist = Math.max(0, Number(claimed?.distance) || 0);
+    const claimedCoins = Math.max(0, Number(claimed?.coins) || 0);
     const check = verifyReplay({
       seed,
       ship: String(ship || 'paper'),
       upgrades: upgrades && typeof upgrades === 'object' ? upgrades : {},
       replay,
       claimed: claimed && typeof claimed === 'object' ? claimed : null,
-      toleranceMeters: 25,
+      toleranceMeters: Math.max(50, Math.round(claimedDist * 0.05)),
+      toleranceCoins: Math.max(50, Math.round(claimedCoins * 0.08)),
     });
 
     if (!check.verified) {

@@ -203,6 +203,7 @@ export class Game {
         HUD.updateCoins(STATE.coins);
         this.shop.sync();
         HUD.invalidate();
+        this.persist(true);
       },
     );
 
@@ -320,6 +321,11 @@ export class Game {
       this._suspendBg = true;
       music.suspender();
       suspendAudio();
+      if (this._cloudSyncTimer) {
+        clearTimeout(this._cloudSyncTimer);
+        this._cloudSyncTimer = null;
+        syncCloudProfile(toSaveObject(STATE), { keepalive: true }).catch(() => {});
+      }
       if (this.controller?.phase === PHASE.FLYING && !this.paused) {
         this.setPaused(true);
       }
@@ -409,16 +415,7 @@ export class Game {
      */
     this.rerollPickupPaths(this.chunkRange?.from, this.chunkRange?.to);
     this._remoteChallenge = null;
-    startRemoteRun({
-      modeId: MODE.id,
-      storyLevel: this.activeStoryLevel?.number ?? null,
-    }).then((ch) => {
-      if (!ch || this.controller.phase === PHASE.FLYING) return;
-      this._remoteChallenge = ch;
-      this.pickupSeed = ch.seed;
-      this.controller?.setFlightSeed(ch.seed);
-      this.rerollPickupPaths(this.chunkRange?.from, this.chunkRange?.to, true);
-    }).catch(() => {});
+    this._refreshRemoteChallenge?.(true);
 
     this.overlays.cancelFade();
 
@@ -565,8 +562,12 @@ export class Game {
         if (res?.ok) {
           this._renderResultRanking?.();
           this._renderMissionsRanking?.();
+        } else {
+          console.warn('[ranking] corrida no registrada en servidor:', res);
         }
-      }).catch(() => {});
+      }).catch((err) => {
+        console.warn('[ranking] error enviando corrida:', err?.message || err);
+      });
     }
 
     if (result.cause === 'obstacle') st.crashes += 1;
@@ -602,7 +603,7 @@ export class Game {
       }
     }
 
-    this.persist();
+    this.persist(true);
     this.syncCoins();
     this.shop.sync();
     this.selector.setActive(STATE.aircraft);
@@ -727,7 +728,7 @@ export class Game {
 
     setText(UI.resCoins, `+${formatNumber(this._lastRunCoinsForAd + check.bonus)}`);
     sfx.coin(50);
-    this.persist();
+    this.persist(true);
     this.syncCoins();
     this.shop.sync();
     this._syncDoubleCoinsButton();
@@ -755,7 +756,7 @@ export class Game {
     STATE.ads.rewardedTotal = (STATE.ads.rewardedTotal ?? 0) + 1;
 
     sfx.coin(50);
-    this.persist();
+    this.persist(true);
     this.syncCoins();
     this.shop.sync();
     this.selector.sync();
@@ -783,7 +784,7 @@ export class Game {
           STATE.ads.lastInterstitialAt = Date.now();
           STATE.ads.runsSinceInterstitial = 0;
           STATE.ads.interstitialTotal = (STATE.ads.interstitialTotal ?? 0) + 1;
-          this.persist();
+          this.persist(true);
         }
       } finally {
         this._interstitialRunning = false;
@@ -792,12 +793,20 @@ export class Game {
     action();
   }
 
-  persist() {
+  persist(immediate = false) {
     persistSave(STATE);
-    if (this._cloudSyncTimer) clearTimeout(this._cloudSyncTimer);
-    this._cloudSyncTimer = setTimeout(() => {
+    if (this._cloudSyncTimer) {
+      clearTimeout(this._cloudSyncTimer);
+      this._cloudSyncTimer = null;
+    }
+    if (immediate) {
       syncCloudProfile(toSaveObject(STATE)).catch(() => {});
-    }, 1500);
+      return;
+    }
+    this._cloudSyncTimer = setTimeout(() => {
+      this._cloudSyncTimer = null;
+      syncCloudProfile(toSaveObject(STATE)).catch(() => {});
+    }, 800);
   }
 
   /** Marca el modo activo en la barra de modos. */
@@ -931,7 +940,7 @@ export class Game {
     this.selector.syncDockLabel();
     this.shop.sync();
     this.syncAimCallout();
-    this.persist();
+    this.persist(true);
 
     this.rebuildForMode();
     this.startRun({ fade: false });
@@ -953,6 +962,8 @@ export class Game {
     this.activeStoryLevel = null;
     this.controller?.setFinishDistance(null);
     this.view.setType(STATE.aircraft);
+    this.view.setVisible(true);
+    this.view.setLoadedPosition({ x: LAUNCH_POS.x, y: LAUNCH_POS.y, z: LAUNCH_POS.z });
     this.syncAimCallout();
     const banner = UI.storyHintBanner || document.getElementById('story-hint-banner');
     if (banner) banner.classList.add('hidden');
@@ -1265,7 +1276,7 @@ export class Game {
     }
 
     if (changed) {
-      this.persist();
+      this.persist(true);
       this.syncCoins();
       this.renderMisiones(flightStats);
     }
@@ -1338,7 +1349,7 @@ export class Game {
       return;
     }
     sfx.buy();
-    this.persist();
+    this.persist(true);
     this.syncCoins();
     this.shop.sync();
     // Las mejoras cambian la velocidad de salida: la previsión queda vieja.
@@ -1358,7 +1369,7 @@ export class Game {
     this.view.setVisible(true);
     this.view.setLoadedPosition({ x: LAUNCH_POS.x, y: LAUNCH_POS.y, z: LAUNCH_POS.z });
     this.aiming.refresh();
-    this.persist();
+    this.persist(true);
     sfx.click();
 
     // Elegir nave NO entra en modo lanzamiento por sí solo: se cierra la tienda
@@ -1386,6 +1397,7 @@ export class Game {
   enterLaunchMode(opts = {}) {
     if (!this.controller.canAimEditable) return false;
     if (!this.activeStoryLevel && !this._isEndlessUnlocked?.()) return false;
+    this._closeLobbyPanels?.();
     music.setModo('aim');
 
     /*
@@ -1439,7 +1451,14 @@ export class Game {
      */
     if (this.view?.root) {
       if (!this.view.root.parent) scene.add(this.view.root);
-      if (!this.view.root.visible) this.view.root.visible = true;
+      this.view.setVisible(true);
+      if (this.controller.phase === PHASE.IDLE) {
+        this.view.setLoadedPosition({ x: LAUNCH_POS.x, y: LAUNCH_POS.y, z: LAUNCH_POS.z });
+      }
+    } else {
+      this.view.setType(this.getActiveAircraftId());
+      this.view.setVisible(true);
+      this.view.setLoadedPosition({ x: LAUNCH_POS.x, y: LAUNCH_POS.y, z: LAUNCH_POS.z });
     }
 
     /*
@@ -1473,7 +1492,9 @@ export class Game {
     this.syncAimCallout();
     // `set()` ya se encarga de apagar la pista en esta etapa: el cartel tapaba
     // justo el avión y la línea punteada, que es lo que hay que mirar acá.
-    if (!this._remoteChallenge?.challengeToken) this._refreshRemoteChallenge?.();
+    if (!this._remoteChallenge?.challengeToken && !this._pendingChallengePromise) {
+      this._refreshRemoteChallenge?.();
+    }
     this.overlays.set(Screen.AIM);
 
     if (opts.silent) {
@@ -1693,7 +1714,7 @@ export class Game {
     music.setMudo(STATE.musicOff);
     this.syncOptionsPanel();
     this._syncQuickBar?.();
-    this.persist();
+    this.persist(true);
   }
 
   toggleMute() {
@@ -1701,7 +1722,7 @@ export class Game {
     STATE.muted = muted;
     this.syncMuteButton();
     this._syncQuickBar?.();
-    this.persist();
+    this.persist(true);
     if (!muted) sfx.click();
   }
 
@@ -1763,7 +1784,7 @@ export class Game {
     this.cameraRig?.applyAspect();
 
     if (shouldPersist) {
-      this.persist();
+      this.persist(true);
     }
   }
 
@@ -1961,6 +1982,12 @@ export class Game {
       });
     };
 
+    this._closeLobbyPanels = () => {
+      mostrarPanel(null);
+      this.shop?.toggle(false);
+      this._refreshShopAdBar?.();
+    };
+
     const showAuthView = (viewName) => {
       const views = {
         gate: document.getElementById('auth-gate-view'),
@@ -2081,50 +2108,116 @@ export class Game {
       }
     };
 
-    this._applyCloudProfile = (prof) => {
+    this._applyCloudProfile = (prof, opts = {}) => {
       if (!prof) return;
-      clearSave();
-      const cleanSave = loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
+      const replaceLocal = Boolean(opts.replaceLocal);
+      const localSave = replaceLocal
+        ? (() => {
+            clearSave();
+            return loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
+          })()
+        : loadSave(UPGRADE_IDS, AIRCRAFT_LIST.map((s) => s.id));
+
       const w = prof.wallet;
       const upgradesObj = {};
-      const owned = [];
+      const cloudOwned = [];
       for (const row of prof.inventory || []) {
-        if (row.item_type === 'aircraft') owned.push(row.item_id);
+        if (row.item_type === 'aircraft') cloudOwned.push(row.item_id);
         else if (row.item_type === 'upgrade' && row.metadata && typeof row.metadata === 'object') {
           upgradesObj[row.item_id] = row.metadata;
         }
       }
+
+      // Fusionar inventario de aeronaves (nunca perder una nave ya comprada en local)
+      const mergedOwned = [...new Set([
+        'paper',
+        ...cloudOwned,
+        ...(replaceLocal ? [] : (localSave.aircraftOwned ?? [])),
+      ])].filter((id) => AIRCRAFT_LIST.some((s) => s.id === id));
+
+      // Fusionar mejoras por nave tomando el mayor nivel conocido
+      const mergedUpgrades = {};
+      const localUpgrades = replaceLocal ? {} : (localSave.upgrades ?? {});
+      const allShips = new Set([...Object.keys(upgradesObj), ...Object.keys(localUpgrades)]);
+      for (const shipId of allShips) {
+        const cMap = upgradesObj[shipId] && typeof upgradesObj[shipId] === 'object' ? upgradesObj[shipId] : {};
+        const lMap = localUpgrades[shipId] && typeof localUpgrades[shipId] === 'object' ? localUpgrades[shipId] : {};
+        const shipRes = {};
+        for (const uid of UPGRADE_IDS) {
+          shipRes[uid] = Math.max(Number(cMap[uid] || 0), Number(lMap[uid] || 0));
+        }
+        mergedUpgrades[shipId] = shipRes;
+      }
+
+      const cloudBest = Number(w?.best_distance ?? 0);
+      const localBest = replaceLocal ? 0 : Number(localSave.bestDistance ?? 0);
+      const cloudRuns = Number(prof.stats?.runs ?? 0);
+      const localRuns = replaceLocal ? 0 : Number(localSave.runs ?? 0);
+      const localAhead = !replaceLocal && (
+        localRuns > cloudRuns ||
+        localBest > cloudBest ||
+        (localSave.aircraftOwned ?? []).some((id) => !cloudOwned.includes(id))
+      );
+
       const rawStars = prof.story?.stars_by_level || {};
+      const cloudStars = {};
+      for (const [k, v] of Object.entries(rawStars)) {
+        if (!k.startsWith('_')) cloudStars[k] = Number(v) || 0;
+      }
+      const localStory = replaceLocal ? cleanEmptyStory() : (localSave.story ?? {});
+      function cleanEmptyStory() {
+        return { unlockedLevel: 1, endlessUnlocked: false, stars: {}, usedAircraft: ['paper'] };
+      }
+      const mergedStars = { ...cloudStars };
+      if (!replaceLocal && localStory.stars) {
+        for (const [k, v] of Object.entries(localStory.stars)) {
+          mergedStars[k] = Math.max(Number(mergedStars[k] || 0), Number(v) || 0);
+        }
+      }
+
+      const cloudShip = w?.active_aircraft && mergedOwned.includes(w.active_aircraft) ? w.active_aircraft : 'paper';
+      const localShip = !replaceLocal && localSave.aircraft && mergedOwned.includes(localSave.aircraft) ? localSave.aircraft : null;
+      const chosenShip = (localShip && (localAhead || (cloudShip === 'paper' && localShip !== 'paper')))
+        ? localShip
+        : cloudShip;
+
       const nextSave = {
-        ...cleanSave,
-        coins: Number(w?.coins ?? 0),
-        bestDistance: Number(w?.best_distance ?? 0),
-        aircraft: w?.active_aircraft || 'paper',
-        aircraftOwned: owned.length ? owned : ['paper'],
-        upgrades: upgradesObj,
+        ...localSave,
+        coins: localAhead
+          ? Math.max(Number(w?.coins ?? 0), Number(localSave.coins ?? 0))
+          : Number(w?.coins ?? localSave.coins ?? 0),
+        bestDistance: Math.max(cloudBest, localBest),
+        runs: Math.max(cloudRuns, localRuns),
+        aircraft: chosenShip,
+        aircraftOwned: mergedOwned,
+        upgrades: mergedUpgrades,
         story: prof.story ? {
-          unlockedLevel: prof.story.unlocked_level ?? 1,
-          endlessUnlocked: Boolean(prof.story.endless_unlocked),
-          stars: rawStars,
-          usedAircraft: Array.isArray(rawStars._usedAircraft) ? rawStars._usedAircraft : [],
-        } : cleanSave.story,
+          unlockedLevel: Math.max(Number(prof.story.unlocked_level ?? 1), Number(localStory.unlockedLevel ?? 1)),
+          endlessUnlocked: Boolean(prof.story.endless_unlocked || localStory.endlessUnlocked),
+          stars: mergedStars,
+          usedAircraft: [...new Set([
+            'paper',
+            ...(Array.isArray(rawStars._usedAircraft) ? rawStars._usedAircraft : []),
+            ...(Array.isArray(localStory.usedAircraft) ? localStory.usedAircraft : []),
+          ])],
+        } : localSave.story,
         missions: prof.missions ? {
-          active: prof.missions.active_ids || [],
-          completed: prof.missions.completed_ids || [],
-          progress: prof.missions.progress || {},
-        } : cleanSave.missions,
+          active: prof.missions.active_ids?.length ? prof.missions.active_ids : (localSave.missions?.active ?? []),
+          completed: [...new Set([...(prof.missions.completed_ids || []), ...(localSave.missions?.completed || [])])],
+          progress: { ...(localSave.missions?.progress || {}), ...(prof.missions.progress || {}) },
+        } : localSave.missions,
         stats: prof.stats ? {
-          ...cleanSave.stats,
-          runs: prof.stats.runs ?? 0,
-          totalDistance: Number(prof.stats.total_distance ?? 0),
-          playMs: Number(prof.stats.play_ms ?? 0),
-          rings: prof.stats.rings ?? 0,
-          boosters: prof.stats.boosters ?? 0,
-          coinsCollected: prof.stats.coins_collected ?? 0,
-          nearMisses: prof.stats.near_misses ?? 0,
-          crashes: prof.stats.crashes ?? 0,
-          landings: prof.stats.landings ?? 0,
-        } : cleanSave.stats,
+          ...localSave.stats,
+          runs: Math.max(cloudRuns, Number(localSave.stats?.runs ?? 0)),
+          totalDistance: Math.max(Number(prof.stats.total_distance ?? 0), Number(localSave.stats?.totalDistance ?? 0)),
+          playMs: Math.max(Number(prof.stats.play_ms ?? 0), Number(localSave.stats?.playMs ?? 0)),
+          rings: Math.max(Number(prof.stats.rings ?? 0), Number(localSave.stats?.rings ?? 0)),
+          boosters: Math.max(Number(prof.stats.boosters ?? 0), Number(localSave.stats?.boosters ?? 0)),
+          coinsCollected: Math.max(Number(prof.stats.coins_collected ?? 0), Number(localSave.stats?.coinsCollected ?? 0)),
+          nearMisses: Math.max(Number(prof.stats.near_misses ?? 0), Number(localSave.stats?.nearMisses ?? 0)),
+          crashes: Math.max(Number(prof.stats.crashes ?? 0), Number(localSave.stats?.crashes ?? 0)),
+          landings: Math.max(Number(prof.stats.landings ?? 0), Number(localSave.stats?.landings ?? 0)),
+        } : localSave.stats,
       };
       hydrate(nextSave);
       setTouchInvertY(Boolean(STATE.invertY));
@@ -2133,7 +2226,11 @@ export class Game {
       initUpgradeLevels();
       initOwnedAircraft();
       persistSave(STATE);
-      this.view.setType(STATE.aircraft);
+      this.view.setType(this.getActiveAircraftId());
+      this.view.setVisible(true);
+      if (this.controller.phase !== PHASE.FLYING) {
+        this.view.setLoadedPosition({ x: LAUNCH_POS.x, y: LAUNCH_POS.y, z: LAUNCH_POS.z });
+      }
       this.syncCoins();
       this.selector.sync();
       this.selector.syncDockLabel();
@@ -2141,6 +2238,9 @@ export class Game {
       this.renderMisiones();
       this.syncAimCallout();
       this._syncEndlessLockUi?.();
+      if (localAhead) {
+        syncCloudProfile(toSaveObject(STATE)).catch(() => {});
+      }
     };
 
     const triggerGoogleAuth = (linkCurrent = true) => {
@@ -2287,18 +2387,25 @@ export class Game {
       setAuthFeedback(`Alias actualizado a "${res.session.displayName}"`);
     });
 
-    this._refreshRemoteChallenge = () => {
+    this._pendingChallengePromise = null;
+    this._refreshRemoteChallenge = (force = false) => {
+      if (this._pendingChallengePromise && !force) return this._pendingChallengePromise;
       this._remoteChallenge = null;
-      startRemoteRun({
+      const p = startRemoteRun({
         modeId: MODE.id,
         storyLevel: this.activeStoryLevel?.number ?? null,
       }).then((ch) => {
-        if (!ch || this.controller.phase === PHASE.FLYING) return;
+        if (!ch || this.controller.phase === PHASE.FLYING) return null;
         this._remoteChallenge = ch;
         this.pickupSeed = ch.seed;
         this.controller?.setFlightSeed(ch.seed);
         this.rerollPickupPaths(this.chunkRange?.from, this.chunkRange?.to, true);
-      }).catch(() => {});
+        return ch;
+      }).catch(() => null).finally(() => {
+        if (this._pendingChallengePromise === p) this._pendingChallengePromise = null;
+      });
+      this._pendingChallengePromise = p;
+      return p;
     };
 
     document.getElementById('auth-login-form')?.addEventListener('submit', async (e) => {
@@ -2318,7 +2425,7 @@ export class Game {
         return;
       }
       const prof = await fetchCloudProfile();
-      if (prof) this._applyCloudProfile(prof);
+      if (prof) this._applyCloudProfile(prof, { replaceLocal: true });
       const passEl = document.getElementById('inp-login-pass');
       if (passEl) passEl.value = '';
       this._syncAccountUi();
@@ -2463,7 +2570,12 @@ export class Game {
         this.showToast(`🔒 ${t('endlessLockedTitle')}`, t('endlessLockedHint'), 'mission');
         return;
       }
+      this._closeLobbyPanels?.();
       this.exitStoryMode();
+      if (!this.controller.canAimEditable) {
+        this.controller.forceIdle();
+      }
+      this.startRun({ fade: false });
       this.enterLaunchMode();
     });
 
@@ -3056,7 +3168,7 @@ export class Game {
         btnCursor.textContent = STATE.cursorFollow ? 'ON' : 'OFF';
         setPointerFollow(STATE.cursorFollow && this.controller.phase === PHASE.FLYING);
         this.touch?.setFollowMode(Boolean(STATE.cursorFollow));
-        this.persist();
+        this.persist(true);
       });
     }
 
@@ -3069,7 +3181,7 @@ export class Game {
         STATE.invertY = !STATE.invertY;
         setTouchInvertY(STATE.invertY);
         btnInvertY.textContent = STATE.invertY ? t('invertYInverted') : t('invertYNormal');
-        this.persist();
+        this.persist(true);
       });
     }
 
@@ -3369,7 +3481,7 @@ export class Game {
       this.activeStoryLevel = null;
       this.controller?.setFinishDistance(null);
       initOwnedAircraft();
-      this.persist();
+      this.persist(true);
       this.selector.sync();
       this.selector.syncDockLabel();
       this.view.setType(STATE.aircraft);

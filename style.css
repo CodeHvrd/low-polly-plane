@@ -2806,15 +2806,17 @@ body.en-vuelo #mode-bar {
 /* Ranking: Posición, Usuario (rango), metros recorridos y puntuación final. */
 .ranking-row {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
-.rank-pos { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 24px; font-weight: 700; }
-.rank-user { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #eef3ff; }
-.rank-user .rank-tier { color: var(--muted); font-size: 0.62rem; font-weight: 600; }
-.rank-dist { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rank-pts { color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.rank-pos { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 20px; font-weight: 700; font-size: 0.66rem; }
+.rank-user { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #eef3ff; font-size: 0.68rem; }
+.rank-user .rank-tier { color: var(--muted); font-size: 0.58rem; font-weight: 600; }
+.rank-dist { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.64rem; }
+.rank-pts { color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; font-size: 0.66rem; }
 
 
 /* ══════════════════════════════════════════════════════════
@@ -3706,21 +3708,25 @@ body.modo-diagnostico #diag-overlay {
 
 .ranking-period-bar {
   display: flex;
-  gap: 6px;
+  gap: 4px;
+  width: 100%;
   margin-bottom: 10px;
 }
 
 .ranking-period-btn {
-  flex: 1;
-  padding: 5px 8px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 5px 4px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
   font-family: var(--font-display);
-  font-size: 0.62rem;
+  font-size: 0.55rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  text-align: center;
   cursor: pointer;
 }
 
@@ -4269,10 +4275,11 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   position: absolute;
   left: calc(100% + 72px);
   top: 0;
-  width: min(310px, calc(50vw - 235px));
-  min-width: 240px;
+  width: clamp(290px, calc(50vw - 190px), 370px);
+  min-width: 260px;
   max-height: min(360px, 64dvh);
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 8px;
