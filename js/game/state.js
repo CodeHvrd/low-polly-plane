@@ -19,6 +19,7 @@
 import { getSpec, DEFAULT_AIRCRAFT, AIRCRAFT_LIST } from '../physics/specs.js';
 import { sanitizeMissionsSave, getInitialActiveMissions } from './missions.js';
 import { sanitizeStorySave } from '../modes/storyLevels.js';
+import { defaultAdsState, sanitizeAdsState } from './adPolicy.js';
 
 /**
  * @typedef {Object} UpgradeDef
@@ -178,6 +179,7 @@ export const STATE = {
   orientationPref: 'auto',
   missions: { active: getInitialActiveMissions(), completed: [], progress: {} },
   story: { unlockedLevel: 1, endlessUnlocked: false, stars: {}, usedAircraft: ['paper'] },
+  ads: defaultAdsState(),
 
   /**
    * Vuelo siguiendo el cursor del mouse (escritorio). APAGADO por defecto.
@@ -270,6 +272,7 @@ export function hydrate(save) {
   STATE.invertY = typeof save.invertY === 'boolean' ? save.invertY : false;
   STATE.missions = sanitizeMissionsSave(save.missions);
   STATE.story = sanitizeStorySave(save.story);
+  STATE.ads = sanitizeAdsState(save.ads);
   /*
    * Las mejoras guardadas pueden venir en el formato VIEJO (global) o en el nuevo
    * (por nave). Se migran al cargar, asignando las compradas a la nave que el
@@ -437,6 +440,7 @@ export function toSaveObject() {
     orientationPref: STATE.orientationPref,
     missions: sanitizeMissionsSave(STATE.missions),
     story: sanitizeStorySave(STATE.story),
+    ads: sanitizeAdsState(STATE.ads),
     stats: { ...STATE.stats },
   };
 }

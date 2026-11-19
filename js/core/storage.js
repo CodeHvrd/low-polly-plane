@@ -15,6 +15,7 @@ import { SAVE } from '../config.js';
 import { clamp } from './math.js';
 import { sanitizeMissionsSave, getInitialActiveMissions } from '../game/missions.js';
 import { sanitizeStorySave } from '../modes/storyLevels.js';
+import { defaultAdsState, sanitizeAdsState } from '../game/adPolicy.js';
 
 /** @returns {Storage|null} */
 function getStore() {
@@ -86,6 +87,7 @@ export const DEFAULT_SAVE = {
   invertY: false,
   missions: { active: getInitialActiveMissions(), completed: [], progress: {} },
   story: { unlockedLevel: 1, endlessUnlocked: false, stars: {}, usedAircraft: ['paper'] },
+  ads: defaultAdsState(),
 };
 
 /**
@@ -117,6 +119,7 @@ export function sanitizeSave(raw, upgradeIds, aircraftIds) {
   out.invertY = typeof raw.invertY === 'boolean' ? raw.invertY : false;
   out.missions = sanitizeMissionsSave(raw.missions);
   out.story = sanitizeStorySave(raw.story);
+  out.ads = sanitizeAdsState(raw.ads);
   out.stats = raw.stats && typeof raw.stats === 'object' ? { ...raw.stats } : undefined;
 
   const levels = raw.upgrades && typeof raw.upgrades === 'object' ? raw.upgrades : {};
@@ -159,6 +162,7 @@ export function persistSave(state) {
     invertY: Boolean(state.invertY),
     missions: state.missions ? sanitizeMissionsSave(state.missions) : undefined,
     story: state.story ? sanitizeStorySave(state.story) : undefined,
+    ads: state.ads ? sanitizeAdsState(state.ads) : undefined,
     stats: state.stats ? { ...state.stats } : undefined,
   });
 }

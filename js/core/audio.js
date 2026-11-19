@@ -49,16 +49,16 @@ function ensureContext() {
 export function unlock() {
   const c = ensureContext();
   if (!c || unlocked) return;
-  if (c.state === 'suspended') c.resume().catch(() => {});
+  if (c.state === 'suspended') c.resume().catch(() => { });
   unlocked = true;
 }
 
 export function suspendAudio() {
-  if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
+  if (ctx && ctx.state === 'running') ctx.suspend().catch(() => { });
 }
 
 export function resumeAudio() {
-  if (unlocked && ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (unlocked && ctx && ctx.state === 'suspended') ctx.resume().catch(() => { });
 }
 
 export function setMuted(value) {

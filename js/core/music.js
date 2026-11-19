@@ -441,7 +441,7 @@ export class MusicEngine {
       this.timer = null;
     }
     if (this.ctx && this.ctx.state === 'running') {
-      this.ctx.suspend?.().catch(() => {});
+      this.ctx.suspend?.().catch(() => { });
     }
   }
 
@@ -449,7 +449,7 @@ export class MusicEngine {
   reanudar() {
     if (!this.activo || !this.ctx) return;
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume?.().catch(() => {});
+      this.ctx.resume?.().catch(() => { });
     }
     this.siguientePaso = this.ctx.currentTime + 0.05;
     if (!this.timer) this._arrancarPlanificador();

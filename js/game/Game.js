@@ -33,7 +33,7 @@ import { initDirectionArrows, hideDirectionArrows, layDirectionArrows, tickDirec
 import { paramsFromSpec } from '../physics/flightModel.js';
 import { getSpec, AIRCRAFT_LIST } from '../physics/specs.js';
 import { AIM, ECONOMY, SIM, LAUNCH_POS, OBSTACLES, PICKUPS, PROPULSION, STAGES, TRAJECTORY, WORLD } from '../config.js';
-import { clamp } from '../core/math.js';
+import { clamp, formatNumber } from '../core/math.js';
 import { sfx, unlock, setMuted, toggleMuted, isMuted, suspendAudio, resumeAudio } from '../core/audio.js';
 import { music, pistaParaTramo } from '../core/music.js';
 import { applyDomTranslations, cycleLang, t } from '../core/i18n.js';
@@ -99,6 +99,15 @@ import { TouchControls } from '../ui/touchControls.js';
 import { evaluateMissions, advanceCompletedMission, recordFlightProgress } from './missions.js';
 import { STORY_LEVELS, getStoryLevel, evaluateStoryResult, sanitizeStorySave } from '../modes/storyLevels.js';
 import { preloadStoryProps, buildStoryProps, disposeStoryProps } from '../world/storyProps.js';
+import { AdManager } from '../ads/adManager.js';
+import {
+  AD_CONFIG,
+  AD_PLACEMENTS,
+  canDoubleRunCoins,
+  canClaimShopCoins,
+  shouldShowInterstitial,
+  defaultAdsState,
+} from './adPolicy.js';
 
 export class Game {
   constructor() {
@@ -123,6 +132,19 @@ export class Game {
     this.activeStoryLevel = null;
 
     this.overlays = new Overlays();
+    this.ads = new AdManager({
+      onPauseForAd: (active) => {
+        if (active && !this.paused && this.controller?.phase === PHASE.FLYING) {
+          this.setPaused(true);
+        }
+      },
+    });
+    this.overlays.onChange = (screen) => this.ads.syncBanner(screen, STATE.ads);
+    this._lastRunCoinsForAd = 0;
+    this._lastRunCoinsDoubled = false;
+    this._lastFlightTimeSec = 0;
+    this._watchedRewardedThisResult = false;
+    this._shopAdTimer = null;
 
     // ── Mundo ──
     this.buildWorld();
@@ -477,6 +499,12 @@ export class Game {
     STATE.coins += result.coins;
     if (result.distance > STATE.bestDistance) STATE.bestDistance = result.distance;
     STATE.runs++;
+    if (!STATE.ads) STATE.ads = defaultAdsState();
+    STATE.ads.runsSinceInterstitial = (STATE.ads.runsSinceInterstitial ?? 0) + 1;
+    this._lastRunCoinsForAd = Math.max(0, Math.floor(result.coins ?? 0));
+    this._lastRunCoinsDoubled = false;
+    this._lastFlightTimeSec = result.time ?? 0;
+    this._watchedRewardedThisResult = false;
 
     /*
      * ── Estadísticas acumuladas ──
@@ -618,9 +646,150 @@ export class Game {
 
     // El HUD queda visible de fondo mostrando las cifras finales.
     this.overlays.showResult();
+    this._syncDoubleCoinsButton?.();
     music.setModo('menu');
 
     if (result.coins > 0) sfx.coin();
+  }
+
+  _syncDoubleCoinsButton() {
+    const btn = document.getElementById('btn-ad-double-coins');
+    const lbl = document.getElementById('btn-ad-double-label');
+    if (!btn || !lbl) return;
+
+    const check = canDoubleRunCoins(this._lastRunCoinsForAd, this._lastRunCoinsDoubled);
+    if (this._lastRunCoinsDoubled) {
+      btn.classList.remove('hidden');
+      btn.classList.add('claimed');
+      btn.disabled = true;
+      const bonus = canDoubleRunCoins(this._lastRunCoinsForAd, false).bonus;
+      lbl.textContent = `${t('adDoubleClaimed')} (+${bonus})`;
+      return;
+    }
+
+    if (!check.ok) {
+      btn.classList.add('hidden');
+      btn.classList.remove('claimed');
+      btn.disabled = false;
+      return;
+    }
+
+    btn.classList.remove('hidden', 'claimed');
+    btn.disabled = false;
+    lbl.textContent = `${t('adDoubleLabel')} (+${formatNumber(check.bonus)})`;
+  }
+
+  _syncShopAdUi() {
+    const btn = document.getElementById('btn-shop-ad-coins');
+    const lbl = document.getElementById('btn-shop-ad-label');
+    const hint = document.getElementById('shop-ad-hint');
+    if (!btn || !lbl || !hint) return;
+
+    const status = canClaimShopCoins(STATE.ads);
+    lbl.textContent = t('adShopBtn').replace('{n}', String(status.reward));
+
+    if (!status.ok) {
+      btn.classList.add('cooldown');
+      btn.disabled = true;
+      if (status.reason === 'daily_cap') {
+        hint.textContent = t('adShopDailyCap');
+      } else {
+        const m = Math.floor(status.remainingCooldownSec / 60);
+        const s = String(status.remainingCooldownSec % 60).padStart(2, '0');
+        hint.textContent = t('adShopCooldown').replace('{time}', `${m}:${s}`);
+      }
+      return;
+    }
+
+    btn.classList.remove('cooldown');
+    btn.disabled = false;
+    hint.textContent = t('adShopHintReady');
+  }
+
+  async _claimDoubleCoinsAd() {
+    const check = canDoubleRunCoins(this._lastRunCoinsForAd, this._lastRunCoinsDoubled);
+    if (!check.ok) return;
+
+    const res = await this.ads.showRewarded(AD_PLACEMENTS.RESULT_DOUBLE_COINS);
+    if (!res.ok || !res.rewarded) {
+      if (res.error === 'no_sdk') {
+        this.showToast(`📺 ${t('adNotReadyTitle')}`, t('adNotReadyDesc'), 'mission');
+      }
+      return;
+    }
+
+    this._lastRunCoinsDoubled = true;
+    this._watchedRewardedThisResult = true;
+    STATE.coins += check.bonus;
+    if (!STATE.ads) STATE.ads = defaultAdsState();
+    STATE.ads.lastRewardedAt = Date.now();
+    STATE.ads.rewardedTotal = (STATE.ads.rewardedTotal ?? 0) + 1;
+
+    setText(UI.resCoins, `+${formatNumber(this._lastRunCoinsForAd + check.bonus)}`);
+    sfx.coin(50);
+    this.persist();
+    this.syncCoins();
+    this.shop.sync();
+    this._syncDoubleCoinsButton();
+    this._syncShopAdUi();
+  }
+
+  async _claimShopCoinsAd() {
+    const status = canClaimShopCoins(STATE.ads);
+    if (!status.ok) return;
+
+    const res = await this.ads.showRewarded(AD_PLACEMENTS.SHOP_FREE_COINS);
+    if (!res.ok || !res.rewarded) {
+      if (res.error === 'no_sdk') {
+        this.showToast(`📺 ${t('adNotReadyTitle')}`, t('adNotReadyDesc'), 'mission');
+      }
+      return;
+    }
+
+    const nowMs = Date.now();
+    STATE.coins += status.reward;
+    if (!STATE.ads) STATE.ads = defaultAdsState(undefined);
+    STATE.ads.lastShopAdAt = nowMs;
+    STATE.ads.lastRewardedAt = nowMs;
+    STATE.ads.shopClaimsToday = (STATE.ads.shopClaimsToday ?? 0) + 1;
+    STATE.ads.rewardedTotal = (STATE.ads.rewardedTotal ?? 0) + 1;
+
+    sfx.coin(50);
+    this.persist();
+    this.syncCoins();
+    this.shop.sync();
+    this.selector.sync();
+    this._syncShopAdUi();
+    this.showToast('🪙 +' + status.reward, t('adShopHintReady'), 'mission');
+  }
+
+  async _runWithInterstitialCheck(action) {
+    if (this._interstitialRunning) return;
+    const caps = this.ads.getCapabilities();
+    const decision = shouldShowInterstitial({
+      adsState: STATE.ads,
+      nowMs: Date.now(),
+      totalRuns: STATE.runs,
+      flightTimeSec: this._lastFlightTimeSec ?? 0,
+      justWatchedRewarded: Boolean(this._watchedRewardedThisResult),
+    });
+
+    if (decision.show && caps.interstitialReady) {
+      this._interstitialRunning = true;
+      try {
+        const res = await this.ads.showInterstitial(AD_PLACEMENTS.BETWEEN_RUNS_INTERSTITIAL);
+        if (res?.ok) {
+          if (!STATE.ads) STATE.ads = defaultAdsState();
+          STATE.ads.lastInterstitialAt = Date.now();
+          STATE.ads.runsSinceInterstitial = 0;
+          STATE.ads.interstitialTotal = (STATE.ads.interstitialTotal ?? 0) + 1;
+          this.persist();
+        }
+      } finally {
+        this._interstitialRunning = false;
+      }
+    }
+    action();
   }
 
   persist() {
@@ -1602,25 +1771,61 @@ export class Game {
     UI.btnAgain?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      if (this.activeStoryLevel) {
-        this.startStoryLevel(this.activeStoryLevel.number);
-        return;
-      }
-      this.startRun({ fade: true });
-      this.enterLaunchMode();
+      this._runWithInterstitialCheck(() => {
+        if (this.activeStoryLevel) {
+          this.startStoryLevel(this.activeStoryLevel.number);
+          return;
+        }
+        this.startRun({ fade: true });
+        this.enterLaunchMode();
+      });
     });
 
     UI.btnNextLevel?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      this._nextStoryAction?.();
+      this._runWithInterstitialCheck(() => {
+        this._nextStoryAction?.();
+      });
     });
+
+    document.getElementById('btn-ad-double-coins')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      this._claimDoubleCoinsAd();
+    });
+
+    document.getElementById('btn-shop-ad-coins')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      this._claimShopCoinsAd();
+    });
+
+    const refreshShopAdBar = () => {
+      this._syncShopAdUi();
+      if (this._shopAdTimer) {
+        clearInterval(this._shopAdTimer);
+        this._shopAdTimer = null;
+      }
+      if (this.shop.open) {
+        this._shopAdTimer = setInterval(() => {
+          if (!this.shop.open) {
+            clearInterval(this._shopAdTimer);
+            this._shopAdTimer = null;
+            return;
+          }
+          this._syncShopAdUi();
+        }, 1000);
+      }
+    };
+    this._refreshShopAdBar = refreshShopAdBar;
 
     // ── Tienda ──
     UI.btnShop?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
       this.shop.toggle();
+      refreshShopAdBar();
     });
 
     // ── Botones de MODO ──
@@ -1697,6 +1902,7 @@ export class Game {
       e.stopPropagation();
       sfx.click();
       this.shop.toggle(false);
+      this._refreshShopAdBar?.();
     });
 
     UI.btnOpenShop?.addEventListener('click', (e) => {
@@ -1711,6 +1917,7 @@ export class Game {
       this.setShopSection('upgrades');
       this.shop.toggle(true);
       this.shop.sync();
+      this._refreshShopAdBar?.();
     });
 
     /*
@@ -1799,6 +2006,8 @@ export class Game {
     const refreshAfterLangChange = () => {
       this._syncEndlessLockUi?.();
       this.syncOptionsPanel?.();
+      this._syncDoubleCoinsButton?.();
+      this._syncShopAdUi?.();
       this.selector.sync();
       this._renderMissionsRanking?.();
       this._renderResultRanking?.();
@@ -3108,9 +3317,11 @@ export class Game {
     document.getElementById('btn-result-menu')?.addEventListener('click', (e) => {
       e.stopPropagation();
       sfx.click();
-      this.exitStoryMode();
-      this.controller.forceIdle();
-      this.overlays.set(Screen.STANDBY);
+      this._runWithInterstitialCheck(() => {
+        this.exitStoryMode();
+        this.controller.forceIdle();
+        this.overlays.set(Screen.STANDBY);
+      });
     });
 
     document.getElementById('btn-result-options')?.addEventListener('click', (e) => {
@@ -3150,9 +3361,11 @@ export class Game {
       // Sin esto quedarían "compradas" las naves de un guardado anterior.
       STATE.aircraftOwned = [];
       STATE.story = sanitizeStorySave(null);
+      STATE.ads = defaultAdsState();
       STATE.invertY = false;
       setTouchInvertY(false);
       this.syncOptionsPanel();
+      this._syncShopAdUi?.();
       this.activeStoryLevel = null;
       this.controller?.setFinishDistance(null);
       initOwnedAircraft();
@@ -3338,7 +3551,9 @@ export class Game {
       // Resultado visible → reiniciar.
       if (this.controller.canReset()) {
         e.preventDefault();
-        this.startRun({ fade: true });
+        this._runWithInterstitialCheck(() => {
+          this.startRun({ fade: true });
+        });
         return;
       }
 

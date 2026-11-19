@@ -31,6 +31,14 @@ import {
   sanitizeStorySave,
 } from '../js/modes/storyLevels.js';
 import { AIRCRAFT_SPECS, isAircraftUnlocked } from '../js/physics/specs.js';
+import {
+  AD_CONFIG,
+  canDoubleRunCoins,
+  canClaimShopCoins,
+  shouldShowInterstitial,
+  shouldShowBanner,
+  sanitizeAdsState,
+} from '../js/game/adPolicy.js';
 
 let passed = 0;
 const failures = [];
@@ -756,6 +764,52 @@ section('14. Modo Historia (Niveles 1 a 5)');
   const migratedV1 = sanitizeSave({ version: 1, aircraft: 'jet', aircraftOwned: ['paper', 'passenger', 'jet', 'heli'] }, ['wings'], ['paper', 'passenger', 'jet', 'heli']);
   check('Migración v1 → v2 deja solo papel propio por defecto',
     migratedV1.aircraft === 'paper' && migratedV1.aircraftOwned.length === 1 && migratedV1.aircraftOwned[0] === 'paper');
+}
+
+// ── 15. Política de Anuncios y Anti-Saturación ───────────────────
+section('15. Política de Anuncios y Anti-Saturación');
+{
+  check('no ofrece ×2 monedas si juntó menos del mínimo', !canDoubleRunCoins(10, false).ok);
+  check('ofrece ×2 monedas exacto por encima del mínimo y respeta tope',
+    canDoubleRunCoins(240, false).bonus === 240 &&
+    canDoubleRunCoins(9000, false).bonus === AD_CONFIG.DOUBLE_COINS_MAX_BONUS);
+  check('no permite duplicar dos veces el mismo vuelo', !canDoubleRunCoins(300, true).ok);
+
+  const day = '2026-11-19';
+  const now = new Date('2026-11-19T12:00:00Z').getTime();
+  const stFresh = sanitizeAdsState(null, day);
+  check('recarga gratis en tienda disponible al inicio (+250)',
+    canClaimShopCoins(stFresh, now, day).ok && canClaimShopCoins(stFresh, now, day).reward === AD_CONFIG.SHOP_COINS_REWARD);
+
+  const stCooldown = sanitizeAdsState({ dailyDate: day, lastShopAdAt: now - 30_000, shopClaimsToday: 1 }, day);
+  const cdCheck = canClaimShopCoins(stCooldown, now, day);
+  check('respeta cooldown de tienda cuando recién reclamó', !cdCheck.ok && cdCheck.reason === 'cooldown' && cdCheck.remainingCooldownSec >= 149);
+
+  const stCap = sanitizeAdsState({ dailyDate: day, lastShopAdAt: now - 999_000, shopClaimsToday: AD_CONFIG.SHOP_COINS_MAX_PER_DAY }, day);
+  check('bloquea al alcanzar tope diario en tienda y resetea al cambiar de día',
+    canClaimShopCoins(stCap, now, day).reason === 'daily_cap' &&
+    canClaimShopCoins(stCap, now + 86_400_000, '2026-11-20').ok);
+
+  const stReady = sanitizeAdsState({ dailyDate: day, runsSinceInterstitial: 3, lastInterstitialAt: 0, lastRewardedAt: 0 }, day);
+  check('intersticial protege al jugador nuevo (<3 vuelos)',
+    !shouldShowInterstitial({ adsState: stReady, nowMs: now, totalRuns: 2, flightTimeSec: 25 }).show);
+  check('intersticial protege tras choque muy corto (<10s)',
+    !shouldShowInterstitial({ adsState: stReady, nowMs: now, totalRuns: 10, flightTimeSec: 6 }).show);
+  check('intersticial da inmunidad tras ver un Rewarded reciente',
+    !shouldShowInterstitial({
+      adsState: { ...stReady, lastRewardedAt: now - 45_000 },
+      nowMs: now,
+      totalRuns: 10,
+      flightTimeSec: 25,
+    }).show);
+  check('intersticial dispara tras suficientes vuelos, duración y sin cooldown',
+    shouldShowInterstitial({ adsState: stReady, nowMs: now, totalRuns: 10, flightTimeSec: 25 }).show);
+
+  check('banner jamás se muestra durante vuelo ni apuntado',
+    !shouldShowBanner('playing', 800).show &&
+    !shouldShowBanner('aim', 800).show &&
+    shouldShowBanner('standby', 800).show &&
+    !shouldShowBanner('standby', 420).show);
 }
 
 // ── Resumen ─────────────────────────────────────────────────

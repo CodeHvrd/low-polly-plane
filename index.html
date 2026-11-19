@@ -123,6 +123,14 @@
         <div id="shop-grid" data-required data-ui-interactive></div>
       </section>
 
+      <div id="shop-ad-bar" class="shop-ad-bar" data-ui-interactive>
+        <button type="button" id="btn-shop-ad-coins" class="reward-ad-btn shop-ad-btn">
+          <span class="ad-pill">📺 AD</span>
+          <span id="btn-shop-ad-label">+250 🪙 GRATIS</span>
+        </button>
+        <small id="shop-ad-hint" class="shop-ad-hint">Mirá un anuncio breve para sumar monedas</small>
+      </div>
+
       <button type="button" id="btn-shop-close" data-ui-interactive>Cerrar</button>
     </div>
   </div>
@@ -531,6 +539,11 @@
             <span class="score-label">COINS</span>
             <strong id="res-coins" data-required>+0</strong>
           </div>
+
+          <button type="button" id="btn-ad-double-coins" data-ui-interactive class="reward-ad-btn result-ad-btn hidden">
+            <span class="ad-pill">📺 ×2</span>
+            <span id="btn-ad-double-label">DUPLICAR MONEDAS (+0)</span>
+          </button>
 
           <div id="result-score-card">
             <div class="score-card-header">SCORE</div>

@@ -46,6 +46,8 @@ export class Overlays {
      * justo cuando hay que verlo.
      */
     this.hintEnabled = true;
+    /** Callback opcional cuando cambia la pantalla visible (ej. banners). */
+    this.onChange = null;
   }
 
   /**
@@ -130,6 +132,7 @@ export class Overlays {
     }
 
     this._applyHint();
+    this.onChange?.(this.current);
   }
 
   /** Muestra u oculta la pista de control según la etapa (solo en modo lanzamiento). */
@@ -151,6 +154,7 @@ export class Overlays {
     hide(UI.aimOverlay);
     hide(UI.hintBlock);
     show(UI.resultScreen);
+    this.onChange?.(this.current);
   }
 
   /**

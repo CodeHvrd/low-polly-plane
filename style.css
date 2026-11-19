@@ -4582,3 +4582,149 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
     bottom: auto;
   }
 }
+
+/* ── Anuncios Recompensados y Modal Preview ── */
+.reward-ad-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 200, 61, 0.55);
+  background: linear-gradient(135deg, rgba(255, 168, 0, 0.24) 0%, rgba(16, 185, 129, 0.22) 100%);
+  color: #ffe999;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(255, 184, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition: transform 0.14s ease, box-shadow 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+.reward-ad-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 200, 61, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.reward-ad-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.reward-ad-btn.claimed,
+.reward-ad-btn:disabled {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.14);
+  color: #8cf5c7;
+  cursor: default;
+  box-shadow: none;
+}
+
+.reward-ad-btn.cooldown {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+  cursor: not-allowed;
+}
+
+.reward-ad-btn .ad-pill {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255, 200, 61, 0.22);
+  border: 1px solid rgba(255, 200, 61, 0.45);
+  color: #ffd75e;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+}
+
+.result-ad-btn {
+  margin-bottom: 8px;
+}
+
+.shop-ad-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 10px 0 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 196, 54, 0.06);
+  border: 1px solid rgba(255, 196, 54, 0.2);
+}
+
+.shop-ad-hint {
+  font-size: 0.68rem;
+  color: rgba(235, 244, 255, 0.72);
+  text-align: center;
+  line-height: 1.25;
+}
+
+.ad-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(5, 8, 18, 0.88);
+  backdrop-filter: blur(8px);
+}
+
+.ad-preview-card {
+  width: min(360px, 100%);
+  padding: 22px 20px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255, 200, 61, 0.5);
+  background: linear-gradient(180deg, rgba(20, 28, 52, 0.98) 0%, rgba(10, 14, 28, 0.98) 100%);
+  text-align: center;
+  color: #fff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.65);
+}
+
+.ad-preview-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 200, 61, 0.16);
+  border: 1px solid rgba(255, 200, 61, 0.4);
+  color: #ffd75e;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+
+.ad-preview-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ad-preview-meta {
+  margin: 0 0 14px;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.ad-preview-timer {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--cyan);
+  margin-bottom: 16px;
+}
+
+.ad-preview-btn.skip {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
