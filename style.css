@@ -4735,3 +4735,184 @@ body:has(#account-panel:not(.hidden)) #shop-dock {
   font-size: 0.78rem;
   cursor: pointer;
 }
+
+.coin-total-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 215, 64, 0.16);
+  border: 1px solid rgba(255, 215, 64, 0.42);
+  color: #ffe380;
+  font-weight: 700;
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+/* ── Panel Admin Analytics (Solo Admin) ── */
+.admin-only-btn {
+  border-color: rgba(255, 200, 61, 0.55) !important;
+  color: #ffd75e !important;
+  background: rgba(255, 200, 61, 0.12) !important;
+}
+
+.admin-panel {
+  width: min(680px, 94vw) !important;
+  max-height: 86dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-head h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.admin-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-range-bar {
+  display: flex;
+  gap: 4px;
+}
+
+.admin-range-btn {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.56rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-range-btn.active {
+  color: var(--cyan);
+  border-color: rgba(0, 229, 255, 0.55);
+  background: rgba(0, 229, 255, 0.12);
+}
+
+.admin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.admin-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  gap: 8px;
+}
+
+.admin-kpi {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-kpi span {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.admin-kpi strong {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: #fff;
+}
+
+.admin-kpi small {
+  font-size: 0.62rem;
+  color: rgba(0, 229, 255, 0.85);
+}
+
+.admin-section {
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-section h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.admin-bar-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 120px) 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.68rem;
+}
+
+.admin-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.admin-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #00e5ff, #3b82f6);
+}
+
+.admin-bar-fill.danger {
+  background: linear-gradient(90deg, #ff8a1f, #ff4757);
+}
+
+.admin-bar-fill.good {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.admin-list-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.66rem;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(235, 244, 255, 0.88);
+}
+
+.admin-error-row {
+  font-size: 0.64rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fecaca;
+  word-break: break-word;
+}

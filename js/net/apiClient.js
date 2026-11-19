@@ -48,6 +48,7 @@ function saveSessionFromResponse(res, fallbackGuestId = null) {
     username: res.username ?? null,
     email: res.email ?? null,
     avatarUrl: res.avatarUrl ?? null,
+    isAdmin: Boolean(res.isAdmin),
     token: res.token ?? prev.token ?? null,
   };
   try {
@@ -249,4 +250,29 @@ export async function fetchGlobalLeaderboard(period = 'daily', limit = 15) {
   const res = await apiFetch(`/api/leaderboard?period=${encodeURIComponent(period)}&limit=${limit}`);
   if (!res.ok || !Array.isArray(res.entries)) return null;
   return res.entries;
+}
+
+/** Envía telemetría de cada vuelo (Campaña o Endless) para analíticas del equipo. */
+export async function reportRunTelemetry(payload) {
+  if (!dbOnline) return null;
+  return await apiFetch('/api/telemetry/run', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    keepalive: true,
+  }, 4000).catch(() => null);
+}
+
+/** Registra un evento liviano de sesión, embudo o error de cliente. */
+export async function reportTelemetryEvent(eventType, payload = {}) {
+  if (!dbOnline) return null;
+  return await apiFetch('/api/telemetry/event', {
+    method: 'POST',
+    body: JSON.stringify({ eventType, ...payload }),
+    keepalive: true,
+  }, 4000).catch(() => null);
+}
+
+/** Obtiene métricas completas del panel Admin (restringido en backend al admin). */
+export async function fetchAdminAnalytics(range = '7d') {
+  return await apiFetch(`/api/admin/analytics?range=${encodeURIComponent(range)}`, {}, 8000);
 }

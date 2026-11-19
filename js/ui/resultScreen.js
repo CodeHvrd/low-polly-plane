@@ -16,32 +16,12 @@ import { STATE } from '../game/state.js';
 import { formatNumber } from '../core/math.js';
 import { computeRunScoreBreakdown } from '../game/score.js';
 
-/** Título y color según cómo terminó el vuelo. */
+/** Título y color según cómo terminó el vuelo: FLYED si superó el nivel, CRASH si chocó/cayó. */
 function classify(result) {
   if (result.cause === 'finish') {
-    return { title: '🏁 ¡NIVEL COMPLETADO!', cls: 'res-good' };
+    return { title: '🏁 FLYED', cls: 'res-good' };
   }
-  if (result.cause === 'obstacle') {
-    return { title: '💥 IMPACTO', cls: 'res-crash' };
-  }
-  /*
-   * El límite de tiempo ya no se dispara en la práctica (600 s), pero si algún
-   * día pasa tiene que tener su propio cartel: reportarlo como aterrizaje o
-   * impacto confundiría al jugador.
-   */
-  if (result.cause === 'timeout') {
-    return { title: '⏱ TIEMPO AGOTADO', cls: 'res-out' };
-  }
-  if (result.cause === 'corridor') {
-    return { title: '🚫 FUERA DE RUTA', cls: 'res-out' };
-  }
-  if (result.kind === 'landing' && result.severity < 0.5) {
-    return { title: '🛬 ATERRIZAJE PERFECTO', cls: 'res-good' };
-  }
-  if (result.severity < 1.0) {
-    return { title: '💨 ATERRIZAJE BRUSCO', cls: 'res-hard' };
-  }
-  return { title: '💥 CRASH TOTAL', cls: 'res-crash' };
+  return { title: '💥 CRASH', cls: 'res-crash' };
 }
 
 export const ResultScreen = {
@@ -72,11 +52,12 @@ export const ResultScreen = {
     if (elMts) elMts.textContent = formatNumber(breakdown.mtsScore);
 
     const elCoinsScore = document.getElementById('res-score-coins');
-    if (elCoinsScore) elCoinsScore.textContent = formatNumber(breakdown.coinsScore);
+    if (elCoinsScore) elCoinsScore.textContent = `${formatNumber(breakdown.coinsScore)} pts`;
 
     const elCoinsDetail = document.getElementById('res-score-coins-detail');
     if (elCoinsDetail) {
       const c = breakdown.coinCounts;
+      const totalGrabbed = (c.yellow || 0) + (c.pink || 0) + (c.gold || 0);
       const makeChip = (cls, text) => {
         const chip = document.createElement('span');
         chip.className = 'coin-chip';
@@ -85,10 +66,15 @@ export const ResultScreen = {
         chip.append(dot, document.createTextNode(text));
         return chip;
       };
+      const totalBadge = document.createElement('span');
+      totalBadge.className = 'coin-total-badge';
+      totalBadge.textContent = `Total: ${totalGrabbed} (+${formatNumber(result.coins)} 🪙)`;
+
       elCoinsDetail.replaceChildren(
         makeChip('yellow', `${c.yellow}×10`),
         makeChip('pink', `${c.pink}×25`),
         makeChip('gold', `${c.gold}×50`),
+        totalBadge,
       );
     }
 

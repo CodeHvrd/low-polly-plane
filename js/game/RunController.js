@@ -399,6 +399,7 @@ export class RunController {
     this.stats = this.blankStats();
     this.accumulator = 0;
     this.impact = null;
+    this.impactDebug = null;
     this.flight = createState(LAUNCH_POS.y);
 
     this.aiming.reset();
@@ -742,7 +743,8 @@ export class RunController {
       const picked = collectAt(this.pickups, s.x, s.y, s.z);
       if (picked) {
         if (picked.kind === 'coin') {
-          this.stats.coins += picked.value;
+          const scoreVal = picked.value === 50 ? 50 : picked.value === 10 ? 25 : 10;
+          this.stats.coins += scoreVal;
           this.stats.coinsCollected++;
           const tier = picked.value === 50 ? 50 : picked.value === 10 ? 10 : 5;
           this.stats.coinsByTier[tier] = (this.stats.coinsByTier[tier] ?? 0) + 1;
@@ -1092,14 +1094,11 @@ export class RunController {
      * desempeño. Si se diluyeran en un promedio, esquivar obstáculos para
      * agarrar una de 50 no tendría sentido.
      */
-    const performance = Math.max(1, Math.floor(
-      dist * ECONOMY.COIN_PER_METER
-      + altitude * ECONOMY.COIN_PER_ALTITUDE
-      + st.maxSpeed * ECONOMY.COIN_PER_SPEED
-      + st.time * ECONOMY.COIN_PER_SECOND
-      + st.rings * ECONOMY.COIN_PER_RING,
-    ));
-    const coins = performance + st.coins;
+    const tiers = st.coinsByTier ?? {};
+    const coins =
+      Math.max(0, Math.round(tiers[5] ?? 0)) * 10 +
+      Math.max(0, Math.round(tiers[10] ?? 0)) * 25 +
+      Math.max(0, Math.round(tiers[50] ?? 0)) * 50;
 
     const severity = this.impact?.severity ?? 0;
     return {
@@ -1114,8 +1113,8 @@ export class RunController {
       bounces: st.bounces,
       coins,
       /** Desglose de la recompensa, para que el resultado pueda explicarla. */
-      coinsFromPickups: st.coins,
-      coinsFromPerformance: performance,
+      coinsFromPickups: coins,
+      coinsFromPerformance: 0,
       coinsCollected: st.coinsCollected,
       coinsByTier: { ...st.coinsByTier },
       boosters: st.boosters,

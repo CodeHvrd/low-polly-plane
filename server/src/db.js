@@ -80,6 +80,50 @@ export async function ensureSchema() {
            CHECK (unlocked_level BETWEEN 1 AND 6)`,
         );
       }
+      // Migración idempotente: tablas de telemetría y analíticas de administrador
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS run_telemetry (
+          id            BIGSERIAL PRIMARY KEY,
+          user_id       UUID REFERENCES users(id) ON DELETE SET NULL,
+          is_guest      BOOLEAN NOT NULL DEFAULT true,
+          device_type   VARCHAR(16) NOT NULL DEFAULT 'desktop',
+          platform      VARCHAR(64),
+          build         INT NOT NULL DEFAULT 0,
+          mode          VARCHAR(16) NOT NULL DEFAULT 'endless',
+          story_level   SMALLINT,
+          aircraft      VARCHAR(24) NOT NULL DEFAULT 'paper',
+          distance      INT NOT NULL DEFAULT 0,
+          duration_sec  REAL NOT NULL DEFAULT 0,
+          max_speed     REAL NOT NULL DEFAULT 0,
+          max_altitude  REAL NOT NULL DEFAULT 0,
+          score         BIGINT NOT NULL DEFAULT 0,
+          coins_earned  INT NOT NULL DEFAULT 0,
+          rings         INT NOT NULL DEFAULT 0,
+          boosters      INT NOT NULL DEFAULT 0,
+          near_misses   INT NOT NULL DEFAULT 0,
+          end_cause     VARCHAR(24) NOT NULL DEFAULT 'ground',
+          end_kind      VARCHAR(16) NOT NULL DEFAULT 'crash',
+          obstacle_type VARCHAR(32),
+          crash_x       REAL,
+          crash_y       REAL,
+          crash_z       REAL,
+          stage_index   SMALLINT NOT NULL DEFAULT 0,
+          avg_fps       REAL,
+          created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_run_telemetry_created ON run_telemetry(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_run_telemetry_mode_lvl ON run_telemetry(mode, story_level, created_at DESC);
+        CREATE TABLE IF NOT EXISTS client_telemetry_events (
+          id          BIGSERIAL PRIMARY KEY,
+          user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+          event_type  VARCHAR(32) NOT NULL,
+          device_type VARCHAR(16) NOT NULL DEFAULT 'desktop',
+          build       INT NOT NULL DEFAULT 0,
+          payload     JSONB NOT NULL DEFAULT '{}'::jsonb,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_client_telemetry_type_created ON client_telemetry_events(event_type, created_at DESC);
+      `);
       return true;
     })().catch((err) => {
       schemaReadyPromise = null;

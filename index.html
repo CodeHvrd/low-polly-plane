@@ -205,7 +205,10 @@
           <div id="missions-ranking-list" class="ranking-tab-list"></div>
         </aside>
       </div>
-      <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
+      <div class="menu-btn-slot">
+        <button type="button" id="btn-awards" class="menu-btn">PREMIOS</button>
+        <button type="button" id="btn-lobby-admin" class="menu-square-btn admin-only-btn hidden" title="Admin Analytics" aria-label="Admin Analytics">📊</button>
+      </div>
       <button type="button" id="btn-options" class="menu-btn">OPCIONES</button>
       <button type="button" id="btn-exit" class="menu-btn">SALIR</button>
     </nav>
@@ -283,6 +286,26 @@
         <button type="button" id="btn-options-update" class="menu-toggle">ACTUALIZAR</button>
       </div>
       <button type="button" id="btn-options-back" class="menu-back">← VOLVER</button>
+    </section>
+
+    <!-- Panel de Analíticas (SOLO ADMIN: juanmaarosales@gmail.com) -->
+    <section id="admin-panel" class="menu-panel admin-panel hidden" data-ui-interactive>
+      <div class="admin-head">
+        <h2>📊 ANALÍTICAS ADMIN</h2>
+        <div class="admin-head-actions">
+          <div class="admin-range-bar" role="tablist">
+            <button type="button" class="admin-range-btn" data-range="24h">24H</button>
+            <button type="button" class="admin-range-btn active" data-range="7d">7D</button>
+            <button type="button" class="admin-range-btn" data-range="30d">30D</button>
+            <button type="button" class="admin-range-btn" data-range="all">TODO</button>
+          </div>
+          <button type="button" id="btn-admin-refresh" class="menu-toggle" title="Actualizar datos">↻</button>
+        </div>
+      </div>
+      <div id="admin-analytics-body" class="admin-body">
+        <p class="ach-desc">Cargando analíticas…</p>
+      </div>
+      <button type="button" id="btn-admin-back" class="menu-back">← VOLVER</button>
     </section>
 
     <!-- Panel de Ingreso / Cuenta de Piloto (Gate obligatorio si aún no elegiste Ingresar o Invitado) -->
@@ -535,16 +558,6 @@
 
           <div id="res-record" data-required></div>
 
-          <div id="result-coins-summary">
-            <span class="score-label">COINS</span>
-            <strong id="res-coins" data-required>+0</strong>
-          </div>
-
-          <button type="button" id="btn-ad-double-coins" data-ui-interactive class="reward-ad-btn result-ad-btn hidden">
-            <span class="ad-pill">📺 ×2</span>
-            <span id="btn-ad-double-label">DUPLICAR MONEDAS (+0)</span>
-          </button>
-
           <div id="result-score-card">
             <div class="score-card-header">SCORE</div>
             <div class="score-breakdown">
@@ -569,6 +582,11 @@
               <strong id="res-score" data-required>0</strong>
             </div>
           </div>
+
+          <button type="button" id="btn-ad-double-coins" data-ui-interactive class="reward-ad-btn result-ad-btn hidden">
+            <span class="ad-pill">📺 ×2</span>
+            <span id="btn-ad-double-label">DUPLICAR MONEDAS (+0)</span>
+          </button>
         </div>
 
         <div class="res-col-side">
@@ -628,7 +646,7 @@
         <div class="result-stat"><span>⏱ Tiempo</span><strong id="res-time" data-required>—</strong></div>
         <div class="result-stat"><span>🎯 Aros</span><strong id="res-rings" data-required>0</strong></div>
         <div class="result-stat"><span>⚡ Boosters</span><strong id="res-boosters" data-required>0</strong></div>
-        <div class="result-stat"><span>🪙 Monedas</span><strong id="res-coin-count" data-required>0</strong></div>
+        <div class="result-stat"><span>🪙 Monedas</span><strong id="res-coin-count" data-required>0</strong><strong id="res-coins" data-required>+0</strong></div>
       </div>
     </div>
   </div>

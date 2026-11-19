@@ -78,6 +78,9 @@ import {
   switchToFreshGuest,
   fetchCloudProfile,
   syncCloudProfile,
+  reportRunTelemetry,
+  reportTelemetryEvent,
+  fetchAdminAnalytics,
 } from '../net/apiClient.js';
 import { AircraftView } from './AircraftView.js';
 import { AimingSystem } from './aiming.js';
@@ -277,6 +280,16 @@ export class Game {
     const remoteBoot = initRemoteBackend().then(async (res) => {
       if (!this.running) return;
       this._syncAccountUi?.();
+      if (res?.online) {
+        reportTelemetryEvent('session_start', {
+          deviceType: isTouchDevice() ? 'mobile' : 'desktop',
+          build: BUILD,
+          payload: {
+            vw: typeof window !== 'undefined' ? window.innerWidth : 0,
+            vh: typeof window !== 'undefined' ? window.innerHeight : 0,
+          },
+        });
+      }
       const isGuest = !res?.user?.provider || res.user.provider === 'guest' || !res.user.token;
       if (isGuest) {
         let ack = false;
@@ -299,6 +312,8 @@ export class Game {
       if (this.running) this.rebuildStoryProps();
     }).catch(() => {});
 
+    this._initTelemetry();
+
     // Promesa con tope de seguridad para no colgar la pantalla de carga si no hay red.
     this.whenReady = Promise.race([
       Promise.allSettled([remoteBoot, storyBoot]),
@@ -309,6 +324,37 @@ export class Game {
     this.lastTime = performance.now();
     requestAnimationFrame((t) => this.frame(t));
     return this.whenReady;
+  }
+
+  /** Captura errores JS globales y latidos de sesión para el panel Admin. */
+  _initTelemetry() {
+    if (this._telemetryWired || typeof window === 'undefined') return;
+    this._telemetryWired = true;
+    let errCount = 0;
+    const dev = () => (isTouchDevice() ? 'mobile' : 'desktop');
+    const sendErr = (msg) => {
+      if (errCount >= 5) return;
+      errCount++;
+      reportTelemetryEvent('client_error', {
+        deviceType: dev(),
+        build: BUILD,
+        payload: { msg: String(msg || 'unknown').slice(0, 220) },
+      });
+    };
+    window.addEventListener('error', (ev) => {
+      sendErr(ev?.message || ev?.error?.message || 'window_error');
+    });
+    window.addEventListener('unhandledrejection', (ev) => {
+      sendErr(ev?.reason?.message || String(ev?.reason || 'unhandled_rejection'));
+    });
+    setInterval(() => {
+      if (!this.running || document.hidden) return;
+      reportTelemetryEvent('session_heartbeat', {
+        deviceType: dev(),
+        build: BUILD,
+        payload: { phase: this.controller?.phase || 'idle' },
+      });
+    }, 60000);
   }
 
   /** Pausa física, audio y música automáticamente cuando la app pasa a segundo plano (mobile/PWA/pestaña). */
@@ -429,6 +475,8 @@ export class Game {
 
     this.controller.setRecordBaseline(STATE.bestDistance);
     this.controller.reset();
+    this._fpsSum = 0;
+    this._fpsFrames = 0;
     this._completedThisFlight.clear();
     this.renderMisiones();
     this.aiming.refresh();
@@ -573,6 +621,34 @@ export class Game {
     if (result.cause === 'obstacle') st.crashes += 1;
     else if (result.cause === 'ground') st.landings += 1;
     else if (result.cause === 'corridor') st.corridorExits += 1;
+
+    const avgFps = this._fpsFrames > 10 ? +(this._fpsSum / this._fpsFrames).toFixed(1) : null;
+    const dbg = this.controller.impactDebug;
+    reportRunTelemetry({
+      deviceType: isTouchDevice() ? 'mobile' : 'desktop',
+      platform: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : null,
+      build: BUILD,
+      mode: this.activeStoryLevel ? 'story' : 'endless',
+      storyLevel: this.activeStoryLevel?.number ?? null,
+      aircraft: activeShip,
+      distance: result.distance ?? 0,
+      durationSec: result.time ?? 0,
+      maxSpeed: result.maxSpeed ?? 0,
+      maxAltitude: result.maxAltitude ?? 0,
+      score: result.totalScore ?? 0,
+      coinsEarned: result.coins ?? 0,
+      rings: result.rings ?? 0,
+      boosters: result.boosters ?? 0,
+      nearMisses: result.nearMisses ?? 0,
+      endCause: result.cause ?? 'ground',
+      endKind: result.kind ?? 'crash',
+      obstacleType: dbg?.type ?? null,
+      crashX: dbg?.px ?? null,
+      crashY: dbg?.py ?? null,
+      crashZ: dbg?.pz ?? null,
+      stageIndex: Math.max(0, this.currentStage ?? 0),
+      avgFps,
+    });
 
     document.getElementById('story-hint-banner')?.classList.add('hidden');
     let storySummary = null;
@@ -1955,6 +2031,7 @@ export class Game {
     const optionsPanel = document.getElementById('options-panel');
     const storyPanel = document.getElementById('story-panel');
     const accountPanel = document.getElementById('account-panel');
+    const adminPanel = document.getElementById('admin-panel');
 
     const closeSideDrawers = () => {
       document.getElementById('missions-drawer')?.classList.add('hidden');
@@ -1971,11 +2048,12 @@ export class Game {
       optionsPanel?.classList.toggle('hidden', panel !== optionsPanel);
       storyPanel?.classList.toggle('hidden', panel !== storyPanel);
       accountPanel?.classList.toggle('hidden', panel !== accountPanel);
+      adminPanel?.classList.toggle('hidden', panel !== adminPanel);
       if (!panel) HUD.invalidate();
     };
 
     this._hasBlockingLobbyPanel = () => {
-      const ids = ['account-panel', 'options-panel', 'story-panel', 'awards-panel', 'missions-drawer', 'ranking-drawer', 'shop-panel'];
+      const ids = ['account-panel', 'options-panel', 'story-panel', 'awards-panel', 'admin-panel', 'missions-drawer', 'ranking-drawer', 'shop-panel'];
       return ids.some((id) => {
         const el = document.getElementById(id);
         return el && !el.classList.contains('hidden');
@@ -2105,6 +2183,17 @@ export class Game {
         if (prov === 'local' && auth.username) detail.textContent = `@${auth.username}${auth.email ? ` · ${auth.email}` : ''}`;
         else if (prov === 'google' && auth.email) detail.textContent = `Vinculado con ${auth.email}`;
         else detail.textContent = 'Sesión conectada en la nube.';
+      }
+
+      const isStrictAdmin = Boolean(
+        !isGuest &&
+        auth.isAdmin === true &&
+        String(auth.email || '').trim().toLowerCase() === 'juanmaarosales@gmail.com'
+      );
+      const btnAdmin = document.getElementById('btn-lobby-admin');
+      if (btnAdmin) btnAdmin.classList.toggle('hidden', !isStrictAdmin);
+      if (!isStrictAdmin && adminPanel && !adminPanel.classList.contains('hidden')) {
+        mostrarPanel(null);
       }
     };
 
@@ -2898,6 +2987,192 @@ export class Game {
       e.stopPropagation();
       sfx.click();
       closeSideDrawers();
+    });
+
+    // ── Panel Admin Analytics (SOLO juanmaarosales@gmail.com) ──
+    let activeAdminRange = '7d';
+    const renderAdminAnalytics = async () => {
+      const bodyEl = document.getElementById('admin-analytics-body');
+      if (!bodyEl) return;
+      const loadingMsg = document.createElement('p');
+      loadingMsg.className = 'ach-desc';
+      loadingMsg.textContent = 'Cargando métricas en vivo…';
+      bodyEl.replaceChildren(loadingMsg);
+
+      const res = await fetchAdminAnalytics(activeAdminRange);
+      if (!res?.ok) {
+        const errEl = document.createElement('p');
+        errEl.className = 'admin-error-row';
+        errEl.textContent = res?.error || 'No se pudieron cargar las analíticas (¿sesión admin activa?).';
+        bodyEl.replaceChildren(errEl);
+        return;
+      }
+
+      const s = res.summary || {};
+      const blocks = [];
+
+      // 1) KPI Grid
+      const kpiGrid = document.createElement('div');
+      kpiGrid.className = 'admin-kpi-grid';
+      const addKpi = (label, val, sub = '') => {
+        const box = document.createElement('div');
+        box.className = 'admin-kpi';
+        const sp = document.createElement('span');
+        sp.textContent = label;
+        const st = document.createElement('strong');
+        st.textContent = String(val);
+        box.append(sp, st);
+        if (sub) {
+          const sm = document.createElement('small');
+          sm.textContent = sub;
+          box.appendChild(sm);
+        }
+        kpiGrid.appendChild(box);
+      };
+      addKpi('Jugadores Totales', s.totalUsers ?? 0, `${s.registeredUsers ?? 0} reg · ${s.guestUsers ?? 0} inv`);
+      addKpi('Activos 24h / 7d', `${s.active24h ?? 0} / ${s.active7d ?? 0}`, `${s.totalPlayMin ?? 0} min totales`);
+      addKpi('Partidas', s.totalRuns ?? 0, `Prom ${s.avgRunSec ?? 0}s · ${s.avgDistance ?? 0}m`);
+      addKpi('Mobile vs PC', `${s.mobileSharePct ?? 0}% Mob`, `FPS M:${s.avgFpsMobile || '—'} · PC:${s.avgFpsDesktop || '—'}`);
+      blocks.push(kpiGrid);
+
+      const makeSection = (titleText) => {
+        const sec = document.createElement('div');
+        sec.className = 'admin-section';
+        const h3 = document.createElement('h3');
+        h3.textContent = titleText;
+        sec.appendChild(h3);
+        return sec;
+      };
+      const addBarRow = (sec, label, count, maxCount, infoText, fillCls = '') => {
+        const row = document.createElement('div');
+        row.className = 'admin-bar-row';
+        const lbl = document.createElement('span');
+        lbl.textContent = label;
+        const track = document.createElement('div');
+        track.className = 'admin-bar-track';
+        const fill = document.createElement('div');
+        fill.className = `admin-bar-fill ${fillCls}`.trim();
+        fill.style.width = `${maxCount > 0 ? Math.max(4, Math.round((count / maxCount) * 100)) : 0}%`;
+        track.appendChild(fill);
+        const val = document.createElement('strong');
+        val.textContent = infoText;
+        row.append(lbl, track, val);
+        sec.appendChild(row);
+      };
+
+      // 2) Causas de derrota y dónde pierden más
+      const causeSec = makeSection('💥 Causas de Fin y Tramos donde pierden');
+      const totalC = Math.max(1, (res.deathCauses || []).reduce((a, r) => a + (r.cnt || 0), 0));
+      const causeNames = { obstacle: 'Obstáculo', ground: 'Suelo', corridor: 'Fuera ruta', finish: 'Nivel OK', timeout: 'Tiempo' };
+      for (const c of res.deathCauses || []) {
+        const pct = Math.round(((c.cnt || 0) / totalC) * 100);
+        addBarRow(causeSec, causeNames[c.end_cause] || c.end_cause, c.cnt, totalC, `${c.cnt} (${pct}%)`, c.end_cause === 'finish' ? 'good' : 'danger');
+      }
+      const bucketOrder = ['0–50m', '50–150m', '150–350m', '350–700m', '700–1500m', '1500–3000m', '3000m+'];
+      const bucketMap = new Map((res.distanceBuckets || []).map((b) => [b.bucket, b.cnt]));
+      const maxB = Math.max(1, ...bucketOrder.map((k) => bucketMap.get(k) || 0));
+      for (const bName of bucketOrder) {
+        const cnt = bucketMap.get(bName) || 0;
+        if (cnt > 0) addBarRow(causeSec, bName, cnt, maxB, `${cnt}`);
+      }
+      blocks.push(causeSec);
+
+      // 3) Obstáculos más letales
+      if ((res.deadlyObstacles || []).length) {
+        const obsSec = makeSection('🪨 Obstáculos más letales');
+        const maxO = Math.max(1, res.deadlyObstacles[0].cnt || 1);
+        for (const o of res.deadlyObstacles) {
+          addBarRow(obsSec, o.obstacle_type, o.cnt, maxO, `${o.cnt} (~${o.avg_dist}m)`, 'danger');
+        }
+        blocks.push(obsSec);
+      }
+
+      // 4) Embudo de Campaña + Naves
+      if ((res.storyFunnel || []).length) {
+        const stSec = makeSection('🗺️ Embudo Modo Campaña');
+        for (const st of res.storyFunnel) {
+          const rate = st.attempts > 0 ? Math.round((st.passes / st.attempts) * 100) : 0;
+          addBarRow(stSec, `Nivel ${st.story_level}`, st.passes, Math.max(1, st.attempts), `${st.passes}/${st.attempts} (${rate}%)`, 'good');
+        }
+        blocks.push(stSec);
+      }
+
+      if ((res.aircraftStats || []).length) {
+        const shipSec = makeSection('✈️ Uso por Aeronave');
+        for (const sh of res.aircraftStats) {
+          const row = document.createElement('div');
+          row.className = 'admin-list-row';
+          const left = document.createElement('span');
+          left.textContent = `${sh.aircraft} · ${sh.runs} vuelos`;
+          const right = document.createElement('strong');
+          right.textContent = `Prom ${sh.avg_dist}m · ${Number(sh.avg_sec || 0).toFixed(1)}s`;
+          row.append(left, right);
+          shipSec.appendChild(row);
+        }
+        blocks.push(shipSec);
+      }
+
+      // 5) Errores de clientes (si hubo)
+      if ((res.recentErrors || []).length) {
+        const errSec = makeSection('⚠️ Errores recientes en clientes');
+        for (const e of res.recentErrors.slice(0, 8)) {
+          const row = document.createElement('div');
+          row.className = 'admin-error-row';
+          const msg = e.payload?.msg || JSON.stringify(e.payload || {});
+          row.textContent = `[v.${e.build} · ${e.device_type}] ${msg}`;
+          errSec.appendChild(row);
+        }
+        blocks.push(errSec);
+      }
+
+      // 6) Últimos vuelos en vivo
+      if ((res.recentRuns || []).length) {
+        const runSec = makeSection('🕒 Últimos vuelos registrados');
+        for (const rr of res.recentRuns.slice(0, 10)) {
+          const row = document.createElement('div');
+          row.className = 'admin-list-row';
+          const left = document.createElement('span');
+          const modeTxt = rr.mode === 'story' ? `Nv.${rr.story_level}` : 'Sin Fin';
+          left.textContent = `${rr.display_name} (${rr.device_type === 'mobile' ? 'Mob' : 'PC'}) · ${modeTxt} · ${rr.aircraft}`;
+          const right = document.createElement('strong');
+          const obsTxt = rr.obstacle_type ? `/${rr.obstacle_type}` : '';
+          right.textContent = `${rr.distance}m · ${rr.end_cause}${obsTxt}`;
+          row.append(left, right);
+          runSec.appendChild(row);
+        }
+        blocks.push(runSec);
+      }
+
+      bodyEl.replaceChildren(...blocks);
+    };
+
+    document.getElementById('btn-lobby-admin')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      mostrarPanel(adminPanel);
+      renderAdminAnalytics();
+    });
+
+    document.getElementById('btn-admin-back')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      mostrarPanel(null);
+    });
+
+    document.getElementById('btn-admin-refresh')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sfx.click();
+      renderAdminAnalytics();
+    });
+
+    document.querySelectorAll('.admin-range-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfx.click();
+        activeAdminRange = btn.dataset.range || '7d';
+        document.querySelectorAll('.admin-range-btn').forEach((b) => b.classList.toggle('active', b === btn));
+        renderAdminAnalytics();
+      });
     });
 
     /*
@@ -4044,6 +4319,10 @@ export class Game {
     // Un frame largo (cambio de pestaña, tirón del sistema) no debe teletransportar
     // la física: se acota el dt real que se le entrega.
     const dt = Math.min(Math.max(rawDt, 0), SIM.MAX_FRAME_DT);
+    if (this.controller.phase === PHASE.FLYING && !this.paused && rawDt > 0.002 && rawDt < 0.25) {
+      this._fpsSum = (this._fpsSum || 0) + 1 / rawDt;
+      this._fpsFrames = (this._fpsFrames || 0) + 1;
+    }
 
     // En pausa se sigue renderizando (para poder capturar la pantalla) pero no
     // avanza nada de lógica.

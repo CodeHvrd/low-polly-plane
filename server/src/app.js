@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { ensureSchema, hasDatabase, pingDatabase, query } from './db.js';
 import {
   getUserAccountInfo,
+  isAdminUser,
   loginLocalAccount,
   readBearerToken,
   registerLocalAccount,
@@ -536,6 +537,258 @@ export async function handleApiRequest(req, res) {
 
     const payload = { ok: true, period, entries: rows };
     return sendJson(res, 200, payload, { 'Cache-Control': 'no-store' });
+  }
+
+  // ── POST /api/telemetry/run (Registra cada corrida para analíticas) ─
+  if (req.method === 'POST' && path === '/api/telemetry/run') {
+    const uid = verifySessionToken(readBearerToken(req));
+    const body = await readJsonBody(req);
+    const num = (v, fallback = 0) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    };
+
+    let isGuest = true;
+    if (uid) {
+      const idRows = await query(
+        `SELECT 1 FROM auth_identities WHERE user_id = $1 AND provider <> 'guest' LIMIT 1`,
+        [uid],
+      );
+      isGuest = idRows.length === 0;
+      await query(`UPDATE users SET last_seen_at = now() WHERE id = $1`, [uid]);
+    }
+
+    await query(
+      `INSERT INTO run_telemetry (
+         user_id, is_guest, device_type, platform, build,
+         mode, story_level, aircraft, distance, duration_sec,
+         max_speed, max_altitude, score, coins_earned, rings, boosters, near_misses,
+         end_cause, end_kind, obstacle_type, crash_x, crash_y, crash_z, stage_index, avg_fps
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+      [
+        uid || null,
+        isGuest,
+        String(body.deviceType || 'desktop').slice(0, 16),
+        body.platform ? String(body.platform).slice(0, 64) : null,
+        Math.max(0, Math.round(num(body.build, 0))),
+        body.mode === 'story' ? 'story' : 'endless',
+        body.storyLevel ? Math.max(1, Math.min(6, Math.round(num(body.storyLevel, 1)))) : null,
+        String(body.aircraft || 'paper').slice(0, 24),
+        Math.max(0, Math.round(num(body.distance, 0))),
+        Math.max(0, num(body.durationSec, 0)),
+        Math.max(0, num(body.maxSpeed, 0)),
+        Math.max(0, num(body.maxAltitude, 0)),
+        Math.max(0, Math.round(num(body.score, 0))),
+        Math.max(0, Math.round(num(body.coinsEarned, 0))),
+        Math.max(0, Math.round(num(body.rings, 0))),
+        Math.max(0, Math.round(num(body.boosters, 0))),
+        Math.max(0, Math.round(num(body.nearMisses, 0))),
+        String(body.endCause || 'ground').slice(0, 24),
+        String(body.endKind || 'crash').slice(0, 16),
+        body.obstacleType ? String(body.obstacleType).slice(0, 32) : null,
+        body.crashX !== null && body.crashX !== undefined ? num(body.crashX, 0) : null,
+        body.crashY !== null && body.crashY !== undefined ? num(body.crashY, 0) : null,
+        body.crashZ !== null && body.crashZ !== undefined ? num(body.crashZ, 0) : null,
+        Math.max(0, Math.round(num(body.stageIndex, 0))),
+        body.avgFps !== null && body.avgFps !== undefined ? Math.max(0, Math.min(240, num(body.avgFps, 0))) : null,
+      ],
+    );
+    return sendJson(res, 200, { ok: true });
+  }
+
+  // ── POST /api/telemetry/event (Sesiones, errores y eventos clave) ─
+  if (req.method === 'POST' && path === '/api/telemetry/event') {
+    const uid = verifySessionToken(readBearerToken(req));
+    const body = await readJsonBody(req);
+    const eventType = String(body.eventType || 'ping').slice(0, 32);
+    const deviceType = String(body.deviceType || 'desktop').slice(0, 16);
+    const build = Math.max(0, Math.round(Number(body.build) || 0));
+    const safePayload = body.payload && typeof body.payload === 'object' ? body.payload : {};
+
+    if (uid) {
+      await query(`UPDATE users SET last_seen_at = now() WHERE id = $1`, [uid]);
+    }
+    await query(
+      `INSERT INTO client_telemetry_events (user_id, event_type, device_type, build, payload)
+       VALUES ($1, $2, $3, $4, $5::jsonb)`,
+      [uid || null, eventType, deviceType, build, JSON.stringify(safePayload)],
+    );
+    return sendJson(res, 200, { ok: true });
+  }
+
+  // ── GET /api/admin/analytics (SOLO ADMIN: juanmaarosales@gmail.com) ─
+  if (req.method === 'GET' && path === '/api/admin/analytics') {
+    const userId = requireUserId(req);
+    const isAdmin = await isAdminUser(userId);
+    if (!isAdmin) {
+      return sendJson(res, 403, { ok: false, error: 'Acceso restringido al administrador.' });
+    }
+
+    const rawRange = url.searchParams.get('range') || '7d';
+    const range = ['24h', '7d', '30d', 'all'].includes(rawRange) ? rawRange : '7d';
+    const intervalSql =
+      range === '24h'
+        ? `created_at >= now() - INTERVAL '24 hours'`
+        : range === '7d'
+          ? `created_at >= now() - INTERVAL '7 days'`
+          : range === '30d'
+            ? `created_at >= now() - INTERVAL '30 days'`
+            : 'TRUE';
+
+    const [
+      usersAgg,
+      runSummary,
+      causeRows,
+      obstacleRows,
+      bucketRows,
+      storyRows,
+      shipRows,
+      errorRows,
+      recentRunRows,
+    ] = await Promise.all([
+      query(`
+        SELECT
+          COUNT(*)::int AS total_users,
+          COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest'))::int AS registered_users,
+          COUNT(*) FILTER (WHERE last_seen_at >= now() - INTERVAL '24 hours')::int AS active_24h,
+          COUNT(*) FILTER (WHERE last_seen_at >= now() - INTERVAL '7 days')::int AS active_7d,
+          COALESCE(SUM(ps.play_ms), 0)::bigint AS total_play_ms,
+          COALESCE(MAX(pw.best_distance), 0)::int AS max_best_distance
+        FROM users u
+        LEFT JOIN player_stats ps ON ps.user_id = u.id
+        LEFT JOIN player_wallets pw ON pw.user_id = u.id
+      `),
+      query(`
+        SELECT
+          COUNT(*)::int AS total_runs,
+          COALESCE(AVG(duration_sec), 0)::real AS avg_duration_sec,
+          COALESCE(SUM(duration_sec), 0)::real AS sum_duration_sec,
+          COALESCE(AVG(distance), 0)::real AS avg_distance,
+          COALESCE(MAX(distance), 0)::int AS max_distance,
+          COUNT(*) FILTER (WHERE device_type = 'mobile')::int AS mobile_runs,
+          COALESCE(AVG(avg_fps) FILTER (WHERE device_type = 'mobile' AND avg_fps > 0), 0)::real AS avg_fps_mobile,
+          COALESCE(AVG(avg_fps) FILTER (WHERE device_type = 'desktop' AND avg_fps > 0), 0)::real AS avg_fps_desktop
+        FROM run_telemetry
+        WHERE ${intervalSql}
+      `),
+      query(`
+        SELECT end_cause, COUNT(*)::int AS cnt
+        FROM run_telemetry
+        WHERE ${intervalSql}
+        GROUP BY end_cause
+        ORDER BY cnt DESC
+      `),
+      query(`
+        SELECT obstacle_type, COUNT(*)::int AS cnt, COALESCE(AVG(distance), 0)::int AS avg_dist
+        FROM run_telemetry
+        WHERE ${intervalSql} AND end_cause = 'obstacle' AND obstacle_type IS NOT NULL
+        GROUP BY obstacle_type
+        ORDER BY cnt DESC
+        LIMIT 8
+      `),
+      query(`
+        SELECT bucket, COUNT(*)::int AS cnt
+        FROM (
+          SELECT CASE
+            WHEN distance < 50 THEN '0–50m'
+            WHEN distance < 150 THEN '50–150m'
+            WHEN distance < 350 THEN '150–350m'
+            WHEN distance < 700 THEN '350–700m'
+            WHEN distance < 1500 THEN '700–1500m'
+            WHEN distance < 3000 THEN '1500–3000m'
+            ELSE '3000m+'
+          END AS bucket
+          FROM run_telemetry
+          WHERE ${intervalSql}
+        ) b
+        GROUP BY bucket
+      `),
+      query(`
+        SELECT
+          story_level,
+          COUNT(*)::int AS attempts,
+          COUNT(*) FILTER (WHERE end_cause = 'finish')::int AS passes,
+          COALESCE(AVG(distance), 0)::int AS avg_dist
+        FROM run_telemetry
+        WHERE ${intervalSql} AND mode = 'story' AND story_level IS NOT NULL
+        GROUP BY story_level
+        ORDER BY story_level ASC
+      `),
+      query(`
+        SELECT
+          aircraft,
+          COUNT(*)::int AS runs,
+          COALESCE(AVG(distance), 0)::int AS avg_dist,
+          COALESCE(AVG(duration_sec), 0)::real AS avg_sec,
+          COUNT(*) FILTER (WHERE end_cause = 'obstacle')::int AS obstacle_crashes
+        FROM run_telemetry
+        WHERE ${intervalSql}
+        GROUP BY aircraft
+        ORDER BY runs DESC
+      `),
+      query(`
+        SELECT device_type, build, payload, created_at
+        FROM client_telemetry_events
+        WHERE event_type = 'client_error' AND ${intervalSql}
+        ORDER BY created_at DESC
+        LIMIT 12
+      `),
+      query(`
+        SELECT
+          COALESCE(u.display_name, 'Anónimo') AS display_name,
+          rt.is_guest,
+          rt.device_type,
+          rt.mode,
+          rt.story_level,
+          rt.aircraft,
+          rt.distance,
+          rt.duration_sec,
+          rt.score,
+          rt.end_cause,
+          rt.obstacle_type,
+          rt.avg_fps,
+          rt.created_at
+        FROM run_telemetry rt
+        LEFT JOIN users u ON u.id = rt.user_id
+        WHERE ${intervalSql}
+        ORDER BY rt.created_at DESC
+        LIMIT 15
+      `),
+    ]);
+
+    const u0 = usersAgg[0] || {};
+    const r0 = runSummary[0] || {};
+    const totalRuns = r0.total_runs || 0;
+    const mobileSharePct = totalRuns > 0 ? Math.round(((r0.mobile_runs || 0) / totalRuns) * 100) : 0;
+
+    return sendJson(res, 200, {
+      ok: true,
+      range,
+      summary: {
+        totalUsers: u0.total_users || 0,
+        registeredUsers: u0.registered_users || 0,
+        guestUsers: Math.max(0, (u0.total_users || 0) - (u0.registered_users || 0)),
+        active24h: u0.active_24h || 0,
+        active7d: u0.active_7d || 0,
+        totalPlayMin: Math.round(Number(u0.total_play_ms || 0) / 60000),
+        maxBestDistance: u0.max_best_distance || 0,
+        totalRuns,
+        avgRunSec: Number((r0.avg_duration_sec || 0).toFixed(1)),
+        sumRunMin: Math.round(Number(r0.sum_duration_sec || 0) / 60),
+        avgDistance: Math.round(r0.avg_distance || 0),
+        maxDistance: r0.max_distance || 0,
+        mobileSharePct,
+        avgFpsMobile: Math.round(r0.avg_fps_mobile || 0),
+        avgFpsDesktop: Math.round(r0.avg_fps_desktop || 0),
+      },
+      deathCauses: causeRows,
+      deadlyObstacles: obstacleRows,
+      distanceBuckets: bucketRows,
+      storyFunnel: storyRows,
+      aircraftStats: shipRows,
+      recentErrors: errorRows,
+      recentRuns: recentRunRows,
+    }, { 'Cache-Control': 'no-store' });
   }
 
   return sendJson(res, 404, { ok: false, error: 'Ruta no encontrada' });

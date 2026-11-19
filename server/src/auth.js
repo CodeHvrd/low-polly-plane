@@ -13,6 +13,20 @@ import { query } from './db.js';
 const DEV_SECRET = 'papercrash-dev-secret-change-in-production';
 const AUTH_SECRET = process.env.AUTH_SECRET?.trim() || DEV_SECRET;
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+export const ADMIN_EMAIL = 'juanmaarosales@gmail.com';
+
+export function isAdminEmail(email) {
+  return String(email || '').trim().toLowerCase() === ADMIN_EMAIL;
+}
+
+export async function isAdminUser(userId) {
+  if (!userId) return false;
+  const rows = await query(
+    `SELECT 1 FROM auth_identities WHERE user_id = $1 AND lower(email) = $2 LIMIT 1`,
+    [userId, ADMIN_EMAIL],
+  );
+  return rows.length > 0;
+}
 
 function toB64Url(input) {
   return Buffer.from(input).toString('base64url');
@@ -122,6 +136,7 @@ export async function getUserAccountInfo(userId) {
     'guest';
   const localRow = idRows.find((r) => r.provider === 'local');
   const googleRow = idRows.find((r) => r.provider === 'google');
+  const hasAdminIdentity = idRows.some((r) => isAdminEmail(r.email));
 
   return {
     userId: u.id,
@@ -131,6 +146,7 @@ export async function getUserAccountInfo(userId) {
     username: localRow?.provider_uid || null,
     email: googleRow?.email || localRow?.email || null,
     providers: idRows.map((r) => r.provider),
+    isAdmin: hasAdminIdentity,
   };
 }
 

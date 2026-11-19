@@ -426,18 +426,11 @@ export function verifyReplay({
   }
 
   const dist = Math.max(0, Math.round(stats.distance));
-  const altitudeGain = Math.max(0, stats.maxAltitude - LAUNCH_POS.y);
-  const performance = Math.max(
-    1,
-    Math.floor(
-      dist * ECONOMY.COIN_PER_METER +
-        altitudeGain * ECONOMY.COIN_PER_ALTITUDE +
-        stats.maxSpeed * ECONOMY.COIN_PER_SPEED +
-        stats.time * ECONOMY.COIN_PER_SECOND +
-        stats.rings * ECONOMY.COIN_PER_RING,
-    ),
-  );
-  const totalCoins = performance + stats.coins;
+  const tiers = stats.coinsByTier ?? {};
+  const totalCoins =
+    Math.max(0, Math.round(tiers[5] ?? 0)) * 10 +
+    Math.max(0, Math.round(tiers[10] ?? 0)) * 25 +
+    Math.max(0, Math.round(tiers[50] ?? 0)) * 50;
 
   const simulated = {
     distance: dist,
