@@ -10,6 +10,7 @@
  */
 import { UI, setText, show, hide } from './dom.js';
 import { formatNumber, round, clamp01 } from '../core/math.js';
+import { toDisplayKmh } from '../physics/specs.js';
 
 const last = {
   distance: null,
@@ -45,10 +46,10 @@ export const HUD = {
    * @param {{state:object, stats:object, speed:number, wind:{x:number,z:number}}} data
    */
   update(data) {
-    const { stats, speed, wind } = data;
+    const { stats, speed, wind, aircraft } = data;
     setIfChanged('distance', UI.valDistance, `${Math.round(stats.distance)} m`);
     setIfChanged('altitude', UI.valAltitude, `${round(data.state.y, 1)} m`);
-    setIfChanged('speed', UI.valSpeed, `${round(speed, 1)} m/s`);
+    setIfChanged('speed', UI.valSpeed, `${toDisplayKmh(speed, aircraft)} km/h`);
 
     // Se muestra el viento lateral (el que desvía) porque es el que importa
     // para apuntar; el longitudinal altera la distancia pero no la dirección.

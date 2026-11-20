@@ -21,7 +21,7 @@
  * ============================================================
  */
 import { UI, setText } from './dom.js';
-import { AIRCRAFT_LIST, isAircraftUnlocked } from '../physics/specs.js';
+import { AIRCRAFT_LIST, isAircraftUnlocked, toDisplayKmh } from '../physics/specs.js';
 import { STATE, buyAircraft } from '../game/state.js';
 import { formatNumber } from '../core/math.js';
 import { t } from '../core/i18n.js';
@@ -32,7 +32,7 @@ const STAT_ROWS = [
   ['stability', 'ESTABILIDAD', (s) => `${Math.round(s.ratings.stability * 100)}%`],
   ['handling', 'MANIOBRA', (s) => `${Math.round(s.ratings.handling * 100)}%`],
   ['wind', 'VIENTO', (s) => (s.windFactor >= 2 ? 'Muy sensible' : s.windFactor >= 1 ? 'Sensible' : 'Estable')],
-  ['stall', 'PÉRDIDA', (s) => `${s.stallSpeed} m/s`],
+  ['stall', 'PÉRDIDA', (s) => `${toDisplayKmh(s.stallSpeed, s)} km/h`],
 ];
 
 /**
@@ -251,23 +251,28 @@ export class AircraftSelector {
        */
       if (pick.reason === 'locked') {
         card.price.textContent = price > 0 ? `💰 ${formatNumber(price)}` : '';
+        card.price.classList.toggle('hidden', price <= 0);
         const lvlNum = card.spec.unlockStoryLevel;
         card.status.textContent = lvlNum ? `🔒 ${t('campaignShort')} ${lvlNum}` : '🔒';
         card.status.classList.add('disabled');
       } else if (equipped) {
-        card.price.textContent = price > 0 ? '💰 ' + formatNumber(price) : t('shipFree');
+        card.price.textContent = '';
+        card.price.classList.add('hidden');
         card.status.textContent = t('shipInUse');
         card.status.classList.add('disabled');
       } else if (owned) {
-        card.price.textContent = price > 0 ? '💰 ' + formatNumber(price) : t('shipFree');
+        card.price.textContent = '';
+        card.price.classList.add('hidden');
         card.status.textContent = t('shipEquip');
         card.status.classList.remove('disabled');
       } else if (pick.ok) {
         card.price.textContent = `💰 ${formatNumber(price)}`;
+        card.price.classList.remove('hidden');
         card.status.textContent = t('shipBuy');
         card.status.classList.remove('disabled');
       } else {
         card.price.textContent = `💰 ${formatNumber(price)}`;
+        card.price.classList.remove('hidden');
         card.price.classList.add('cant-afford');
         card.status.textContent = `${t('shipMissing')} ${formatNumber(price - STATE.coins)}`;
         card.status.classList.add('disabled');

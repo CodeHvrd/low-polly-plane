@@ -4101,7 +4101,7 @@ export class Game {
         break;
 
       case 'flight':
-        HUD.update(payload);
+        HUD.update({ ...payload, aircraft: this.getActiveAircraftId() });
         HUD.updateGlide(payload.state.glideBudget, PROPULSION.GLIDE_MAX);
         HUD.updateCharges(payload.charges ?? 0, PROPULSION.MAX_CHARGES);
         this.touch?.updateThrustCharges(payload.charges ?? 0);

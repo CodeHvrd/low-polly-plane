@@ -73,6 +73,8 @@ export const AIRCRAFT_SPECS = {
     windFactor: 3.0,
     /** Vuela bien lento: es lo que le permite planear tanto. */
     stallSpeed: 7,
+    /** Escala visual del velocímetro a km/h (base ~150–200 km/h). */
+    speedKmhScale: 5.56,
     /** Muy sensible a los mandos: responde rápido pero es fácil pasarse. */
     control: 1.35,
     ratings: { range: 0.82, stability: 0.2, handling: 0.9 },
@@ -100,6 +102,8 @@ export const AIRCRAFT_SPECS = {
     windFactor: 0.35,
     /** Necesita velocidad para sostenerse: si frena, se cae. */
     stallSpeed: 14,
+    /** Escala visual del velocímetro a km/h (base ~650–800 km/h). */
+    speedKmhScale: 25.0,
     /** Mandos pesados: gira lento y con inercia. */
     control: 0.72,
     ratings: { range: 0.42, stability: 0.95, handling: 0.3 },
@@ -126,6 +130,8 @@ export const AIRCRAFT_SPECS = {
     windFactor: 1.4,
     /** Aguanta mucho antes de perder sustentación: vuela rápido por diseño. */
     stallSpeed: 20,
+    /** Escala visual del velocímetro a km/h (base ~1150–1300 km/h). */
+    speedKmhScale: 26.0,
     /** Mandos durísimos a propósito: es rápido y pide mano firme. */
     control: 0.85,
     ratings: { range: 1.0, stability: 0.4, handling: 0.45 },
@@ -152,6 +158,8 @@ export const AIRCRAFT_SPECS = {
     windFactor: 0.8,
     /** Es el que menos velocidad necesita para no caerse. */
     stallSpeed: 5,
+    /** Escala visual del velocímetro a km/h (base ~450–550 km/h). */
+    speedKmhScale: 15.28,
     /**
      * El más maniobrable, pero SIN pasarse.
      *
@@ -183,6 +191,20 @@ export const DEFAULT_AIRCRAFT = 'paper';
  */
 export function getSpec(id) {
   return AIRCRAFT_SPECS[id] ?? AIRCRAFT_SPECS[DEFAULT_AIRCRAFT];
+}
+
+/**
+ * Convierte la velocidad física (m/s) a la lectura del velocímetro en km/h
+ * calibrada por aeronave (sin alterar la física determinista).
+ *
+ * @param {number} speedMs
+ * @param {string|FlightSpec} [specOrId]
+ * @returns {number}
+ */
+export function toDisplayKmh(speedMs, specOrId = DEFAULT_AIRCRAFT) {
+  const spec = typeof specOrId === 'string' ? getSpec(specOrId) : (specOrId ?? getSpec(DEFAULT_AIRCRAFT));
+  const scale = spec?.speedKmhScale ?? 5.56;
+  return Math.max(0, Math.round((Number(speedMs) || 0) * scale));
 }
 
 /**

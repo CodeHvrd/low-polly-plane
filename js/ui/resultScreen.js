@@ -15,6 +15,7 @@ import { UI, setText, show, hide } from './dom.js';
 import { STATE } from '../game/state.js';
 import { formatNumber } from '../core/math.js';
 import { computeRunScoreBreakdown } from '../game/score.js';
+import { toDisplayKmh } from '../physics/specs.js';
 
 /** Título y color según cómo terminó el vuelo: FLYED si superó el nivel, CRASH si chocó/cayó. */
 function classify(result) {
@@ -38,7 +39,7 @@ export const ResultScreen = {
 
     setText(UI.resDistance, `${result.distance} m`);
     setText(UI.resAltitude, `${result.maxAltitude} m`);
-    setText(UI.resSpeed, `${result.maxSpeed} m/s`);
+    setText(UI.resSpeed, `${toDisplayKmh(result.maxSpeed, result.aircraft ?? STATE.aircraft)} km/h`);
     setText(UI.resTime, `${result.time} s`);
     setText(UI.resRings, `${result.rings}`);
     setText(UI.resBoosters, `${result.boosters ?? 0}`);
