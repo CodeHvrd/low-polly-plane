@@ -2819,6 +2819,7 @@ body.en-vuelo #mode-bar {
 .rank-user { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #eef3ff; font-size: 0.68rem; }
 .rank-user .rank-tier { color: var(--muted); font-size: 0.58rem; font-weight: 600; }
 .rank-dist { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.64rem; }
+.rank-dist.is-alltime { color: var(--cyan); font-weight: 700; }
 .rank-pts { color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; font-size: 0.66rem; }
 
 
