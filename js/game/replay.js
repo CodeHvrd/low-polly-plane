@@ -368,12 +368,13 @@ export function verifyReplay({
         stats.coinsByTier[tier] = (stats.coinsByTier[tier] ?? 0) + 1;
       } else {
         stats.boosters++;
-        const bKind = picked.boosterKind ?? 'charge';
+        const bKind = picked.boosterKind ?? 'booster';
         if (bKind === 'instant') {
-          applyBoost(s, stats.launchSpeed * PICKUPS.BOOSTERS.SPEED_FRACTION, PICKUPS.BOOSTERS.BURN_TIME, 0);
+          const climbKick = s.nose > 0 ? PROPULSION.CLIMB_KICK * s.nose : 0;
+          applyBoost(s, stats.launchSpeed * PICKUPS.BOOSTERS.SPEED_FRACTION, PROPULSION.BURN_TIME, climbKick);
           const curSpd = Math.hypot(s.vx, s.vy, s.vz);
-          if (curSpd > PICKUPS.BOOSTERS.MAX_SPEED) {
-            const k = PICKUPS.BOOSTERS.MAX_SPEED / curSpd;
+          if (curSpd > PROPULSION.MAX_SPEED) {
+            const k = PROPULSION.MAX_SPEED / curSpd;
             s.vx *= k;
             s.vy *= k;
             s.vz *= k;
@@ -381,10 +382,10 @@ export function verifyReplay({
           addGlideBudget(s, PROPULSION.GLIDE_BONUS, PROPULSION.GLIDE_MAX);
           fuel = Math.min(PROPULSION.FUEL_MAX, fuel + PROPULSION.FUEL_REFILL);
         } else {
-          const gain = bKind === 'super' ? 2 : 1;
-          charges = Math.min(PROPULSION.MAX_CHARGES, charges + gain);
-          addGlideBudget(s, PROPULSION.GLIDE_BONUS * gain, PROPULSION.GLIDE_MAX);
-          fuel = Math.min(PROPULSION.FUEL_MAX, fuel + PROPULSION.FUEL_REFILL * gain);
+          if (charges < PROPULSION.MAX_CHARGES) charges++;
+          addGlideBudget(s, PROPULSION.GLIDE_BONUS, PROPULSION.GLIDE_MAX);
+          const refill = bKind === 'emergency' ? PROPULSION.FUEL_REFILL * 1.6 : PROPULSION.FUEL_REFILL;
+          fuel = Math.min(PROPULSION.FUEL_MAX, fuel + refill);
         }
       }
     }

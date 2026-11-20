@@ -247,7 +247,7 @@ export async function submitRemoteRun(payload) {
 
 /** Obtiene el ranking global filtrado por período ('daily' | 'weekly' | 'monthly' | 'all'). */
 export async function fetchGlobalLeaderboard(period = 'daily', limit = 15) {
-  const res = await apiFetch(`/api/leaderboard?period=${encodeURIComponent(period)}&limit=${limit}`);
+  const res = await apiFetch(`/api/leaderboard?period=${encodeURIComponent(period)}&limit=${limit}&_t=${Date.now()}`);
   if (!res.ok || !Array.isArray(res.entries)) return null;
   return res.entries;
 }

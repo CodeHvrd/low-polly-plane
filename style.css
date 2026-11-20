@@ -2812,6 +2812,9 @@ body.en-vuelo #mode-bar {
   width: 100%;
   box-sizing: border-box;
 }
+.ranking-row.no-dist {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
 .rank-pos { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 20px; font-weight: 700; font-size: 0.66rem; }
 .rank-user { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #eef3ff; font-size: 0.68rem; }
 .rank-user .rank-tier { color: var(--muted); font-size: 0.58rem; font-weight: 600; }

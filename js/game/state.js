@@ -260,6 +260,7 @@ export function hydrate(save) {
   STATE.bestDistance = save.bestDistance;
   STATE.runs = save.runs;
   STATE.aircraft = save.aircraft;
+  STATE.aircraftOwned = Array.isArray(save.aircraftOwned) ? [...save.aircraftOwned] : [];
   STATE.muted = save.muted;
   STATE.orientationPref = save.orientation || 'auto';
   /*

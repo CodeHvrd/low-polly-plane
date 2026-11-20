@@ -25,6 +25,7 @@ import {
 // Importación directa del motor determinista puro del juego (sin DOM / Three.js)
 import { verifyReplay } from '../../js/game/replay.js';
 import { computeRunScoreBreakdown } from '../../js/game/score.js';
+import { hasMode, setMode } from '../../js/modes/index.js';
 
 const MAX_BODY_BYTES = 64 * 1024;
 const DEFAULT_ORIGINS = [
@@ -389,8 +390,8 @@ export async function handleApiRequest(req, res) {
     const storyLevel = body.storyLevel ? Number(body.storyLevel) : null;
 
     const rows = await query(
-      `INSERT INTO run_challenges (user_id, seed, mode_id, story_level)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO run_challenges (user_id, seed, mode_id, story_level, expires_at)
+       VALUES ($1, $2, $3, $4, now() + INTERVAL '4 hours')
        RETURNING token, seed, expires_at`,
       [userId, seed, modeId, storyLevel],
     );
@@ -424,6 +425,7 @@ export async function handleApiRequest(req, res) {
     }
 
     const { seed, mode_id: modeId } = chRows[0];
+    if (hasMode(modeId)) setMode(modeId);
     const claimedDist = Math.max(0, Number(claimed?.distance) || 0);
     const claimedCoins = Math.max(0, Number(claimed?.coins) || 0);
     const check = verifyReplay({
@@ -512,6 +514,10 @@ export async function handleApiRequest(req, res) {
                AND EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest')`
             : `AND EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest')`;
 
+    const distanceCol = period === 'all'
+      ? `GREATEST(COALESCE(pw.best_distance, 0), r.distance) AS distance`
+      : `r.distance`;
+
     const rows = await query(
       `SELECT best.*
        FROM (
@@ -521,7 +527,7 @@ export async function handleApiRequest(req, res) {
                 NOT EXISTS (SELECT 1 FROM auth_identities ai WHERE ai.user_id = u.id AND ai.provider <> 'guest') AS is_guest,
                 GREATEST(COALESCE(pw.best_score, 0), r.total_score) AS best_score,
                 r.aircraft,
-                r.distance,
+                ${distanceCol},
                 r.total_score,
                 r.created_at
          FROM flight_runs r

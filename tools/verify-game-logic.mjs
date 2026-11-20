@@ -14,6 +14,7 @@ import { terrainHeightAt, setTerrainAmplitudeProvider } from '../js/world/terrai
 import { generatePickups, pickupSummary, collectAt, resetPickups, setAltitudeProvider } from '../js/world/collectibles.js';
 import { buildProfile, valueAt, desiredAltitudeAt } from '../js/game/flightProfile.js';
 import { sanitizeSave, DEFAULT_SAVE } from '../js/core/storage.js';
+import { STATE, hydrate, nivelesDe } from '../js/game/state.js';
 import { clamp, createRng, remap, formatNumber, damp } from '../js/core/math.js';
 import { AIM, WORLD, OBSTACLES, ECONOMY, STAGES, PICKUPS, PROPULSION } from '../js/config.js';
 import {
@@ -764,6 +765,20 @@ section('14. Modo Historia (Niveles 1 a 5)');
   const migratedV1 = sanitizeSave({ version: 1, aircraft: 'jet', aircraftOwned: ['paper', 'passenger', 'jet', 'heli'] }, ['wings'], ['paper', 'passenger', 'jet', 'heli']);
   check('Migración v1 → v2 deja solo papel propio por defecto',
     migratedV1.aircraft === 'paper' && migratedV1.aircraftOwned.length === 1 && migratedV1.aircraftOwned[0] === 'paper');
+
+  const savedJet = sanitizeSave({
+    version: 2,
+    coins: 500,
+    aircraft: 'jet',
+    aircraftOwned: ['paper', 'jet'],
+    upgrades: { paper: { wings: 2 }, jet: { wings: 5, engine: 4 } },
+  }, ['wings', 'engine'], ['paper', 'passenger', 'jet', 'heli']);
+  hydrate(savedJet);
+  check('hydrate() conserva aviones comprados, nave equipada y mejoras por nave',
+    STATE.aircraft === 'jet' &&
+    STATE.aircraftOwned.includes('jet') &&
+    nivelesDe('jet').wings === 5 &&
+    nivelesDe('jet').engine === 4);
 }
 
 // ── 15. Política de Anuncios y Anti-Saturación ───────────────────

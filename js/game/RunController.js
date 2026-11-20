@@ -608,8 +608,10 @@ export class RunController {
      * del input cientos de veces por frame.
      */
     const controls = this.readControls();
-    setControls(this.flight, controls.steer, controls.nose);
-    this.recorder.recordControls(this.tickCount, controls.steer, controls.nose);
+    const qSteer = Math.round((controls.steer ?? 0) * 100) / 100;
+    const qNose = Math.round((controls.nose ?? 0) * 100) / 100;
+    setControls(this.flight, qSteer, qNose);
+    this.recorder.recordControls(this.tickCount, qSteer, qNose);
 
     this.accumulator = Math.min(this.accumulator + dt, SIM.MAX_FRAME_DT);
     let steps = 0;

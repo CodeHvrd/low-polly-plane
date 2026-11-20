@@ -123,8 +123,20 @@ export function sanitizeSave(raw, upgradeIds, aircraftIds) {
   out.stats = raw.stats && typeof raw.stats === 'object' ? { ...raw.stats } : undefined;
 
   const levels = raw.upgrades && typeof raw.upgrades === 'object' ? raw.upgrades : {};
-  for (const id of upgradeIds) {
-    out.upgrades[id] = Math.floor(num(levels[id], 0, 0, 999));
+  const hasPerShipUpgrades = aircraftIds.some((shipId) => levels[shipId] && typeof levels[shipId] === 'object');
+  if (hasPerShipUpgrades) {
+    for (const shipId of aircraftIds) {
+      const shipMap = levels[shipId];
+      if (!shipMap || typeof shipMap !== 'object') continue;
+      out.upgrades[shipId] = {};
+      for (const id of upgradeIds) {
+        out.upgrades[shipId][id] = Math.floor(num(shipMap[id], 0, 0, 999));
+      }
+    }
+  } else {
+    for (const id of upgradeIds) {
+      out.upgrades[id] = Math.floor(num(levels[id], 0, 0, 999));
+    }
   }
 
   // Inventario de aeronaves: solo ids conocidos y sin repetidos.

@@ -2800,7 +2800,8 @@ export class Game {
         for (let i = 0; i < items.length; i++) {
           const r = items[i];
           const row = document.createElement('div');
-          row.className = 'profile-row ranking-row';
+          const showDist = period === 'all';
+          row.className = showDist ? 'profile-row ranking-row' : 'profile-row ranking-row no-dist';
 
           const puesto = document.createElement('span');
           puesto.className = 'rank-pos';
@@ -2822,15 +2823,18 @@ export class Game {
           rankSpan.textContent = `(${rankTier.label})`;
           userCell.appendChild(rankSpan);
 
-          const dist = document.createElement('span');
-          dist.className = 'rank-dist';
-          dist.textContent = `${Math.round(Number(r.distance ?? 0)).toLocaleString('es-AR')} m`;
-
           const pts = document.createElement('strong');
           pts.className = 'rank-pts';
           pts.textContent = `${val.toLocaleString('es-AR')} pts`;
 
-          row.append(puesto, userCell, dist, pts);
+          if (showDist) {
+            const dist = document.createElement('span');
+            dist.className = 'rank-dist';
+            dist.textContent = `${Math.round(Number(r.distance ?? 0)).toLocaleString('es-AR')} m`;
+            row.append(puesto, userCell, dist, pts);
+          } else {
+            row.append(puesto, userCell, pts);
+          }
           nodes.push(row);
         }
         cont.replaceChildren(...nodes);
